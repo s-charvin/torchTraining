@@ -1,0 +1,1 @@
+from .modelcopy import slowfast50,slowfast101
