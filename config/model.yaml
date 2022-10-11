@@ -1,0 +1,3 @@
+model:
+    architectures:
+        num_outputs: 4

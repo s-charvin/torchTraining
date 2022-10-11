@@ -1,0 +1,44 @@
+train:
+    # 训练基础设置
+    name: "" # 本次运行模型名称
+    USE_GPU: "0,1" # 是否使用GPU加速, 如果使用则设置当前可用的 GPU,并使这些 CPU 重新按照[0，1]排序, 如果含有多个 GPU 将自动使用多GPU
+    num_workers: 0 # 数据加载进程数
+    seed: 42 # 设置随机数种子, 当设置了固定的随机数种子,之后依次生成的随机数序列也会被固定下来。
+    train_rate: 0.8
+    batch_size: 64 # 数据块大小
+    n_epochs: 300 # 训练迭代次数
+    Kfold: 5 # 
+    # 预训练设置
+    resume_epochs: 0 # 恢复迭代的起始步
+    checkpoint: False # "./checkpoints/Test model/000010.ckpt"
+    # 分类
+    loss_weight: True # 设置损失加权系数
+    num_epochs_decay: 99900 # 更新学习率的延迟次数
+
+sorlver:
+    name: "Audio_Classification"
+    optimizer: "Adam"
+        lr: 0.0001 # 学习率
+        para:
+            beta1: 0.5
+            beta2: 0.9
+    lr_method: 
+
+logs: # 记录参数
+
+    use_tensorboard: True # 记录展示
+    log_dir: './logs' # 记录存储文件夹
+    log_every: 1 # 每几次迭代进行记录
+    model_save_dir: './checkpoints' # 模型存放地址
+    test_every: 250 # 每几次迭代进行测试
+    model_save_every: 100000 # 每几次迭代进行模型保存
+    verbose:
+        config: True
+        model: True
+    SMTP:
+        mail_host: "smtp.163.com"
+        mail_port: "465"
+        mail_user: "scharvin@163.com"
+        mail_pass: "MXCFABEYKHITANVN"
+    from_mail: "from@trainserver.com"
+    to_mail: "1911523105@qq.com"

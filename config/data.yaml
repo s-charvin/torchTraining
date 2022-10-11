@@ -1,0 +1,37 @@
+# 数据来源和类型
+data:
+    name: "IEMOCAP" # EMODB, AESDD,IEMOCAP, RAVDESS, SAVEE, TESS, eNTERFACE05
+    root: "/home/visitors2/SCW/deeplearning/data/IEMOCAP"
+    filter: {
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "excited" , "frustrated","disgusted" ,"fearful","surprised"] },
+        # "contains": {'path': "impro"},
+        "query": 'duration>=1.0 & duration<30.0',
+        "sort_values": "duration"
+        }
+    transforms:
+        audio:
+            MelSpectrogram: 
+                sample_rate: 16000
+                n_fft: 400
+                win_length: 400
+                hop_length: 200
+                f_min: 0.
+                f_max: 8000.
+                pad: 0
+                n_mels: 128
+                power: 2.
+                normalized: False
+                center:  True
+                pad_mode: "reflect"
+                onesided: True
+            Permute_Channel:
+        video:
+            Permute_Channel:
+        label:
+            LabelEncoder:
+
+    config: 
+        video: True
+        cascPATH: "/home/visitors2/SCW/deeplearningcopy/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
