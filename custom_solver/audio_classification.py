@@ -1,17 +1,20 @@
 from datetime import datetime
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score
-from models import SequenceClassifier
 from logger import Logger
+from .lr_scheduler import *
+from .optimizer import *
+from models import *
 
 
 class Audio_Classification(object):
 
-    def __init__(self, train_loader, test_loader, config, device):
+    def __init__(self, train_loader, test_loader, config: dict, device):
         """分类模型训练方法框架
         Args:
             train_loader (_type_): 训练集，可迭代类型数据
@@ -24,50 +27,55 @@ class Audio_Classification(object):
         self.config = config  # 参数字典
         self.device = device  # 定义主设备
         # 设置要使用的模型
-        self.model = SequenceClassifier(self.config)
+        if 'para' in self.config["architecture"]['net']:
+            if self.config['architecture']['net']['para']:
+                self.net = globals(
+                )[self.config["architecture"]["net"]["name"]](**self.config["architecture"]['net']['para'])
+            else:
+                self.net = globals()[
+                    self.config["architecture"]["net"]["name"]]()
+
         self.set_configuration()  # 设置参数
         # 加载模型及其参数
         if self.config['train']['checkpoint']:  # 是否加载历史检查点
-            self.load_checkpoint()
-
-    def load_checkpoint(self):
-        self.model.load(self.config['train']['checkpoint'])
-        self.config = self.model.config
-        self.set_configuration()  # 设置加载的检查点的参数设置
+            self.load(self.config['train']['checkpoint'])
 
     def set_configuration(self):
         self.n_epochs = self.config['train']['n_epochs']  # 迭代次数
-        # 更新 lr 的延迟
-        self.num_epochs_decay = self.config['train']['num_epochs_decay']
-        # 恢复迭代的起始步，默认为0
-        self.resume_epochs = self.config['train']['resume_epochs']
-        self.current_epochs = self.resume_epochs  # 当前迭代次数
-        # 优化器其余参数
-        self.optimizer_lr = self.config["sorlver"]['optimizer']['lr']  # 学习率
-        self.optimizer_para = None
+        # 已经训练完成的 epoch, 初次为 -1
+        self.last_epochs = self.config['train']["last_epochs"]
+        if self.last_epochs < -1:
+            raise ValueError("last_epochs 值必须为大于等于 -1 的整数, 当其为 -1 时, 表示重新训练.")
+        # 优化器及其参数
         if 'para' in self.config["sorlver"]['optimizer']:
-            self.optimizer_para = self.config["sorlver"]['optimizer']['para']
+            if self.config["sorlver"]['optimizer']['para']:
+                self.optimizer = globals(
+                )[self.config["sorlver"]['optimizer']["name"]](params=self.net.parameters(), lr=self.config["sorlver"]['optimizer']['lr'], **self.config["sorlver"]['optimizer']['para'])
+            else:
+                self.optimizer = globals(
+                )[self.config["sorlver"]['optimizer']["name"]](params=self.net.parameters())
+
         # 使用 tensorboard 记录
         self.use_tensorboard = self.config['logs']['use_tensorboard']
         self.log_every = self.config['logs']['log_every']  # 每几步记录
         self.test_every = self.config['logs']['test_every']
+
         # 每几步保存模型
         self.model_save_every = self.config['logs']['model_save_every']
         self.model_save_dir = self.config['logs']['model_save_dir']  # 模型保存地址
+        self.logname = "-".join([
+            str(self.config['train']['name']),  # 当前训练名称
+            str(self.config['train']['seed']),
+            str(self.config['train']['batch_size']),
+            str(self.n_epochs),
+            self.config['sorlver']['name'],
+            self.config['sorlver']['optimizer']["name"] +
+            str(self.config['sorlver']['optimizer']["lr"]),
+            self.config['data']['name']
+        ])
         if self.use_tensorboard:
-            logname = "_".join(
-                self.config['train']['name'],  # 当前训练名称
-                self.config['train']['seed'],
-                self.config['train']['batch_size'],
-                self.n_epochs,
-                self.config['model']['architectures'],
-                self.config['sorlver']['name'],
-                self.config['sorlver']['optimizer'] +
-                self.config['sorlver']['optimizer']["lr"],
-                self.config['data']['name'],
-            )
             self.logger = Logger(
-                self.config['logs']['log_dir'], logname)
+                self.config['logs']['log_dir'], self.logname)
 
     def train(self):
         """训练主函数"""
@@ -75,145 +83,199 @@ class Audio_Classification(object):
         #############################################################
         #                            训练                           #
         #############################################################
-        print('################ 开始循环训练 ################')
-        start_iter = self.resume_epochs + 1  # 训练的新模型则从 1 开始，恢复的模型则从接续的迭代次数开始
-        self.update_lr(start_iter)  # 根据开始的 epoch 次数初始化学习率
+        start_iter = self.last_epochs+1  # 训练的新模型则从 1 开始，恢复的模型则从接续的迭代次数开始
+
+        # 更新学习率的方法
+        self.lr_method = globals()[self.config["sorlver"]["lr_method"]["name"]](optimizer=self.optimizer,
+                                                                                last_epoch=self.last_epochs if self.last_epochs >= 1 else -1, **self.config["sorlver"]["lr_method"]["para"])
+        # 预测结果记录aram_groups[0] when resuming
         self.accuracylog = []
+        # 训练开始时间记录
         start_time = datetime.now()
         print(f'# 训练开始时间: {start_time}')  # 读取开始运行时间
-        for epoch in range(start_iter, self.n_epochs+1):  # 迭代循环
-            for step, data in enumerate(self.train_loader):
-                print(
-                    f"# [Epoch {epoch}/{self.n_epochs}] [Batch {step}/{len(self.train_loader)}] [lr: {self.model.optimizer.param_groups[0]['lr']}]")
-                self.model.to_device(device=self.device)
-                self.model.set_train_mode()
-                self.current_epochs = step  # 记录当前迭代次数
-                if isinstance(data["audio"][0], torch.nn.utils.rnn.PackedSequence):
+        step = 0
+
+        # 设置损失函数
+        loss_func = nn.CrossEntropyLoss(reduction='mean')
+
+        for epoch in range(start_iter, self.n_epochs):  # 迭代循环 [0, epoch)
+            for batch_i, data in enumerate(self.train_loader):  # [0, batch)
+                step = step + 1
+                # 设置训练模式和设备
+                self.to_device(device=self.device)
+                self.set_train_mode()
+                # 获取特征
+                if isinstance(data["audio"], torch.nn.utils.rnn.PackedSequence):
                     features, feature_lens = torch.nn.utils.rnn.pad_packed_sequence(
                         data["audio"], batch_first=True)
-                elif isinstance(data["audio"][0], torch.Tensor):
+                elif isinstance(data["audio"], torch.Tensor):
                     features, feature_lens = data["audio"], None
-                labels = data["label"]
-
+                # 获取标签
+                labels = data["labelid"]
+                # 将数据迁移到训练设备
                 features = features.to(device=self.device)
+                if feature_lens is not None:
+                    feature_lens = feature_lens.to(device=self.device)
                 labels = labels.long().to(device=self.device)
 
-                loss_func = nn.CrossEntropyLoss(reduction='mean')
-                self.model.reset_grad()  # 清空梯度
-
-                y = self.model.net(features, feature_lens)
-                loss = loss_func(out, true_labels)
+                # 清空梯度数据
+                self.reset_grad()
+                out = self.net(features.permute(
+                    0, 3, 1, 2), feature_lens)
+                loss = loss_func(out, labels)
                 loss.backward()
-                self.model.optimizer.step()
+                self.optimizer.step()
             #############################################################
             #                            记录                           #
             #############################################################
-                print(
-                    f"# [train_loss: {loss.item()}]")
-                if step % self.log_every == 0:  # 每几次迭代记录信息
+                # tensorboard 可视化
+                if (step % self.log_every == 0) and self.use_tensorboard:
                     log_loss = {}
                     log_loss['train/train_loss'] = loss.item()
-                    for name, val in log_loss.items():
-                        print("# {:20} = {:.4f}".format(name, val))
-
-                    if self.use_tensorboard:
-                        for tag, value in log_loss.items():
-                            self.logger.scalar_summary(tag, value, step)
-                else:
-                    # print("No log output this iteration.")
-                    pass
-
-                # save checkpoint
-                if step % self.model_save_every == 0:  # 每几次保存一次模型
-                    self.model.save(save_dir=self.model_save_dir,
-                                    it=self.current_epochs)
-                else:
-                    # print("No model saved this iteration.")
-                    pass
-
-                if step % self.test_every == 0:  # 每几次测试下模型
-                    self.test()
-                # update learning rates
-                self.update_lr(step)
+                    for tag, value in log_loss.items():
+                        self.logger.scalar_summary(tag, value, step)
                 elapsed = datetime.now() - start_time
-                print(f'# 第 {step:04} 次迭代结束, 耗时 {elapsed}')
+                print(
+                    f"# <trained>: [Epoch {epoch+1}/{self.n_epochs}] [Batch {batch_i+1}/{len(self.train_loader)}] [lr: {self.optimizer.param_groups[0]['lr']}] [train_loss: {loss.item()}] [time: {elapsed}]")
+                if self.config["sorlver"]["lr_method"]["mode"] == "step":
+                    self.lr_method.step(
+                        epoch + (batch_i+1) / len(self.train_loader))
+            if self.config["sorlver"]["lr_method"]["mode"] == "epoch":
+                self.lr_method.step(epoch)
+            # 保存模型
+            self.last_epochs = epoch  # 记录当前迭代次数
+            if ((epoch+1) % self.model_save_every) == 0:  # 每 epoch 次保存一次模型
+                self.save(save_dir=self.model_save_dir,
+                          it=self.last_epochs)
+            if((epoch+1) % self.test_every == 0):  # 每 epoch 次测试下模型
+                self.test()
 
-        self.model.save(save_dir=self.model_save_dir, it=self.current_epochs)
-        return self.accuracylog[-20:]
-
-    def update_lr(self, i):
-        """衰减学习率方法"""
-        if self.n_epochs - self.num_epochs_decay < i:  # 如果总迭代次数-当前迭代次数<更新延迟次数，开始每次迭代都更新学习率
-            decay_delta = self.optimizer_lr / self.num_epochs_decay  # 学习率除以延迟次数，缩小学习率
-            decay_start = self.n_epochs - self.num_epochs_decay
-            decay_iter = i - decay_start  # 当前迭代次数-总迭代次数+更新延迟次数
-            lr = self.optimizer_lr - decay_iter * decay_delta
-            print(f"# 更新学习率lr:{lr} ")
-            for param_group in self.model.optimizer.param_groups:
-                param_group['lr'] = lr  # 写入optimizer学习率参数
+        # 保存最终的模型
+        self.save(save_dir=self.model_save_dir, it=self.last_epochs)
+        return self.accuracylog[-self.config['logs']['test_accuracy_every']:]
 
     def test(self):
 
-        print("# 测试模型准确率。")
-        self.model.set_eval_mode()
-        emo_preds = torch.rand(0).to(
+        # 测试模型准确率。
+        label_preds = torch.rand(0).to(
             device=self.device, dtype=torch.long)  # 预测标签列表
         total_labels = torch.rand(0).to(
             device=self.device, dtype=torch.long)  # 真实标签列表
         total_loss = torch.rand(0).to(
             device=self.device, dtype=torch.float)  # 损失值列表
-        loss_func = nn.CrossEntropyLoss(
-            weight=self.loss_weights, reduction='mean')
+        loss_func = nn.CrossEntropyLoss(reduction='mean')
 
-        data_iter = iter(self.test_loader)
-        while True:
-            try:
-                packed_x, genders, labels, lenths = next(data_iter)
-            except:
-                break
+        for data in self.test_loader:
+            self.to_device(device=self.device)
+            self.set_eval_mode()
 
-            x, x_lens = torch.nn.utils.rnn.pad_packed_sequence(
-                packed_x, batch_first=True)
-
-            x = x.to(device=self.device)
-            # labels = self.getNplabels(labels) # 将标签转换为Np标签
-            labels = labels.long().to(device=self.device)
+            # 获取特征
+            if isinstance(data["audio"], torch.nn.utils.rnn.PackedSequence):
+                features, feature_lens = torch.nn.utils.rnn.pad_packed_sequence(
+                    data["audio"], batch_first=True)
+            elif isinstance(data["audio"], torch.Tensor):
+                features, feature_lens = data["audio"], None
+            # 获取标签
+            true_labels = data["labelid"]
+            # 将数据迁移到训练设备
+            features = features.to(device=self.device)
+            if feature_lens is not None:
+                feature_lens = feature_lens.to(device=self.device)
+            true_labels = true_labels.long().to(device=self.device)
 
             with torch.no_grad():
-                y = self.model.net(x)  # 计算模型输出分类值
-                out = y
-                true_labels = labels
-                if lenths is not None and self.resultmerge in ["test", "allmerge"]:
-                    out = torch.zeros(
-                        (len(lenths), y.shape[1]), device=self.device)
-                    true_labels = torch.zeros(
-                        len(lenths), device=self.device, dtype=torch.long)
-                    begin = 0
-                    for i, num in enumerate(lenths):
-                        out[i] = y[begin:begin+num].mean(dim=0)
-                        true_labels[i] = labels[begin:begin+num][0]
-                        begin = begin+num
-
-                emo_pre = torch.max(out, dim=1)[1]  # 获取概率最大值位置
-                emo_preds = torch.cat((emo_preds, emo_pre), dim=0)  # 保存所有预测结果
+                out = self.net(features.permute(
+                    0, 3, 1, 2), feature_lens)  # 计算模型输出分类值
+                label_pre = torch.max(out, dim=1)[1]  # 获取概率最大值位置
+                label_preds = torch.cat(
+                    (label_preds, label_pre), dim=0)  # 保存所有预测结果
                 total_labels = torch.cat(
                     (total_labels, true_labels), dim=0)  # 保存所有真实结果
-                emo_loss = torch.tensor(
+                label_loss = torch.tensor(
                     [loss_func(out, true_labels)], device=self.device)
-                total_loss = torch.cat((total_loss, emo_loss), dim=0)
+                total_loss = torch.cat((total_loss, label_loss), dim=0)
         eval_accuracy = accuracy_score(
-            total_labels.cpu(), emo_preds.cpu())  # 计算准确率
+            total_labels.cpu(), label_preds.cpu())  # 计算准确率
         eval_loss = total_loss.mean().item()
-        l = ["Accuracy_Eval",  "Loss_Eval"]
-        print('# {:20} = {:.3f}'.format(l[0], eval_accuracy))
-        print('# {:20} = {:.3f}'.format(l[1], eval_loss))
+
+        print(
+            f"# <test>: [eval_loss: {eval_loss}] [eval_accuracy: {eval_accuracy}]")
 
         if self.use_tensorboard:
             self.logger.scalar_summary(
-                "Val/Loss_Eval", eval_loss, self.current_epochs)
+                "Val/Loss_Eval", eval_loss, self.last_epochs)
             self.logger.scalar_summary(
-                "Val/Accuracy_Eval", eval_accuracy, self.current_epochs)
+                "Val/Accuracy_Eval", eval_accuracy, self.last_epochs)
         self.accuracylog.append([eval_accuracy])
+
+    def set_train_mode(self):
+        # 设置模型为训练模式，可添加多个模型
+        self.net.train()  # 训练时使用BN层和Dropout层
+
+        # 冻结部分前置模块参数的示例
+        # for param in self.net.module.wav2vec2.wav2vec2.base_model.parameters():
+        #     param.requires_grad = False
+
+    def set_eval_mode(self):
+        # 设置模型为评估模式，可添加多个模型
+        # 处于评估模式时,批归一化层和dropout层不会在推断时有效果
+        self.net.eval()
+
+    def to_device(self, device):
+        # 将使用到的单个模型或多个模型放到指定的CPU or GPU上
+        self.net.to(device=device)
+
+    def print_network(self, model, name):
+        """打印网络结构信息"""
+        print(f"# 模型名称: {name}")
+        num_params = 0
+        for p in model.parameters():
+            num_params += p.numel()  # 获得张量的元素个数
+        print(f"网络参数数量:{num_params}")
+        if self.config["logs"]["verbose"]["model"]:
+            print("# 打印网络结构:")
+            print(model)
+        return num_params
+
+    def reset_grad(self):
+        """将梯度清零。"""
+        self.optimizer.zero_grad()
+
+    def save(self, save_dir=None, it=0):
+        """保存模型"""
+        if save_dir is None:
+            save_dir = self.config['logs']['model_save_dir']
+        path = os.path.join(save_dir, self.logname)
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        self.config['train']['last_epochs'] = it
+
+        state = {'net': self.net.state_dict(),
+                 'optimizer': self.optimizer.state_dict(),
+                 'config': self.config,
+                 }
+        path = os.path.join(path, f"{it:06}.ckpt")
+        torch.save(state, path)
+        print(f"# 模型存放地址: {path}.")
+
+    def load(self, load_dir):
+        """
+        load_dir: 要加载模型的完整地址
+        """
+        print(f"# 模型加载地址: {load_dir}。")
+
+        if self.config['train']['USE_GPU'] and torch.cuda.is_available():
+            dictionary = torch.load(load_dir, map_location='cuda:0')
+        else:
+            dictionary = torch.load(load_dir, map_location='cpu')
+
+        self.config = dictionary['config']
+        self.net.load_state_dict(dictionary['net'])
+        self.optimizer.load_state_dict(dictionary['optimizer'])
+        # self.optimizer = torch.optim.Adam(**dictionary['optimizer'])
+        self.set_configuration()  # 设置加载的检查点的参数设置
+        print("# Models 和 optimizers 加载成功")
 
 
 if __name__ == '__main__':

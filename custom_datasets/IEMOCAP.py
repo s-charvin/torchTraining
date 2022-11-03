@@ -1,4 +1,5 @@
 # 官方库
+from genericpath import isdir
 import os
 import sys
 import io
@@ -7,23 +8,19 @@ from typing import Dict, Tuple, Union, Optional
 from pathlib import Path
 # 第三方库
 import librosa
+import audioread.ffdec
 import numpy as np
 import decord
 import pandas as pd
 import torch
-from torch.utils.data.dataset import Dataset
 import torchaudio
+from tqdm import tqdm
 # 自定库
 from utils.extractFace import capture_face_video
 from utils.filefolderTool import create_folder
-
-
-class CustomDataset(Dataset):
-    def __init__(self,
-                 root: Union[str, Path],
-                 filter: dict,
-                 ):
-        super(Dataset, self).__init__()
+from custom_transforms import *
+from custom_enhance import *
+from .subset import CustomDataset
 
 
 class IEMOCAP(CustomDataset):
@@ -42,37 +39,114 @@ class IEMOCAP(CustomDataset):
 
     def __init__(self,
                  root: Union[str, Path],
+                 name: str = "",
                  filter: dict = {"replace": {}, "dropna": {'emotion': ["other", "xxx"]}, "contains": "", "query": "", "sort_values": ""},
                  transform: dict = None,
-                 video: bool = False,
+                 enhance: dict = None,
+                 isvideo: bool = False,
                  cascPATH: Union[str, Path] = None,
                  threads: int = 0,
                  ):
-        super(IEMOCAP, self).__init__(root, filter)
+        super(IEMOCAP, self).__init__(root, name, filter, transform, enhance)
         root = os.fspath(root)
         self.dataset_name = "IEMOCAP"
         self.root = root
-        self.make_DataFrame()
-        if video and cascPATH:
-            self.check_video_file(cascPATH, threads)
-        self.make_transform(transform)
-        if filter:
-            self.filter(filter)
+        self.name = name
+        self.threads = threads
+        self.isvideo = isvideo
+        if isvideo:
+            if not cascPATH:
+                raise ValueError("# video 和 cascPATH 必须同时提供")
+        if os.path.isfile(root):
+            self.load_data()
+            if filter:
+                self.filter(filter)
+        elif os.path.isdir(root):
+            self.make_datadict(cascPATH, threads)
+            self.make_enhance(enhance)
+            self.make_transform(transform)
+            self.save_frame(transform, enhance)
+            if filter:
+                self.filter(filter)
 
-        elif video or cascPATH:
-            raise("# video 和 cascPATH 必须同时提供")
+    def make_enhance(self, enhance):
+        self.audio_enhance = None
+        self.video_enhance = None
+        self.text_enhance = None
+
+        processors = {}
+        for key, processor in enhance.items():
+            if processor:
+                pl = []
+                for name, param in processor.items():
+
+                    if param:
+                        pl.append(globals()[name](**param))
+                    else:
+                        pl.append(globals()[name]())
+                processors[key] = Compose(pl)
+        print("# 数据增强...")
+        if processors:
+            if "audio" in processors:
+                self.datadict = processors["audio"](self.datadict)
+            if "video" in processors:
+                self.datadict = processors["video"](self.datadict)
+            if "text" in processors:
+                self.datadict = processors["text"](self.datadict)
 
     def make_transform(self, transform):
         self.audio_transform = None
         self.video_transform = None
         self.text_transform = None
-        if transform:
-            if "audio" in transform:
-                self.audio_transform = transform["audio"]
-            if "video" in transform:
-                self.video_transform = transform["video"]
-            if "text" in transform:
-                self.text_transform = transform["text"]
+        print("# 数据处理...")
+        processors = {}
+        for key, processor in transform.items():
+            if processor:
+                pl = []
+                for name, param in processor.items():
+
+                    if param:
+                        pl.append(globals()[name](**param))
+                    else:
+                        pl.append(globals()[name]())
+                processors[key] = Compose(pl)
+
+        if processors:
+            if "audio" in processors:
+                self.audio_transform = processors["audio"]
+            if "video" in processors:
+                self.video_transform = processors["video"]
+            if "text" in processors:
+                self.text_transform = processors["text"]
+
+        if self.video_transform and self.isvideo:
+            for i in range(len(self.datadict["video"])):
+                self.datadict["video"][i] = self.video_transform(
+                    self.datadict["video"][i])
+        if self.audio_transform:
+            for i in range(len(self.datadict["audio"])):
+                self.datadict["audio"][i] = self.audio_transform(
+                    self.datadict["audio"][i])
+        if self.text_transform:
+            for i in range(len(self.datadict["text"])):
+                self.datadict["text"][i] = self.text_transform(
+                    self.datadict["text"][i])
+
+    def save_frame(self, transform, enhance):
+        print("# 存储数据...")
+        namelist = []
+        for k, v in enhance.items():
+            if v:
+                namelist.append(k+"_"+"_".join([i for i in v.keys()]))
+        for k, v in transform.items():
+            if v:
+                namelist.append(k+"_"+"_".join([i for i in v.keys()]))
+        torch.save(self.datadict, os.path.join(
+            self.root, "-".join([self.dataset_name, self.name, *namelist, ".npy"])))
+
+    def load_data(self):
+        print("# 加载数据...")
+        self.datadict = torch.load(self.root)
 
     def check_video_file(self, cascPATH, threads):
         print("# 检测视频文件夹是否存在...")
@@ -120,6 +194,8 @@ class IEMOCAP(CustomDataset):
             self._creat_video_process(
                 no_exists_filelist+corrupted_filelist, cascPATH, threads)
             self.check_video_file(cascPATH, threads)
+        else:
+            print("# 文件完整")
         return False
 
     def _creat_video_process(self, filelist, cascPATH, threads):
@@ -179,11 +255,12 @@ class IEMOCAP(CustomDataset):
         sess = int(filename_[0][3:-1])
         wav_path = os.path.join(
             self.root, f"Session{sess}/sentences/wav/"+"_".join(filename_[:-1])+"/"+filename+".wav")
-        y, sr = librosa.load(wav_path)
+
+        aro = audioread.ffdec.FFmpegAudioFile(wav_path)
+
+        y, sr = librosa.load(aro, sr=None)
         y = torch.from_numpy(y).unsqueeze(0)
-        if self.audio_transform:
-            y = self.audio_transform(y)
-        return y
+        return y  # 1xseq
 
     def _load_video(self, filename) -> torch.Tensor:
         # 指定文件名加载视频文件数据
@@ -192,7 +269,8 @@ class IEMOCAP(CustomDataset):
         # 视频文件路径
         video_path = os.path.join(
             self.root, f"Session{sess}/sentences/video/"+"_".join(filename_[:-1])+"/"+filename+".avi")
-        return self.process_video(video_path)
+        # 3xNxHxW
+        return self.process_video(video_path, num_threads=self.threads)
 
     def process_video(self,
                       video_path,
@@ -240,36 +318,42 @@ class IEMOCAP(CustomDataset):
             video = self._av_reader.get_batch(frame_idxs)
         except Exception as e:
             raise(f"Failed to decode video with Decord: {video_path}. {e}")
-        video = torch.from_numpy(video.asnumpy()).to(
-            torch.float32).permute(3, 0, 1, 2)
-        if self.video_transform:
-            video = self.video_transform(video)
+        video = torch.from_numpy(video.asnumpy())  # 3xNxHxW
         return video
 
     def filter(self, filter: dict):
+        print("# 数据筛选...")
         # 根据提供的字典替换值, key 决定要替换的列, value 是 字符串字典, 决定被替换的值
+        if self.isvideo:
+            self.datadict["video_length"] = [v.shape[0]
+                                             for v in self.datadict["video"]]
+        self.datadict = pd.DataFrame(self.datadict)
         if "replace" in filter:
-            self.dataframe.replace(
+            self.datadict.replace(
                 None if filter["replace"] else filter["replace"], inplace=True)
             # 根据提供的字典删除指定值所在行, key 决定要替换的列, value 是被替换的值列表
         if "dropna" in filter:
             for k, v in filter["dropna"].items():
-                self.dataframe = self.dataframe[~self.dataframe[k].isin(v)]
-            self.dataframe.dropna(axis=0, how='any', thresh=None,
-                                  subset=None, inplace=True)
+                self.datadict = self.datadict[~self.datadict[k].isin(v)]
+            self.datadict.dropna(axis=0, how='any', thresh=None,
+                                 subset=None, inplace=True)
         if "contains" in filter:
             # 根据提供的字典删除包含指定值的所在行, key 决定要替换的列, value 是被替换的值列表
             for k, v in filter["contains"].items():
-                self.dataframe = self.dataframe[self.dataframe[k].str.contains(
+                self.datadict = self.datadict[self.datadict[k].str.contains(
                     v, case=True)]
         if "query" in filter:
-            self.dataframe.query(filter["query"], inplace=True)
+            if filter["query"]:
+                self.datadict.query(filter["query"], inplace=True)
         if "sort_values" in filter:
-            self.dataframe.sort_values(
+            self.datadict.sort_values(
                 by=filter["sort_values"], inplace=True, ascending=False)
-        self.dataframe.reset_index(drop=True, inplace=True)
 
-    def make_DataFrame(self):
+        self.datadict.reset_index(drop=True, inplace=True)
+        self.datadict = self.datadict.to_dict(orient="list")
+        self.datadict["labelid"] = label2id(self.datadict["label"])
+
+    def make_datadict(self, cascPATH, threads):
         """
         读取 IEMOCAP 语音数据集, 获取文件名、 情感标签、 文本、 维度值列表。
         """
@@ -296,6 +380,8 @@ class IEMOCAP(CustomDataset):
         self._periodList = []
         _textList = []
         _genderList = []
+        _sample_rate = []
+        print("# 构建初始数据")
         for sess in range(1, 6):  # 遍历Session{1-5}文件夹
             # 指定和获取文件地址
             # 语音情感标签所在文件夹
@@ -337,7 +423,7 @@ class IEMOCAP(CustomDataset):
                     # 说话人列表
                     _genderList.append(
                         self._get_speaker(wav_file_name))
-
+                    _sample_rate.append(16000)
             transcriptions_dir = os.path.join(
                 self.root, f'Session{sess}/dialog/transcriptions/')
             transcription_files = [l for l in os.listdir(
@@ -354,28 +440,60 @@ class IEMOCAP(CustomDataset):
                             _textList[index] = text
                         except:  # 出错就跳过
                             continue
-        self.dataframe = pd.DataFrame({
+        if self.isvideo:
+            self.check_video_file(cascPATH, threads)
+        self.datadict = {
             "path": self._pathList,
-            "label": _labelList,
             "dimvalue": _dimvalueList,
             "duration": [end-begin for begin, end in self._periodList],
             "text": _textList,
             "gender": _genderList,
+            "label": _labelList,
+            "sample_rate": _sample_rate
+        }
 
-        })
+        print("# 构建语音数据")
+        audiolist = []
+        for n in tqdm(range(len(self.datadict["path"]))):
+            audiolist.append(self._load_audio(
+                self.datadict["path"][n]))
+
+        if self.isvideo:
+            print("# 构建视频数据")
+            videolist = []
+            for n in tqdm(range(len(self.datadict["path"]))):
+                videolist.append(self._load_video(
+                    self.datadict["path"][n]))
+
+        self.datadict["audio"] = audiolist
+        self.datadict["video"] = videolist
 
     def _load_iemocap_item(self, n: int) -> Dict[str, Optional[Union[int, torch.Tensor, torch.Tensor, int, str, str, Tuple[torch.Tensor, torch.Tensor, torch.Tensor], str]]]:
 
-        return {
-            "id": n,
-            "video": self._load_video(self.dataframe["path"][n]),
-            "audio": self._load_audio(self.dataframe["path"][n]),
-            "sample_rate": 16000,
-            "text": self.dataframe["text"][n],
-            "label": self.dataframe["label"][n],
-            "val/act/dom": self.dataframe["dimvalue"][n],
-            "gender": self.dataframe["gender"][n],
-        }
+        if self.isvideo:
+
+            return {
+                "id": n,
+                "video": self.datadict["video"][n],
+                "audio": self.datadict["audio"][n],
+                "sample_rate": self.datadict["sample_rate"][n],
+                "text": self.datadict["text"][n],
+                "labelid": self.datadict["labelid"][n],
+                "val/act/dom": self.datadict["dimvalue"][n],
+                "gender": self.datadict["gender"][n],
+                "label": self.datadict["label"][n]
+            }
+        else:
+            return {
+                "id": n,
+                "audio": self.datadict["audio"][n],
+                "sample_rate": self.datadict["sample_rate"][n],
+                "text": self.datadict["text"][n],
+                "labelid": self.datadict["labelid"][n],
+                "val/act/dom": self.datadict["dimvalue"][n],
+                "gender": self.datadict["gender"][n],
+                "label": self.datadict["label"][n]
+            }
 
     def __getitem__(self, n: int) -> Dict[str, Optional[Union[int, torch.Tensor, torch.Tensor, int, str, str, Tuple[torch.Tensor, torch.Tensor, torch.Tensor], str]]]:
         """加载 IEMOCAP 数据库的第 n 个样本数据
@@ -391,7 +509,7 @@ class IEMOCAP(CustomDataset):
         Returns:
             int: IEMOCAP 数据库数据数量
         """
-        return len(self.dataframe)
+        return len(self.datadict["path"])
 
 
 if __name__ == '__main__':

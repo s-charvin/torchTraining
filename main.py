@@ -2,7 +2,7 @@
 import os
 import sys
 if sys.platform.startswith('linux'):
-    os.chdir("/home/visitors2/SCW/deeplearningcopy")
+    os.chdir("/home/visitors2/SCW/torchTraining")
 elif sys.platform.startswith('win'):
     pass
 import yaml  # yaml文件解析模块
@@ -12,13 +12,12 @@ import numpy as np  # 矩阵运算模块
 import torch
 from torch.utils.data import DataLoader
 # 自定库
-from custom_datasets import IEMOCAP, random_split_K, collate_fn
-from custom_transforms import *
+from custom_datasets import *
 from custom_solver import *
 print("程序运行起始文件夹: "+os.getcwd())
 
 if __name__ == '__main__':
-    configpath = '/home/visitors2/SCW/deeplearningcopy/config'
+    configpath = '/home/visitors2/SCW/torchTraining/config'
     config = {}
     [config.update(yaml.safe_load(open(os.path.join(configpath, i),
                    'r', encoding='utf-8').read())) for i in os.listdir(configpath)]
@@ -27,10 +26,10 @@ if __name__ == '__main__':
     SEED = config['train']['seed']
     # 设置CPU/GPU
     print('################ 程序运行环境 ################')
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"] = config['train']['USE_GPU']
     print(f"# torch_version: {torch.__version__}")  # 软件 torch 版本
-    if config["train"]['USE_GPU'] and torch.cuda.is_available():  # 如果使用GPU加速
-        os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-        os.environ["CUDA_VISIBLE_DEVICES"] = config['train']['USE_GPU']
+    if config["train"]['USE_GPU'] and torch.cuda.is_available():  # 如果使用 GPU 加速
         print(
             f"# Cuda: {torch.cuda.is_available()}, Use_Gpu: {config['train']['USE_GPU']}")
         device = torch.device(f'cuda:{0}')  # 定义主GPU
@@ -54,18 +53,11 @@ if __name__ == '__main__':
 
     print('################ 处理和获取数据 ################')
     # dataset
-    transforms = {}
-    for key, processors in config["data"]["transforms"].items():
-        if processors:
-            for name, param in processors.items():
-                if param:
-                    transforms[key] = Compose([globals()[name](**param)])
-                else:
-                    transforms[key] = Compose([globals()[name]()])
     dataset_name = config["data"]["name"]  # 数据库名称
     dataset_root = config["data"]["root"]
     data = globals()[dataset_name](
-        dataset_root, config["data"]["filter"], transforms, **config["data"]["config"])
+        root=dataset_root,
+        filter=config["data"]["filters"], transform=config["data"]["transforms"], enhance=config["data"]["enhances"], **config["data"]["para"])
 
     num_workers = config["train"]['num_workers']  # 数据处理进程
     batch_size = config["train"]['batch_size']  # 数据块大小
@@ -96,22 +88,22 @@ if __name__ == '__main__':
                 print(f"# 训练因错误结束, 错误信息：{repr(e)}")
                 # sendmail(f"训练因错误结束, 错误信息：{repr(e)}", config)
                 raise e
-            config["train"]["resume_iters"] = 0
+            config["train"]["last_epochs"] = 0
         print(f"# Accuracy Log: {accuracylog}")
         print(
             f"# Mean Accuracy: {np.mean(np.mean(accuracylog, axis=1), axis=0)}")
     else:
         print('################ 开始训练模型 ################')
-        train_size = int(len(data)*config['train']["train_size"])  # 训练集数量
+        train_size = int(len(data)*config['train']["train_rate"])  # 训练集数量
         test_size = len(data) - train_size  # 测试集数量
         train_data, test_data = torch.utils.data.random_split(
             data, [train_size, test_size])
         print(f"# 训练集大小: {len(train_data)}")
         print(f"# 测试集大小: {len(test_data)}")
         train_loader = DataLoader(
-            train_data, batch_size=batch_size, shuffle=not config['data']["sorting"], num_workers=num_workers)
+            train_data, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn)
         test_loader = DataLoader(
-            test_data, batch_size=batch_size, shuffle=not config['data']["sorting"], num_workers=num_workers)
+            test_data, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn)
         # 定义新模型，设置参数，确认是否加载历史检查点
         solver = globals()[config["sorlver"]["name"]](
             train_loader, test_loader, config, device)

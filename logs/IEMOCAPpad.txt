@@ -1,0 +1,18 @@
+nohup: ignoring input
+程序运行起始文件夹: /home/visitors2/SCW/torchTraining
+{'data': {'name': 'IEMOCAP', 'root': '/sdb/visitors2/SCW/data/IEMOCAP', 'para': {'name': 'pad', 'isvideo': True, 'cascPATH': '/home/visitors2/SCW/deeplearningcopy/utils/haarcascade_frontalface_alt2.xml', 'threads': 8}, 'enhances': {'audio': None}, 'transforms': {'audio': {'MFCC': {'sample_rate': 16000, 'n_mfcc': 40, 'log_mels': True, 'melkwargs': {'n_fft': 1024, 'win_length': 1024, 'hop_length': 256, 'f_min': 80.0, 'f_max': 7600.0, 'pad': 0, 'n_mels': 128, 'power': 2.0, 'normalized': True, 'center': True, 'pad_mode': 'reflect', 'onesided': True}}, 'Permute_Channel': {'dims': [2, 1, 0]}}, 'video': {'Permute_Channel': {'dims': [1, 2, 3, 0]}}}, 'filters': {'replace': {'label': {'excited': 'happy'}}, 'dropna': {'label': ['other', 'xxx', 'excited', 'frustrated', 'disgusted', 'fearful', 'surprised']}, 'query': '', 'sort_values': 'duration'}}, 'architecture': {'net': {'name': 'LightSerNet', 'para': None}}, 'train': {'name': 'Test_model', 'USE_GPU': '', 'num_workers': 0, 'seed': 42, 'train_rate': 0.8, 'batch_size': 32, 'n_epochs': 300, 'Kfold': 5, 'last_epochs': 0, 'checkpoint': False, 'loss_weight': True, 'num_epochs_decay': 99900}, 'sorlver': {'name': 'Audio_Classification', 'optimizer': {'name': 'AdamW', 'lr': 0.0001, 'para': {'betas': [0.9, 0.999]}}, 'lr_method': {'name': 'CosineAnnealingWarmRestarts', 'para': {'T_0': 1, 'T_mult': 1, 'eta_min': 0}}}, 'logs': {'use_tensorboard': True, 'log_dir': './logs', 'log_every': 1, 'model_save_dir': './checkpoints', 'test_every': 1, 'model_save_every': 100000, 'test_accuracy_every': 10, 'verbose': {'config': True, 'model': True}, 'SMTP': {'mail_host': 'smtp.163.com', 'mail_port': '465', 'mail_user': 'scharvin@163.com', 'mail_pass': 'MXCFABEYKHITANVN'}, 'from_mail': 'from@trainserver.com', 'to_mail': '1911523105@qq.com'}}
+################ 程序运行环境 ################
+# torch_version: 1.8.1+cu101
+# Cuda: False, Use_Cpu
+################ 处理和获取数据 ################
+## 训练使用数据集: IEMOCAP
+# 所用数据数量: 4490
+�否损坏...
+Traceback (most recent call last):
+  File "./main.py", line 60, in <module>
+    filter=config["data"]["filters"], transform=config["data"]["transforms"], enhance=config["data"]["enhances"], **config["data"]["para"])
+  File "/home/visitors2/SCW/torchTraining/custom_datasets/IEMOCAP.py", line 65, in __init__
+    self.make_transform(transform)
+  File "/home/visitors2/SCW/torchTraining/custom_datasets/IEMOCAP.py", line 121, in make_transform
+    for i in range(len(self.datadict["audio"])):
+KeyError: 'audio'

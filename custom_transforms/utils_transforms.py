@@ -15,15 +15,16 @@ class Compose():
 
 class Permute_Channel(torch.nn.Module):
 
-    def __init__(self,) -> None:
+    def __init__(self, dims) -> None:
         super(Permute_Channel, self).__init__()
+        self.dims = dims
 
     def forward(self, feature: Tensor) -> Tensor:
         r"""
         Args:
-            feature (Tensor): Tensor of feature of dimension (C,...).
+            feature (Tensor): Tensor of feature of dimension (...).
 
         Returns:
-            Tensor: Tensor of feature of dimension (..., C).
+            Tensor: Tensor of feature of dimension (dims).
         """
-        return feature.permute([i for i in range(1, len(feature.shape))]+[0])
+        return feature.permute(*self.dims)

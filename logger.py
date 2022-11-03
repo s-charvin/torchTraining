@@ -27,7 +27,7 @@ class Logger(object):
             os.makedirs(self.file_dir, exist_ok=True)
         self.writer = SummaryWriter(
             log_dir=self.file_dir, flush_secs=flush_secs)
-        print("构建logger.")
+        print("# 构建logger.")
 
     def scalar_summary(self, tag, value, step):
         """在独立图上画一条线或多条线
@@ -197,7 +197,7 @@ def sendmail(Text, config):
             smtpObj = smtplib.SMTP('localhost')
             smtpObj.sendmail(config["logs"]["from_mail"],
                              config["logs"]["to_mail"], message.as_string())
-        print("邮件发送成功")
+        print("# 邮件发送成功")
         smtpObj.quit()  # 关闭连接
     except smtplib.SMTPException as Error:
-        print(f"无法发送邮件\n Error: {Error}")
+        print(f"# 无法发送邮件\n Error: {Error}")

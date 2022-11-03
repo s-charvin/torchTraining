@@ -10,9 +10,10 @@ c_threshold = 40
 # Threshold for keeping a center vs other
 d_threshold = 100000
 # Values for first cropping
-y1, y2, y3, y4, x1, x2, x3, x4 = (130, 230, 140, 240, 120, 240, 500, 630)
+y1, y2, y3, y4, x1, x2, x3, x4 = (
+    130, 230, 140, 240, 120, 240, 500, 630)  # w,h
 # Final size of cropped image
-width, height = (120, 120)
+width, height = (240, 240)
 ###################### FUNCTIONS #####################
 
 
@@ -171,6 +172,52 @@ def capture_face_video(cascPATH, in_path, out_path, start_time, end_time, speake
                     # 截取相应的视频帧
                     frame, left_precenter, right_precenter = crop_face_image(cascPATH,
                                                                              frame, left_precenter, right_precenter, speaker)
+                    # 将图片写入视频文件
+                    videoWriter.write(frame)
+                if(count == (end_time * fps_video)):
+                    break
+            else:
+                # 写入视频结束
+
+                break
+    # When everything is done, release the capture
+    videoWriter.release()
+    cap.release()
+    return out_path
+
+
+def capture_video(in_path, out_path, start_time, end_time, speaker):
+
+    if os.path.isfile(in_path):
+        # Playing video from file
+        cap = cv2.VideoCapture(in_path)
+        # 读取视频帧率
+        fps_video = cap.get(cv2.CAP_PROP_FPS)
+        # 设置写入视频的编码格式
+        fourcc = cv2.VideoWriter_fourcc(
+            *'XVID')
+        # 设置写视频的对象
+
+        videoWriter = cv2.VideoWriter(
+            out_path, fourcc, fps_video, (width, height))
+        count = 0
+        # 设置裁剪窗口, [宽起始点,高起始点,宽度,高度]
+        window_l = [5, 120, 350, 240]
+        window_r = [365, 120, 350, 240]
+        while (cap.isOpened()):
+            success, frame = cap.read()  # size: h,w
+            if success == True:
+                count += 1
+                # 截取相应时间内的视频信息
+                if(count > (start_time * fps_video) and count <= (end_time * fps_video)):
+                    # 截取相应的视频帧
+
+                    if speaker == 'L':
+                        frame = frame[window_l[1]:window_l[4],
+                                      window_l[0]:window_l[3]]
+                    elif speaker == 'R':
+                        frame = frame[window_r[1]:window_r[4],
+                                      window_r[0]:window_r[3]]
                     # 将图片写入视频文件
                     videoWriter.write(frame)
                 if(count == (end_time * fps_video)):

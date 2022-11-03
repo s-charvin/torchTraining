@@ -1,37 +1,81 @@
 # 数据来源和类型
 data:
     name: "IEMOCAP" # EMODB, AESDD,IEMOCAP, RAVDESS, SAVEE, TESS, eNTERFACE05
-    root: "/home/visitors2/SCW/deeplearning/data/IEMOCAP"
-    filter: {
-        "replace": {'label':{"excited":"happy"}},
-        "dropna": {'label': [ "other", "xxx", "excited" , "frustrated","disgusted" ,"fearful","surprised"] },
-        # "contains": {'path': "impro"},
-        "query": 'duration>=1.0 & duration<30.0',
-        "sort_values": "duration"
-        }
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/IEMOCAP-pad-audio_MFCC_Permute_Channel-video_KeyFrameGetterBasedIntervalSampling_Permute_Channel-.npy"
+    para:
+        name: "pad"
+        isvideo: True
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+        audio:
+            # AudioSplit:
+            #     sample_rate: 16000
+            #     durations: 3.0
     transforms:
         audio:
-            MelSpectrogram: 
+            # Wave_pad_cut:
+            #     samplingNum: 48000
+            # MelSpectrogram:
+            #     sample_rate: 16000
+            #     n_fft: 1024
+            #     win_length: 1024
+            #     hop_length: 256
+            #     f_min: 80.
+            #     f_max: 7600.
+            #     pad: 0
+            #     n_mels: 128
+            #     power: 2.
+            #     normalized: True
+            #     center:  True
+            #     pad_mode: "reflect"
+            #     onesided: True
+            MFCC:
                 sample_rate: 16000
-                n_fft: 400
-                win_length: 400
-                hop_length: 200
-                f_min: 0.
-                f_max: 8000.
-                pad: 0
-                n_mels: 128
-                power: 2.
-                normalized: False
-                center:  True
-                pad_mode: "reflect"
-                onesided: True
+                n_mfcc: 40
+                log_mels: True
+                melkwargs:
+                    n_fft: 1024
+                    win_length: 1024
+                    hop_length: 256
+                    f_min: 80.
+                    f_max: 7600.
+                    pad: 0
+                    n_mels: 128
+                    power: 2.
+                    normalized: True
+                    center:  True
+                    pad_mode: "reflect"
+                    onesided: True
             Permute_Channel:
+                dims: [2,1,0] # [c,seq.fea] - > [seq,fea,c]
+                    
         video:
-            Permute_Channel:
-        label:
-            LabelEncoder:
+            # Video_pad_cut:
+            #     FramNum: 90
 
-    config: 
-        video: True
-        cascPATH: "/home/visitors2/SCW/deeplearningcopy/utils/haarcascade_frontalface_alt2.xml"
-        threads: 8
+            # KeyFrameGetterBasedInterDifference:
+            #     window: 5
+            #     smooth: False
+            #     alpha: 0.07
+
+            KeyFrameGetterBasedIntervalSampling:
+                interval: 3
+            Permute_Channel:
+                dims: [0,1,2,3] # [seq,w,h,c]
+    filters: {
+        # # angry, bored, calm, disgusted, excited, fearful, frustrated, happy, neutral, sad, surprised, surprised pleased
+        # IEMOCAP
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "excited" , "frustrated", "disgusted", "fearful", "surprised"] },
+        # # angry happy neutral sad, "excited" , "frustrated", "disgusted", "fearful", "surprised"
+        # "contains": {'path': "impro"},
+        # "query": 'video_length>7',
+        "sort_values": "duration"
+
+        # # EMODB
+        # "dropna": {'label': [ "other", "xxx", "bored" , "disgusted","fearful"] },
+        # # angry happy neutral sad "bored" , "disgusted","fearful"
+        # "query": '',
+        # "sort_values": "duration"
+        }

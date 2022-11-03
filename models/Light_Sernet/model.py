@@ -46,9 +46,7 @@ class LightSerNet(nn.Module):
         self.dropout = nn.Dropout(0.3)
         self.classifier = nn.Linear(in_features=320, out_features=4)
 
-    def forward(self, x: Tensor) -> Tensor:
-        if len(x.shape) == 3:
-            x = x.unsqueeze(1)
+    def forward(self, x: Tensor, feature_lens=None) -> Tensor:
         out1 = self.path1(x)
         out2 = self.path2(x)
         out3 = self.path3(x)

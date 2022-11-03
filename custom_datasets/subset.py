@@ -2,7 +2,19 @@ import collections
 import numpy as np
 import torch  # 矩阵运算模块
 from torch.utils.data.dataset import Dataset
-from typing import List
+from typing import List, Union
+from pathlib import Path
+
+
+class CustomDataset(Dataset):
+    def __init__(self,
+                 root: Union[str, Path],
+                 name,
+                 filter: dict,
+                 transform: dict,
+                 enhance: dict,
+                 ):
+        super(Dataset, self).__init__()
 
 
 class Subset():

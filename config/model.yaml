@@ -1,3 +1,4 @@
-model:
-    architectures:
-        num_outputs: 4
+architecture:
+    net: 
+        name: "MIFFNet"
+        para: 

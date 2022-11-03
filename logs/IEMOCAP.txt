@@ -1,0 +1,37 @@
+nohup: ignoring input
+程序运行起始文件夹: /home/visitors2/SCW/torchTraining
+{'data': {'name': 'IEMOCAP', 'root': '/sdb/visitors2/SCW/data/IEMOCAP/', 'para': {'name': 'pad', 'isvideo': True, 'cascPATH': '/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml', 'threads': 8}, 'enhances': {'audio': None}, 'transforms': {'audio': {'MelSpectrogram': {'sample_rate': 16000, 'n_fft': 1024, 'win_length': 1024, 'hop_length': 256, 'f_min': 80.0, 'f_max': 7600.0, 'pad': 0, 'n_mels': 128, 'power': 2.0, 'normalized': True, 'center': True, 'pad_mode': 'reflect', 'onesided': True}, 'Permute_Channel': {'dims': [2, 1, 0]}}, 'video': {'KeyFrameGetterBasedInterDifference': {'window': 5, 'smooth': False, 'alpha': 0.07}, 'Permute_Channel': {'dims': [0, 1, 2, 3]}}}, 'filters': {'replace': {'label': {'excited': 'happy'}}, 'dropna': {'label': ['other', 'xxx', 'excited', 'frustrated', 'disgusted', 'fearful', 'surprised']}, 'query': 'video_length>7', 'sort_values': 'duration'}}, 'architecture': {'net': {'name': 'LightSerNet', 'para': None}}, 'train': {'name': 'Test_model', 'USE_GPU': '', 'num_workers': 0, 'seed': 42, 'train_rate': 0.8, 'batch_size': 32, 'n_epochs': 300, 'Kfold': 5, 'last_epochs': 0, 'checkpoint': False, 'loss_weight': True, 'num_epochs_decay': 99900}, 'sorlver': {'name': 'Audio_Classification', 'optimizer': {'name': 'AdamW', 'lr': 0.0001, 'para': {'betas': [0.9, 0.999]}}, 'lr_method': {'name': 'CosineAnnealingWarmRestarts', 'para': {'T_0': 1, 'T_mult': 1, 'eta_min': 0}}}, 'logs': {'use_tensorboard': True, 'log_dir': './logs', 'log_every': 1, 'model_save_dir': './checkpoints', 'test_every': 1, 'model_save_every': 100000, 'test_accuracy_every': 10, 'verbose': {'config': True, 'model': True}, 'SMTP': {'mail_host': 'smtp.163.com', 'mail_port': '465', 'mail_user': 'scharvin@163.com', 'mail_pass': 'MXCFABEYKHITANVN'}, 'from_mail': 'from@trainserver.com', 'to_mail': '1911523105@qq.com'}}
+################ 程序运行环境 ################
+# torch_version: 1.8.1+cu101
+# Cuda: False, Use_Cpu
+################ 处理和获取数据 ################
+# 构建初始数据
+# 检测视频文件夹是否存在...
+# 检测视频文件是否损坏...
+# 文件完整
+# 构建视频数据
+# 构建语音数据
+# 数据增强...
+# 数据处理...
+Traceback (most recent call last):
+  File "./main.py", line 60, in <module>
+    filter=config["data"]["filters"], transform=config["data"]["transforms"], enhance=config["data"]["enhances"], **config["data"]["para"])
+  File "/home/visitors2/SCW/torchTraining/custom_datasets/IEMOCAP.py", line 65, in __init__
+    self.make_datadict(cascPATH, threads)
+  File "/home/visitors2/SCW/torchTraining/custom_datasets/IEMOCAP.py", line 123, in make_transform
+    for i in range(len(self.datadict["video"])):
+  File "/home/visitors2/SCW/torchTraining/custom_transforms/utils_transforms.py", line 12, in __call__
+    data = t(data)
+  File "/home/visitors2/anaconda3/envs/SCW/lib/python3.6/site-packages/torch/nn/modules/module.py", line 889, in _call_impl
+    result = self.forward(*input, **kwargs)
+  File "/home/visitors2/SCW/torchTraining/custom_transforms/video_transforms.py", line 171, in forward
+    # return self.get_key_frame(video)
+  File "/home/visitors2/SCW/torchTraining/custom_transforms/video_transforms.py", line 157, in get_key_frame
+    diff = self.load_diff(video)
+  File "/home/visitors2/SCW/torchTraining/custom_transforms/video_transforms.py", line 114, in load_diff
+    diff.append(self.abs_diff(pre_image, curr_image))
+  File "/home/visitors2/SCW/torchTraining/custom_transforms/video_transforms.py", line 87, in abs_diff
+    gray_pre_image = self.graying_image(pre_image)
+  File "/home/visitors2/SCW/torchTraining/custom_transforms/video_transforms.py", line 76, in graying_image
+    gray_image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)  # 灰度化
+TypeError: src is not a numpy array, neither a scalar
