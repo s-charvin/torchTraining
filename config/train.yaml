@@ -1,11 +1,11 @@
 train:
     # 训练基础设置
     name: "Test_CustomScheduler" # 本次运行模型名称
-    USE_GPU: "0" # 是否使用GPU加速, 如果使用则设置当前可用的 GPU,并使这些 CPU 重新按照[0，1]排序, 如果含有多个 GPU 将自动使用多GPU
+    USE_GPU: "" # 是否使用GPU加速, 如果使用则设置当前可用的 GPU,并使这些 CPU 重新按照[0，1]排序, 如果含有多个 GPU 将自动使用多GPU
     num_workers: 0 # 数据加载进程数
     seed: 42 # 设置随机数种子, 当设置了固定的随机数种子,之后依次生成的随机数序列也会被固定下来。
     train_rate: 0.8
-    batch_size: 8 # 数据块大小
+    batch_size: 4 # 数据块大小
     n_epochs: 885 # 训练迭代次数
     Kfold: 0 # 
     # 预训练设置

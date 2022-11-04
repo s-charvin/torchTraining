@@ -141,7 +141,8 @@ class Audio_Video_Classification(object):
                 video_loss = loss_func(video_out, labels)
                 audio_loss.backward()
                 video_loss.backward()
-                self.optimizer.step()
+                if((batch_i+1) % 8) == 0:
+                    self.optimizer.step()  # 反向传播，更新网络参数
                 self.lr_method.step(epoch + batch_i / len(self.train_loader))
             #############################################################
             #                            记录                           #
