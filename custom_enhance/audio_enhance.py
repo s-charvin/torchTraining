@@ -1,8 +1,4 @@
 
-from typing import Optional
-from unittest import result
-from pandas import DataFrame
-import pandas as pd
 from torch import Tensor
 import torch
 import torch.nn.functional as F
@@ -49,6 +45,67 @@ class AudioSplit(torch.nn.Module):
                 for col in columns:
                     if col == "audio":
                         newdatadict[col].append(wav)
+                    else:
+                        try:
+                            newdatadict[col].append(datadict[col][i])
+                        except:
+                            newdatadict[col].append(datadict[col])
+        return newdatadict
+
+
+class AVSplit(torch.nn.Module):
+    r"""输入字典格式存储的数据, 对其中 "auido","video" 中的每个模态进行处理, 按照指定时长进行截取
+
+    Args:
+        sample_rate (int, optional): Sample rate of audio signal. (Default: ``16000``)
+    """
+
+    def __init__(self,
+                 sample_rate,
+                 frame_rate,
+                 durations: float = 3.) -> None:
+        super(AVSplit, self).__init__()
+        self.audio_samples = int(sample_rate * durations)
+        self.video_samples = int(frame_rate * durations)
+
+    def forward(self, datadict: dict) -> Tensor:
+        r"""
+        Args:
+            datadict (dict): 字典格式存储的数据.
+        Returns:
+            dataframe: .
+        """
+        columns = datadict.keys()
+        index = range(len(datadict["path"]))
+        newdatadict = {c: [] for c in columns}
+
+        for i in index:
+            waveform = datadict["audio"][i]  # 当前行的语音数据 [c,seq]
+            video = datadict["video"][i]  # 当前行的视频数据 [c,seq,h,w]
+            if waveform.shape[-1] > self.audio_samples:
+                samples = int(  # 处理比指定时间段长的数据, 将多余的数据截取掉
+                    (waveform.shape[-1] // self.audio_samples) * self.audio_samples)
+                waveform = waveform[:, :samples]
+            else:  # 填充比指定时间段短的数据
+                waveform = F.pad(
+                    waveform, (0, self.audio_samples-waveform.shape[-1]))
+            waveform = torch.split(waveform, self.audio_samples, dim=1)
+
+            if video.shape[-3] > self.video_samples:
+                samples = int(  # 处理比指定时间段长的数据, 将多余的数据截取掉
+                    (video.shape[-3] // self.video_samples) * self.video_samples)
+                video = video[:, :samples, :, :]
+            else:  # 填充比指定时间段短的数据
+                video = F.pad(
+                    video, (0, 0, 0, 0, 0, self.video_samples-video.shape[-3]))
+            video = torch.split(video, self.video_samples, dim=1)
+
+            for wav, vid in zip(waveform, video):
+                for col in columns:
+                    if col == "audio":
+                        newdatadict[col].append(wav)
+                    elif col == "video":
+                        newdatadict[col].append(video)
                     else:
                         try:
                             newdatadict[col].append(datadict[col][i])
