@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import os
 import os.path
-from utils.filefolderTool import create_folder
+
 # Threshold for keeping a center movement per frame
 c_threshold = 40
 # Threshold for keeping a center vs other
@@ -199,7 +199,7 @@ def capture_video(in_path, out_path, start_time, end_time, speaker):
         # 设置写视频的对象
 
         videoWriter = cv2.VideoWriter(
-            out_path, fourcc, fps_video, (width, height))
+            out_path, fourcc, fps_video, (350, 240))
         count = 0
         # 设置裁剪窗口, [宽起始点,高起始点,宽度,高度]
         window_l = [5, 120, 350, 240]
@@ -213,11 +213,11 @@ def capture_video(in_path, out_path, start_time, end_time, speaker):
                     # 截取相应的视频帧
 
                     if speaker == 'L':
-                        frame = frame[window_l[1]:window_l[4],
-                                      window_l[0]:window_l[3]]
+                        frame = frame[window_l[1]:window_l[3]+window_l[1],
+                                      window_l[0]:window_l[2]+window_l[0], :]
                     elif speaker == 'R':
-                        frame = frame[window_r[1]:window_r[4],
-                                      window_r[0]:window_r[3]]
+                        frame = frame[window_r[1]:window_r[3]+window_r[1],
+                                      window_r[0]:window_r[2]+window_r[0], :]
                     # 将图片写入视频文件
                     videoWriter.write(frame)
                 if(count == (end_time * fps_video)):
@@ -234,4 +234,7 @@ def capture_video(in_path, out_path, start_time, end_time, speaker):
 
 # Control runtime
 if __name__ == '__main__':
-    capture_face_video()
+    capture_video(
+        "/sdb/visitors2/SCW/data/IEMOCAP/Session1/dialog/avi/DivX/Ses01F_script01_2.avi",
+        "/home/visitors2/SCW/torchTraining/utils/test.avi",
+        *(2, 6), "R")

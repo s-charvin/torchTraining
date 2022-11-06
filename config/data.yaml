@@ -12,6 +12,7 @@ data:
             # AudioSplit:
             #     sample_rate: 16000
             #     durations: 3.0
+
             AVSplit:
                 sample_rate: 16000
                 frame_rate: 29.97
@@ -19,7 +20,8 @@ data:
     transforms:
         audio:
             # Wave_pad_cut:
-            #     samplingNum: 48000
+            #     samplingNum: 112000
+
             # MelSpectrogram:
             #     sample_rate: 16000
             #     n_fft: 1024
