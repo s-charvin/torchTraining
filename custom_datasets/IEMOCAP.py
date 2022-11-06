@@ -1,11 +1,19 @@
 # 官方库
-from genericpath import isdir
+from .subset import CustomDataset
+from custom_enhance import *
+from custom_transforms import *
+from utils.filefolderTool import create_folder
+from utils.extractFace import capture_face_video
+from tqdm import tqdm
+import torchaudio
+from gc import callbacks
 import os
 import sys
 import io
 import re
 from typing import Dict, Tuple, Union, Optional
 from pathlib import Path
+import multiprocessing as mp
 # 第三方库
 import librosa
 import audioread.ffdec
@@ -13,14 +21,9 @@ import numpy as np
 import decord
 import pandas as pd
 import torch
-import torchaudio
-from tqdm import tqdm
+
+
 # 自定库
-from utils.extractFace import capture_face_video
-from utils.filefolderTool import create_folder
-from custom_transforms import *
-from custom_enhance import *
-from .subset import CustomDataset
 
 
 class IEMOCAP(CustomDataset):
@@ -249,6 +252,78 @@ class IEMOCAP(CustomDataset):
         else:
             return("")
 
+    def pbar_listener(self, pbar_queue, total):
+        pbar = tqdm(total=total)
+        pbar.set_description('# Processing')
+        while True:
+            if not pbar_queue.empty():
+                k = pbar_queue.get()
+                if k == 1:
+                    pbar.update(1)
+                else:
+                    break
+        pbar.close()
+
+    def data_listener(self, length, sharedata, data_queue):
+        datalist = [None]*length
+        while True:
+            if not data_queue.empty():
+                data = data_queue.get()
+                if isinstance(data, dict):
+                    for k, v in data.items():
+                        datalist[k] = v
+                else:
+                    break
+        sharedata[0] = datalist
+
+    def sequence_multithread_processing(self, length, func):
+
+        # 构建数据处理完成度监视进程和数据队列存储监视进程
+        manage = mp.Manager()
+        pbar_queue = manage.Queue()
+        data_queue = manage.Queue()
+        p_pbar = mp.Process(target=self.pbar_listener,
+                            args=(pbar_queue, length))
+        sharedata = mp.Manager().list([None])  # 建立共享数据
+        p_data = mp.Process(target=self.data_listener,
+                            args=(length, sharedata, data_queue))
+        p_pbar.start()
+        p_data.start()
+
+        # 建立任务执行进程
+        processList = []  # 任务处理进程池
+
+        # 任务参数分割
+        step = int(length / self.threads) + 1  # 每份的长度
+        index = [i for i in range(length)]
+        split_lists = [index[x:x+step] for x in range(0, length, step)]
+        for ind in split_lists:
+            t = mp.Process(target=func, args=(
+                data_queue, ind, pbar_queue))
+            processList.append(t)
+        for t in processList:
+            t.start()
+        for t in processList:
+            t.join()
+        pbar_queue.put(-1)  # 停止监听
+        data_queue.put(-1)  # 停止监听
+        p_pbar.join()
+        p_data.join()
+        sequence = sharedata[0]
+        return sequence
+
+    def load_video(self, data_queue, index, pbar_queue=None):
+        for i in index:
+            data_queue.put({i: self._load_video(self.datadict["path"][i])})
+            if pbar_queue:
+                pbar_queue.put(1)
+
+    def load_audio(self, data_queue, index, pbar_queue=None):
+        for i in index:
+            data_queue.put({i: self._load_audio(self.datadict["path"][i])})
+            if pbar_queue:
+                pbar_queue.put(1)
+
     def _load_audio(self, filename) -> torch.Tensor:
         # 指定文件名加载语音文件数据
         filename_ = filename.split("_")
@@ -259,8 +334,7 @@ class IEMOCAP(CustomDataset):
         aro = audioread.ffdec.FFmpegAudioFile(wav_path)
 
         y, sr = librosa.load(aro, sr=None)
-        y = torch.from_numpy(y).unsqueeze(0)
-        return y  # 1xseq
+        return y[None, :]  # 1xseq
 
     def _load_video(self, filename) -> torch.Tensor:
         # 指定文件名加载视频文件数据
@@ -318,7 +392,7 @@ class IEMOCAP(CustomDataset):
             video = self._av_reader.get_batch(frame_idxs)
         except Exception as e:
             raise(f"Failed to decode video with Decord: {video_path}. {e}")
-        video = torch.from_numpy(video.asnumpy())  # 3xNxHxW
+        video.asnumpy()  # 3xNxHxW
         return video
 
     def filter(self, filter: dict):
@@ -453,20 +527,28 @@ class IEMOCAP(CustomDataset):
         }
 
         print("# 构建语音数据")
-        audiolist = []
-        for n in tqdm(range(len(self.datadict["path"]))):
-            audiolist.append(self._load_audio(
-                self.datadict["path"][n]))
+        audiolist = [None]*len(self._pathList)
+        # for n in tqdm(range(len(self.datadict["path"]))):
+        #     audiolist[n] = self._load_audio(self.datadict["path"][n])
+        if self.threads > 0:
+            audiolist = self.sequence_multithread_processing(
+                len(self._pathList), self.load_audio)
+        else:
+            for i in tqdm(range(len(self.datadict["path"]))):
+                audiolist[i] = self._load_audio(self.datadict["path"][i])
 
         if self.isvideo:
             print("# 构建视频数据")
-            videolist = []
-            for n in tqdm(range(len(self.datadict["path"]))):
-                videolist.append(self._load_video(
-                    self.datadict["path"][n]))
+            videolist = [None]*len(self._pathList)
+            for n in tqdm(range(len(self.datadict["path"])), desc="# Processing"):
+                videolist[n] = self._load_video(self.datadict["path"][n])
+            # self.sequence_multithread_processing(
+            #     self.videolist, self.load_video)
 
-        self.datadict["audio"] = audiolist
-        self.datadict["video"] = videolist
+        self.datadict["audio"] = [torch.from_numpy(i) for i in audiolist]
+        self.datadict["video"] = [torch.from_numpy(i) for i in videolist]
+        del audiolist
+        del videolist
 
     def _load_iemocap_item(self, n: int) -> Dict[str, Optional[Union[int, torch.Tensor, torch.Tensor, int, str, str, Tuple[torch.Tensor, torch.Tensor, torch.Tensor], str]]]:
 

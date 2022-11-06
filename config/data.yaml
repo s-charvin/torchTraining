@@ -1,11 +1,11 @@
 # 数据来源和类型
 data:
     name: "IEMOCAP" # EMODB, AESDD,IEMOCAP, RAVDESS, SAVEE, TESS, eNTERFACE05
-    root: "/sdb/user4/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
-        name: "pad"
+        name: "7s"
         isvideo: True
-        cascPATH: "/home/user4/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
         audio:
@@ -15,7 +15,7 @@ data:
             AVSplit:
                 sample_rate: 16000
                 frame_rate: 29.97
-                durations: 3.0
+                durations: 7.0
     transforms:
         audio:
             # Wave_pad_cut:

@@ -105,7 +105,7 @@ class AVSplit(torch.nn.Module):
                     if col == "audio":
                         newdatadict[col].append(wav)
                     elif col == "video":
-                        newdatadict[col].append(video)
+                        newdatadict[col].append(vid)
                     else:
                         try:
                             newdatadict[col].append(datadict[col][i])

@@ -207,7 +207,7 @@ if __name__ == '__main__':
     fourcc = int(cap.get(cv2.CAP_PROP_FOURCC))  # 视频的编码
     # 定义视频对象输出
     writer = cv2.VideoWriter(
-        "/home/user4/SCW/torchTraining/custom_transforms/result.avi", fourcc, fps, (width, height))
+        "/home/visitors2/SCW/torchTraining/custom_transforms/result.avi", fourcc, fps, (width, height))
     video = []
     while cap.isOpened():
         ret, frame = cap.read()  # 读取摄像头画面, size: h,w
