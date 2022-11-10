@@ -4,7 +4,8 @@ import cv2
 import numpy as np
 import os
 import os.path
-
+import io
+import decord
 # Threshold for keeping a center movement per frame
 c_threshold = 40
 # Threshold for keeping a center vs other
@@ -234,7 +235,6 @@ def capture_video(in_path, out_path, start_time, end_time, speaker):
 
 # Control runtime
 if __name__ == '__main__':
-    capture_video(
-        "/sdb/visitors2/SCW/data/IEMOCAP/Session1/dialog/avi/DivX/Ses01F_script01_2.avi",
-        "/home/visitors2/SCW/torchTraining/utils/test.avi",
-        *(2, 6), "R")
+    inpath = "/sdb/visitors2/SCW/data/IEMOCAP/Session2/sentences/video/Ses02M_script01_2/Ses02M_script01_2_M011_crop.avi"
+    outpath = "/home/visitors2/SCW/torchTraining/utils/test.avi"
+    capture_video(inpath, outpath, *(2, 6), "R")

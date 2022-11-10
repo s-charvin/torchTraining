@@ -19,8 +19,6 @@ import numpy as np
 import decord
 import pandas as pd
 import torch
-
-
 # 自定库
 
 
@@ -31,7 +29,7 @@ class IEMOCAP(CustomDataset):
             filter(dict)
             video (bool, optional): 是否使用视频片段数据, 如果使用, 在视频数据不存在的情况下会进行一次视频数据处理(非常耗时). Defaults to False.
             cascPATH (Union[str, Path], optional): 视频数据处理所用到的 opencv 配置文件地址(需要与 video 同时提供). Defaults to None.
-            threads (int, optional): 数据处理进程数(视频提取, 文件加载). Defaults to 0.
+            threads (int, optional): 视频数据处理进程数. Defaults to 0.
 
         Returns:
             tuple: ``(waveform, sample_rate, transcript, video, val, act, dom, speaker)``
@@ -130,10 +128,7 @@ class IEMOCAP(CustomDataset):
                         (float(start_time), float(end_time)))
                     # 获取情感维度值 dominance (dom), activation (act) and valence (val)
                     _dimvalueList.append(
-                        (float(val),
-                            float(act),
-                            float(dom))
-                    )
+                        " ".join([str(val), str(act), str(dom)]))
                     # 标签列表
                     _labelList.append(tag_to_emotion[emotion])
                     # 文本翻译列表
@@ -158,8 +153,8 @@ class IEMOCAP(CustomDataset):
                             _textList[index] = text
                         except:  # 出错就跳过
                             continue
-        if self.isvideo:
-            self.check_video_file(cascPATH, threads)
+        assert len(self._pathList) == len(_dimvalueList) == len(self._periodList) == len(
+            _textList) == len(_genderList) == len(_labelList) == len(_sample_rate)
         self.datadict = {
             "path": self._pathList,
             "dimvalue": _dimvalueList,
@@ -167,29 +162,55 @@ class IEMOCAP(CustomDataset):
             "text": _textList,
             "gender": _genderList,
             "label": _labelList,
-            "sample_rate": _sample_rate
+            "sample_rate": _sample_rate,
+            "length": len(self._pathList)
         }
-        print("# 构建语音数据")
-        audiolist = [None]*len(self._pathList)
-        # for n in tqdm(range(len(self.datadict["path"]))):
-        #     audiolist[n] = self._load_audio(self.datadict["path"][n])
-        if self.threads > 0:
-            audiolist = self.sequence_multithread_processing(
-                len(self._pathList), self.thread_load_audio)
-        else:
-            for i in tqdm(range(len(self.datadict["path"]))):
-                audiolist[i] = self._load_audio(self.datadict["path"][i])
-
-        self.datadict["audio"] = [torch.from_numpy(i) for i in audiolist]
-        del audiolist
-
         if self.isvideo:
-            print("# 构建视频数据")
-            videolist = [None]*len(self._pathList)
-            for n in tqdm(range(len(self.datadict["path"])), desc="# Processing"):
-                videolist[n] = self._load_video(self.datadict["path"][n])
-        self.datadict["video"] = [torch.from_numpy(i) for i in videolist]
-        del videolist
+            self.check_video_file(cascPATH, threads)
+
+    def save_data(self):
+        length = self.datadict["length"]
+        manage = mp.Manager()
+        pbar_queue = manage.Queue()
+        p_pbar = mp.Process(target=self.pbar_listener,
+                            args=(pbar_queue, length))
+        p_pbar.start()
+        # 建立任务执行进程
+        processList = []  # 任务处理进程池
+        # 任务参数分割
+        step = int(length / self.threads) + 1  # 每份的长度
+        index = [i for i in range(length)]
+        split_lists = [index[x:x+step] for x in range(0, length, step)]
+        for ind in split_lists:
+            t = mp.Process(target=self.write_lmdb, args=(ind, pbar_queue))
+            processList.append(t)
+        for t in processList:
+            t.start()
+        for t in processList:
+            t.join()
+        pbar_queue.put(-1)  # 停止监听
+        p_pbar.join()
+
+    def write_lmdb(self, index_list, pbar_queue=None):
+        for i in index_list:
+            path = self.datadict["path"][i]
+            dimvalue = self.datadict["dimvalue"][i]
+            duration = self.datadict["duration"][i]
+            text = self.datadict["text"][i]
+            gender = self.datadict["gender"][i]
+            label = self.datadict["label"][i]
+            sample_rate = self.datadict["sample_rate"][i]
+
+            key = path.encode()
+            data = '&&'.join([dimvalue,duration,text,gender,label,sample_rate]).encode()
+
+            if self.isvideo:
+                video = self._load_video(self.datadict["path"][i]).tobytes()
+
+            audio = self._load_audio(self.datadict["path"][i]).tobytes()
+
+            if pbar_queue:
+                pbar_queue.put(1)
 
     def make_enhance(self, enhance):
         self.audio_enhance = None
@@ -207,14 +228,6 @@ class IEMOCAP(CustomDataset):
                     else:
                         pl.append(globals()[name]())
                 processors[key] = Compose(pl)
-        print("# 数据增强...")
-        if processors:
-            if "audio" in processors:
-                self.datadict = processors["audio"](self.datadict)
-            if "video" in processors:
-                self.datadict = processors["video"](self.datadict)
-            if "text" in processors:
-                self.datadict = processors["text"](self.datadict)
 
     def make_transform(self, transform):
         self.audio_transform = None
@@ -240,68 +253,6 @@ class IEMOCAP(CustomDataset):
                 self.video_transform = processors["video"]
             if "text" in processors:
                 self.text_transform = processors["text"]
-
-        if self.video_transform and self.isvideo:
-            for i in range(len(self.datadict["video"])):
-                self.datadict["video"][i] = self.video_transform(
-                    self.datadict["video"][i])
-        if self.audio_transform:
-            for i in range(len(self.datadict["audio"])):
-                self.datadict["audio"][i] = self.audio_transform(
-                    self.datadict["audio"][i])
-        if self.text_transform:
-            for i in range(len(self.datadict["text"])):
-                self.datadict["text"][i] = self.text_transform(
-                    self.datadict["text"][i])
-
-    def save_frame(self, transform, enhance):
-        print("# 存储数据...")
-        namelist = []
-        for k, v in enhance.items():
-            if v:
-                namelist.append(k+"_"+"_".join([i for i in v.keys()]))
-        for k, v in transform.items():
-            if v:
-                namelist.append(k+"_"+"_".join([i for i in v.keys()]))
-        torch.save(self.datadict, os.path.join(
-            self.root, "-".join([self.dataset_name, self.name, *namelist, ".npy"])))
-
-    def filter(self, filter: dict):
-        print("# 数据筛选...")
-        # 根据提供的字典替换值, key 决定要替换的列, value 是 字符串字典, 决定被替换的值
-        if self.isvideo:
-            self.datadict["video_length"] = [v.shape[0]
-                                             for v in self.datadict["video"]]
-        self.datadict = pd.DataFrame(self.datadict)
-        if self.isvideo:
-            self.datadict = self.datadict[~self.datadict["path"].str.contains(
-                "Ses05F_script02_2_M", case=True)]
-            self.datadict = self.datadict[~self.datadict["path"].str.contains(
-                "Ses05F_script02_1_M", case=True)]
-        if "replace" in filter:
-            self.datadict.replace(
-                None if filter["replace"] else filter["replace"], inplace=True)
-            # 根据提供的字典删除指定值所在行, key 决定要替换的列, value 是被替换的值列表
-        if "dropna" in filter:
-            for k, v in filter["dropna"].items():
-                self.datadict = self.datadict[~self.datadict[k].isin(v)]
-            self.datadict.dropna(axis=0, how='any', thresh=None,
-                                 subset=None, inplace=True)
-        if "contains" in filter:
-            # 根据提供的字典删除包含指定值的所在行, key 决定要替换的列, value 是被替换的值列表
-            for k, v in filter["contains"].items():
-                self.datadict = self.datadict[~self.datadict[k].str.contains(
-                    v, case=True)]
-        if "query" in filter:
-            if filter["query"]:
-                self.datadict.query(filter["query"], inplace=True)
-        if "sort_values" in filter:
-            self.datadict.sort_values(
-                by=filter["sort_values"], inplace=True, ascending=False)
-
-        self.datadict.reset_index(drop=True, inplace=True)
-        self.datadict = self.datadict.to_dict(orient="list")
-        self.datadict["labelid"] = label2id(self.datadict["label"])
 
     def load_data(self):
         print("# 加载数据...")
@@ -439,67 +390,7 @@ class IEMOCAP(CustomDataset):
                     break
         pbar.close()
 
-    def data_listener(self, length, sharedata, data_queue):
-        datalist = [None]*length
-        while True:
-            if not data_queue.empty():
-                data = data_queue.get()
-                if isinstance(data, dict):
-                    for k, v in data.items():
-                        datalist[k] = v
-                else:
-                    break
-        sharedata[0] = datalist
-
-    def sequence_multithread_processing(self, length, func):
-
-        # 构建数据处理完成度监视进程和数据队列存储监视进程
-        manage = mp.Manager()
-        pbar_queue = manage.Queue()
-        data_queue = manage.Queue()
-        p_pbar = mp.Process(target=self.pbar_listener,
-                            args=(pbar_queue, length))
-        sharedata = mp.Manager().list([None])  # 建立共享数据
-        p_data = mp.Process(target=self.data_listener,
-                            args=(length, sharedata, data_queue))
-        p_pbar.start()
-        p_data.start()
-
-        # 建立任务执行进程
-        processList = []  # 任务处理进程池
-
-        # 任务参数分割
-        step = int(length / self.threads) + 1  # 每份的长度
-        index = [i for i in range(length)]
-        split_lists = [index[x:x+step] for x in range(0, length, step)]
-        for ind in split_lists:
-            t = mp.Process(target=func, args=(
-                data_queue, ind, pbar_queue))
-            processList.append(t)
-        for t in processList:
-            t.start()
-        for t in processList:
-            t.join()
-        pbar_queue.put(-1)  # 停止监听
-        data_queue.put(-1)  # 停止监听
-        p_pbar.join()
-        p_data.join()
-        sequence = sharedata[0]
-        return sequence
-
-    def thread_load_video(self, data_queue, index, pbar_queue=None):
-        for i in index:
-            data_queue.put({i: self._load_video(self.datadict["path"][i])})
-            if pbar_queue:
-                pbar_queue.put(1)
-
-    def thread_load_audio(self, data_queue, index, pbar_queue=None):
-        for i in index:
-            data_queue.put({i: self._load_audio(self.datadict["path"][i])})
-            if pbar_queue:
-                pbar_queue.put(1)
-
-    def _load_audio(self, filename) -> torch.Tensor:
+    def _load_audio(self, filename) -> np.ndarray:
         # 指定文件名加载语音文件数据
         filename_ = filename.split("_")
         sess = int(filename_[0][3:-1])
@@ -511,7 +402,7 @@ class IEMOCAP(CustomDataset):
         y, sr = librosa.load(aro, sr=None)
         return y[None, :]  # 1xseq
 
-    def _load_video(self, filename) -> torch.Tensor:
+    def _load_video(self, filename) -> np.ndarray:
         # 指定文件名加载视频文件数据
         filename_ = filename.split("_")
         sess = int(filename_[0][3:-1])
@@ -531,7 +422,7 @@ class IEMOCAP(CustomDataset):
                       height: int = -1,
                       num_threads: int = 0,
                       fault_tol: int = -1,
-                      ) -> torch.Tensor:
+                      ) -> np.ndarray:
         """解码视频得到对应的 Tensor 类型数据
 
         Args:
@@ -546,7 +437,7 @@ class IEMOCAP(CustomDataset):
                     如果 1 < `fault_tol`, 并且 N > `fault_tol`, 引发 `DECORDLimitReachedError` 类型错误.
             Defaults to -1.
         Returns:
-            torch.Tensor
+            np.ndarray
         Refer:
             Link: https://github.com/facebookresearch/pytorchvideo/blob/b2b453bdcd7afcabc3804fba89e0889e27ec9535/pytorchvideo/data/encoded_video_decord.py
         """
@@ -571,9 +462,8 @@ class IEMOCAP(CustomDataset):
             video = _av_reader.get_batch(frame_idxs)
         except Exception as e:
             raise(f"Failed to decode video with Decord: {video_path}. {e}")
-        out = video.asnumpy()[:, 20:150, 90:280, :].copy()  # NxHxWx3
-        del video
-        return out
+        video = video.asnumpy()  # NxHxWx3
+        return video  # [:, 20:150, 90:280, :]
 
     def _load_iemocap_item(self, n: int) -> Dict[str, Optional[Union[int, torch.Tensor, torch.Tensor, int, str, str, Tuple[torch.Tensor, torch.Tensor, torch.Tensor], str]]]:
 

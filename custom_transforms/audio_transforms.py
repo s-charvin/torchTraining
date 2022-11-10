@@ -100,6 +100,28 @@ class Wave_pad_cut(torch.nn.Module):
         return waveform
 
 
+# class ComParE_2016(torch.nn.Module):
+#     r"""
+#     """
+
+#     def __init__(self, sampling_rate) -> None:
+#         super(Wave_pad_cut, self).__init__()
+#         self.sampling_rate = sampling_rate
+
+#     def forward(self, waveform: Tensor) -> Tensor:
+#         r"""
+#         Args:
+#             waveform (Tensor): Audio waveform of dimension of `([channels, samples])`.
+#         Returns:
+#             Tensor: features of dimension of `([channels, features])`.
+#         """
+#         smile = opensmile.Smile(
+#             feature_set=opensmile.FeatureSet.eGeMAPSv02,
+#             feature_level=opensmile.FeatureLevel.Functionals,)
+#         smile.process_signal(waveform.numpy(), self.sampling_rate)
+#         return torch.from_numpy(smile.to_numpy())
+
+
 if __name__ == '__main__':
     splitMFCC = Wave_pad_cut(sample_rate=16000, durations=3.0)
     wav = torch.randn((1, 256420))
