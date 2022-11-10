@@ -95,4 +95,4 @@ if __name__ == '__main__':
             scheduler.step(e + (batch_i+1) / batchsize)
     print(last_lr[-1])
     plt.plot(last_epoch, last_lr)
-    plt.savefig("/home/visitors2/SCW/torchTraining/custom_solver/squares.png")
+    plt.savefig("/home/user4/SCW/torchTraining/custom_solver/squares.png")

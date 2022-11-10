@@ -122,6 +122,14 @@ class MIFFNet(nn.Module):
         self.video_feature_extractor = Conv3dNet()
         self.audio_classifier = nn.Linear(in_features=320, out_features=4)
         self.video_classifier = nn.Linear(in_features=320, out_features=4)
+        self.audio_emotional_weight = nn.Sequential(
+            nn.GRU(input_size=320, hidden_size=64,
+                   num_layers=1, batch_first=True),
+            nn.Linear(64, 1))
+        self.video_emotional_weight = nn.Sequential(
+            nn.GRU(input_size=320, hidden_size=64,
+                   num_layers=1, batch_first=True),
+            nn.Linear(64, 1))
 
     def forward(self, af: Tensor, vf: Tensor, af_len=None, vf_len=None) -> Tensor:
         """
@@ -135,8 +143,8 @@ class MIFFNet(nn.Module):
             Tensor: size:[batch, out]
         """
         # 分割数据
-        af_seqlen = 188
-        vf_seqlen = 30
+        af_seqlen = 188*3
+        vf_seqlen = 10*3
         # [ceil(seq/af_seqlen), batch, 1, af_seqlen, fea]
         af = torch.split(af, af_seqlen, dim=2)
         # [ceil(seq/vf_seqlen),batch, 3, vf_seqlen,  w, h]
@@ -166,7 +174,9 @@ class MIFFNet(nn.Module):
             af_mask = torch.arange(max_len, device=af_len.device
                                    ).expand(batch_size, max_len) >= af_len[:, None]
             af_fea[af_mask] = 0.0
-
+        # [batch, ceil(seq/af_seqlen), fea] -> (batch,ceil(seq/af_seqlen), 1)
+        weight = self.audio_emotional_weight(af_fea)
+        vf_fea = vf_fea * F.softmax(weight, dim=1)
         af_fea = af_fea.mean(dim=1)  # [batch, fea]
         af_fea = self.audio_classifier(af_fea)
 
@@ -184,6 +194,8 @@ class MIFFNet(nn.Module):
                                    ).expand(batch_size, max_len) >= vf_len[:, None]
             vf_fea[vf_mask] = 0.0
 
+        weight = self.video_emotional_weight(af_fea)
+        vf_fea = vf_fea * F.softmax(weight, dim=1)
         vf_fea = vf_fea.mean(dim=1)  # [batch, fea]
         vf_fea = self.video_classifier(vf_fea)
 

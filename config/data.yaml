@@ -1,11 +1,11 @@
 # 数据来源和类型
 data:
     name: "IEMOCAP" # EMODB, AESDD,IEMOCAP, RAVDESS, SAVEE, TESS, eNTERFACE05
-    root: "/sdb/visitors2/SCW/data/IEMOCAP/IEMOCAP-7s-crop-audio_AVSplit-audio_MFCC_Permute_Channel-video_KeyFrameGetterBasedIntervalSampling_Permute_Channel-.npy"
+    root: "/sdb/user4/SCW/data/IEMOCAP/IEMOCAP-7s-crop-audio_AVSplit-audio_MFCC_Permute_Channel-video_KeyFrameGetterBasedIntervalSampling_Permute_Channel-.npy"
     para:
         name: "7s-crop"
         isvideo: True
-        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/user4/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
         audio:
