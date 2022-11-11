@@ -122,14 +122,12 @@ class MIFFNet(nn.Module):
         self.video_feature_extractor = Conv3dNet()
         self.audio_classifier = nn.Linear(in_features=320, out_features=4)
         self.video_classifier = nn.Linear(in_features=320, out_features=4)
-        self.audio_emotional_weight = nn.Sequential(
-            nn.GRU(input_size=320, hidden_size=64,
-                   num_layers=1, batch_first=True),
-            nn.Linear(64, 1))
-        self.video_emotional_weight = nn.Sequential(
-            nn.GRU(input_size=320, hidden_size=64,
-                   num_layers=1, batch_first=True),
-            nn.Linear(64, 1))
+        self.audio_emotional_GRU = nn.GRU(input_size=320, hidden_size=64,
+                                          num_layers=1, batch_first=True)
+        self.audio_weight = nn.Linear(64, 1)
+        self.video_emotional_GRU = nn.GRU(input_size=320, hidden_size=64,
+                                          num_layers=1, batch_first=True)
+        self.video_weight = nn.Linear(64, 1)
 
     def forward(self, af: Tensor, vf: Tensor, af_len=None, vf_len=None) -> Tensor:
         """
@@ -175,8 +173,9 @@ class MIFFNet(nn.Module):
                                    ).expand(batch_size, max_len) >= af_len[:, None]
             af_fea[af_mask] = 0.0
         # [batch, ceil(seq/af_seqlen), fea] -> (batch,ceil(seq/af_seqlen), 1)
-        weight = self.audio_emotional_weight(af_fea)
-        vf_fea = vf_fea * F.softmax(weight, dim=1)
+        audio_weight = self.audio_emotional_GRU(af_fea)[0]
+        audio_weight = self.audio_weight(audio_weight)
+        af_fea = af_fea * F.softmax(audio_weight, dim=1)
         af_fea = af_fea.mean(dim=1)  # [batch, fea]
         af_fea = self.audio_classifier(af_fea)
 
@@ -194,8 +193,10 @@ class MIFFNet(nn.Module):
                                    ).expand(batch_size, max_len) >= vf_len[:, None]
             vf_fea[vf_mask] = 0.0
 
-        weight = self.video_emotional_weight(af_fea)
-        vf_fea = vf_fea * F.softmax(weight, dim=1)
+        video_weight = self.video_emotional_GRU(vf_fea)[0]
+        video_weight = self.video_weight(video_weight)
+        video_weight = F.softmax(video_weight, dim=1)
+        vf_fea = vf_fea * video_weight
         vf_fea = vf_fea.mean(dim=1)  # [batch, fea]
         vf_fea = self.video_classifier(vf_fea)
 
