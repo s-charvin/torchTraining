@@ -57,6 +57,7 @@ if __name__ == '__main__':
     dataset_root = config["data"]["root"]
     data = globals()[dataset_name](
         root=dataset_root,
+        threads=config["train"]['num_workers'],
         filter=config["data"]["filters"], transform=config["data"]["transforms"], enhance=config["data"]["enhances"], **config["data"]["para"])
 
     num_workers = config["train"]['num_workers']  # 数据处理进程

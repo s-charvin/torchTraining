@@ -1,9 +1,9 @@
 # 数据来源和类型
 data:
     name: "IEMOCAP" # EMODB, AESDD,IEMOCAP, RAVDESS, SAVEE, TESS, eNTERFACE05
-    root: "/sdb/user4/SCW/data/IEMOCAP/IEMOCAP-7s-crop-audio_AVSplit-audio_MFCC_Permute_Channel-video_KeyFrameGetterBasedIntervalSampling_Permute_Channel-.npy"
+    root: "/sdb/user4/SCW/data/IEMOCAP/"
     para:
-        name: "7s-crop"
+        name: "pad-crop"
         isvideo: True
         cascPATH: "/home/user4/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
@@ -12,11 +12,10 @@ data:
             # AudioSplit:
             #     sample_rate: 16000
             #     durations: 3.0
-
-            AVSplit:
-                sample_rate: 16000
-                frame_rate: 29.7
-                durations: 7.0
+            # AVSplit:
+            #     sample_rate: 16000
+            #     frame_rate: 29.7
+            #     durations: 7.0
     transforms:
         audio:
             # Wave_pad_cut:
@@ -67,6 +66,8 @@ data:
 
             KeyFrameGetterBasedIntervalSampling:
                 interval: 3
+            calcOpticalFlowFarneback:
+                keepRGB: True
             Permute_Channel:
                 dims: [0,1,2,3] # [seq,w,h,c]
     filters: {

@@ -1,8 +1,10 @@
+import io
 from turtle import shape
 import numpy as np
 import torch
 import torch.nn.functional as F
 import cv2
+import decord
 
 
 class Video_pad_cut(torch.nn.Module):
@@ -197,29 +199,100 @@ class KeyFrameGetterBasedIntervalSampling(torch.nn.Module):
         # return self.get_key_frame(video)
 
 
-if __name__ == '__main__':
-    cap = cv2.VideoCapture(
-        "/sdb/visitors2/SCW/data/IEMOCAP/Session3/sentences/video/Ses03M_script01_1/Ses03M_script01_1_M037.avi")  # 打开视频文件
+def CAST(v, L, H):
+    # CAST(v, L, H) ( (v) > (H) ? 255 : (v) < (L) ? 0 : cvRound(255*((v) - (L))/((H)-(L))))
+    # 255 if (v) > (H) else 0 if (v) < (L) else round(255*((v) - (L))/((H)-(L)))
+    if (v) > (H):
+        return 255
+    elif (v) < (L):
+        return 0
+    else:
+        return round(255*((v) - (L))/((H)-(L)))
 
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))  # 获取视频的宽度
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))  # 获取视频的高度
-    fps = cap.get(cv2.CAP_PROP_FPS)  # 获取视频的帧率
-    fourcc = int(cap.get(cv2.CAP_PROP_FOURCC))  # 视频的编码
+
+class calcOpticalFlowFarneback(torch.nn.Module):
+    r""" 根据提供的参数, 提取 OpticalFlow.
+    Args:
+        keepRGB (bool, optional): 是否保留原 RGB 通道. Defaults to "right".
+    """
+
+    def __init__(self, type: str = "Farneback", keepRGB: bool = True) -> None:
+        super(calcOpticalFlowFarneback, self).__init__()
+        self.type = type
+        self.keeprgb = keepRGB
+
+    def forward(self, video: torch.Tensor) -> torch.Tensor:
+        # [seq, h, w, 3] RGB
+        video = video.numpy()
+        flows = []
+        prev_gray = cv2.cvtColor(video[0], cv2.COLOR_BGR2GRAY)
+        for capture_frame in video[1:]:
+            capture_image = capture_frame
+            capture_gray = cv2.cvtColor(capture_image, cv2.COLOR_RGB2GRAY)
+
+            if self.type == "Farneback":
+                # OPTFLOW_FARNEBACK_GAUSSIAN, OPTFLOW_USE_INITIAL_FLOW
+                # 返回一个两通道的光流向量，实际上是每个点的像素位移值
+                # https://github.com/chuanenlin/optical-flow/blob/master/dense-solution.py
+                flow = cv2.calcOpticalFlowFarneback(
+                    prev_gray, capture_gray, None, 0.702, 5, 10, 2, 7, 1.5, cv2.OPTFLOW_FARNEBACK_GAUSSIAN)
+                flow_x, flow_y = flow[..., 0], flow[..., 1]
+
+                # img_x = np.zeros_like(flow_x)
+                # img_y = np.zeros_like(flow_y)
+
+                # for i in range(flow_x.shape[0]):
+                #     for j in range(flow_y.shape[1]):
+                #         x = flow_x[i, j]
+                #         y = flow_y[i, j]
+                #         img_x[i, j] = CAST(x, -20, 20)
+                #         img_y[i, j] = CAST(y, -20, 20)
+                flows.append(np.stack([flow_x, flow_y], axis=-1))
+                prev_gray = capture_gray
+            elif self.type == "PyrLK":
+                raise ValueError("还未实现的功能")
+            else:
+                raise ValueError("不是所支持的功能")
+        flows.append(np.stack([flow_x, flow_y], axis=-1))
+        flows = np.array(flows)
+        video = np.concatenate([video, flows], axis=-1)
+        return torch.Tensor(video)
+
+
+if __name__ == '__main__':
+
+    with open("/sdb/user4/SCW/data/IEMOCAP/Session3/sentences/video/Ses03M_script01_1/Ses03M_script01_1_M037.avi", "rb") as fh:
+        video_file = io.BytesIO(fh.read())
+
+    _av_reader = decord.VideoReader(
+        uri=video_file,
+        ctx=decord.cpu(0),
+        width=-1,
+        height=-1,
+        num_threads=0,
+        fault_tol=-1,
+    )
+    _fps = _av_reader.get_avg_fps()
+    _duration = float(len(_av_reader)) / float(_fps)
+    frame_idxs = list(range(0, len(_av_reader)))
+    video = _av_reader.get_batch(frame_idxs)
+    video = video.asnumpy()  # NxHxWx3 RGB
+
+    width, height = video.shape[2], video.shape[1]
+    fourcc = cv2.VideoWriter_fourcc(
+        *'XVID')  # 视频的编码
     # 定义视频对象输出
     writer = cv2.VideoWriter(
-        "/home/user4/SCW/torchTraining/custom_transforms/result.avi", fourcc, fps, (width, height))
-    video = []
-    while cap.isOpened():
-        ret, frame = cap.read()  # 读取摄像头画面, size: h,w
-        if ret is False:
-            break
-        video.append(frame)
-    video = np.array(video)
-    framegetter = KeyFrameGetterBasedInterDifference(
-        window=5, smooth=False, alpha=0.07)
-    framegetter = KeyFrameGetterBasedIntervalSampling(interval=3)
-    video = framegetter(video)
+        "/home/user4/SCW/torchTraining/custom_transforms/result.avi", fourcc, _fps, (width, height))
+
+    # framegetter = KeyFrameGetterBasedInterDifference(
+    #     window=5, smooth=False, alpha=0.07)
+    # framegetter = KeyFrameGetterBasedIntervalSampling(interval=3)
+    framegetter = calcOpticalFlowFarneback()
+    video = framegetter(torch.Tensor(video))
+
     for img in video:
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         writer.write(img)  # 视频保存
-    cap.release()
+
     writer.release()
