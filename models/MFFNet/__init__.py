@@ -1,11 +1,2 @@
-from .model import (
-    MIFFNet,
-    AudioIFFNet,
-    VideoIFFNet,
-)
+from .model import *
 
-__all__ = [
-    "MIFFNet",
-    "AudioIFFNet",
-    "VideoIFFNet",
-]

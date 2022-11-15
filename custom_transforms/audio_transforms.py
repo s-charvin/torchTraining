@@ -123,8 +123,20 @@ class Wave_pad_cut(torch.nn.Module):
 
 
 if __name__ == '__main__':
-    splitMFCC = Wave_pad_cut(sample_rate=16000, durations=3.0)
-    wav = torch.randn((1, 256420))
+    splitMFCC = MFCC(sample_rate=16000, n_mfcc=40, log_mels=True, melkwargs={
+        "n_fft": 1024,
+        "win_length": 1024,
+        "hop_length": 256,
+        "f_min": 80.,
+        "f_max": 7600.,
+        "pad": 0,
+        "n_mels": 128,
+        "power": 2.,
+        "normalized": True,
+        "center":  True,
+        "pad_mode": "reflect",
+                    "onesided": True})
+    wav = torch.randn((1, 16000))
     print(wav.shape)
     wav = splitMFCC(wav)
     print(wav.shape)

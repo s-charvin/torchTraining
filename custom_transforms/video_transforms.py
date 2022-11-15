@@ -335,7 +335,7 @@ if __name__ == '__main__':
         *'XVID')  # 视频的编码
     # 定义视频对象输出
     writer = cv2.VideoWriter(
-        "/home/visitors2/SCW/torchTraining/custom_transforms/result.avi", fourcc, _fps, (width, height))
+        "/home/user4/SCW/torchTraining/custom_transforms/result.avi", fourcc, _fps, (width, height))
 
     # framegetter = KeyFrameGetterBasedInterDifference(
     #     window=5, smooth=False, alpha=0.07)

@@ -241,14 +241,14 @@ class IEMOCAP(CustomDataset):
             if "text" in processors:
                 self.text_transform = processors["text"]
 
-        if self.video_transform and self.isvideo:
-            for i in range(len(self.datadict["video"])):
-                self.datadict["video"][i] = self.video_transform(
-                    self.datadict["video"][i])
         if self.audio_transform:
             for i in range(len(self.datadict["audio"])):
                 self.datadict["audio"][i] = self.audio_transform(
                     self.datadict["audio"][i])
+        if self.video_transform and self.isvideo:
+            for i in range(len(self.datadict["video"])):
+                self.datadict["video"][i] = self.video_transform(
+                    self.datadict["video"][i])
         if self.text_transform:
             for i in range(len(self.datadict["text"])):
                 self.datadict["text"][i] = self.text_transform(

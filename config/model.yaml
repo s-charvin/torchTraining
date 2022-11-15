@@ -1,4 +1,4 @@
 architecture:
     net: 
-        name: "MIFFNet"
+        name: "MIFFNet_Conv2D_GRU_InterFusion"
         para: 
