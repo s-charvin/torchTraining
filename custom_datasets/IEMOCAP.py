@@ -264,7 +264,7 @@ class IEMOCAP(CustomDataset):
             if v:
                 namelist.append(k+"_"+"_".join([i for i in v.keys()]))
         torch.save(self.datadict, os.path.join(
-            self.root, "-".join([self.dataset_name, self.name, *namelist, ".npy"])))
+            self.root, "Feature", "-".join([self.dataset_name, self.name, *namelist, ".npy"])))
 
     def filter(self, filter: dict):
         print("# 数据筛选...")

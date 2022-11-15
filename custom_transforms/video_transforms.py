@@ -267,9 +267,8 @@ class calcRGBDifference(torch.nn.Module):
         keepRGB (bool, optional): 是否保留原 RGB 通道. Defaults to "right".
     """
 
-    def __init__(self, type: str = "Farneback", keepRGB: bool = True) -> None:
+    def __init__(self, keepRGB: bool = True) -> None:
         super(calcRGBDifference, self).__init__()
-        self.type = type
         self.keeprgb = keepRGB
 
     def forward(self, video: torch.Tensor) -> torch.Tensor:
@@ -335,14 +334,17 @@ if __name__ == '__main__':
         *'XVID')  # 视频的编码
     # 定义视频对象输出
     writer = cv2.VideoWriter(
-        "/home/user4/SCW/torchTraining/custom_transforms/result.avi", fourcc, _fps, (width, height))
+        "/home/visitors2/SCW/torchTraining/custom_transforms/result.avi", fourcc, _fps, (width, height))
 
     # framegetter = KeyFrameGetterBasedInterDifference(
     #     window=5, smooth=False, alpha=0.07)
     # framegetter = KeyFrameGetterBasedIntervalSampling(interval=3)
-    framegetter = calcOpticalFlowAndRGBDifference()
+    framegetter = KeyFrameGetterBasedIntervalSampling(interval=3)
     video = framegetter(torch.Tensor(video))
+    # calcRGBDifference(keepRGB = True) calcOpticalFlow(keepRGB = True)
 
+    calc = calcOpticalFlow(keepRGB=False)
+    video = calc(video)
     for img in video:
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         writer.write(img)  # 视频保存

@@ -2,7 +2,7 @@
 import os
 import sys
 if sys.platform.startswith('linux'):
-    os.chdir("/home/user4/SCW/torchTraining")
+    os.chdir("/home/visitors2/SCW/torchTraining")
 elif sys.platform.startswith('win'):
     pass
 import yaml  # yaml文件解析模块
@@ -17,7 +17,7 @@ from custom_solver import *
 print("程序运行起始文件夹: "+os.getcwd())
 
 if __name__ == '__main__':
-    configpath = '/home/user4/SCW/torchTraining/config'
+    configpath = '/home/visitors2/SCW/torchTraining/config'
     config = {}
     [config.update(yaml.safe_load(open(os.path.join(configpath, i),
                    'r', encoding='utf-8').read())) for i in os.listdir(configpath)]
