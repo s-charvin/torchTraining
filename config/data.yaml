@@ -1,11 +1,11 @@
 # 数据来源和类型
 data:
     name: "IEMOCAP" # EMODB, AESDD,IEMOCAP, RAVDESS, SAVEE, TESS, eNTERFACE05
-    root: "/sdb/user4/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
-        name: "pad-crop"
+        name: "pad-crop-withRGB"
         isvideo: True
-        cascPATH: "/home/user4/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
         audio:
@@ -66,8 +66,8 @@ data:
 
             KeyFrameGetterBasedIntervalSampling:
                 interval: 3
-            calcOpticalFlowFarneback:
-                keepRGB: True
+            calcOpticalFlowAndRGBDifference:
+                keepRGB: False
             Permute_Channel:
                 dims: [0,1,2,3] # [seq,w,h,c]
     filters: {

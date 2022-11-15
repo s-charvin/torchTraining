@@ -2,6 +2,7 @@ from . import components
 import torch
 from torch import Tensor, nn
 
+
 class LightSerNet(nn.Module):
     """
     paper: Light-SERNet: A lightweight fully convolutional neural network for speech emotion recognition

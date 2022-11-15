@@ -56,7 +56,7 @@ class Video_pad_cut(torch.nn.Module):
                 left_cut = int((length-self.FramNum)/2.0)
                 right_cut = length-self.FramNum-left_cut
                 Video = Video[:, left_cut:-right_cut, :, :]
-        return Video
+        return Video.clone()
 
 
 class KeyFrameGetterBasedInterDifference(torch.nn.Module):
@@ -159,7 +159,7 @@ class KeyFrameGetterBasedInterDifference(torch.nn.Module):
         '''
         diff = self.load_diff(video)
         idx = self.pick_idx(diff)
-        return video[idx]
+        return video[idx].clone()
 
     def forward(self, video: torch.Tensor) -> torch.Tensor:
         # [seq, h, w, 3] RGB
@@ -194,7 +194,7 @@ class KeyFrameGetterBasedIntervalSampling(torch.nn.Module):
         for i in range(video.shape[0]):
             if (i+1) % self.interval == 0:
                 indx.append(i)
-        return video[indx]
+        return video[indx].clone()
 
         # return self.get_key_frame(video)
 
@@ -210,20 +210,21 @@ def CAST(v, L, H):
         return round(255*((v) - (L))/((H)-(L)))
 
 
-class calcOpticalFlowFarneback(torch.nn.Module):
+class calcOpticalFlow(torch.nn.Module):
     r""" 根据提供的参数, 提取 OpticalFlow.
     Args:
         keepRGB (bool, optional): 是否保留原 RGB 通道. Defaults to "right".
     """
 
     def __init__(self, type: str = "Farneback", keepRGB: bool = True) -> None:
-        super(calcOpticalFlowFarneback, self).__init__()
+        super(calcOpticalFlow, self).__init__()
         self.type = type
         self.keeprgb = keepRGB
 
     def forward(self, video: torch.Tensor) -> torch.Tensor:
         # [seq, h, w, 3] RGB
-        video = video.numpy()
+        if isinstance(video, torch.Tensor):
+            video = video.numpy()
         flows = []
         prev_gray = cv2.cvtColor(video[0], cv2.COLOR_BGR2GRAY)
         for capture_frame in video[1:]:
@@ -255,13 +256,64 @@ class calcOpticalFlowFarneback(torch.nn.Module):
                 raise ValueError("不是所支持的功能")
         flows.append(np.stack([flow_x, flow_y], axis=-1))
         flows = np.array(flows)
-        video = np.concatenate([video, flows], axis=-1)
-        return torch.Tensor(video)
+        if self.keeprgb:
+            flows = np.concatenate([video, flows], axis=-1)
+        return torch.Tensor(flows.copy())
+
+
+class calcRGBDifference(torch.nn.Module):
+    r""" 根据提供的参数, 提取 Difference.
+    Args:
+        keepRGB (bool, optional): 是否保留原 RGB 通道. Defaults to "right".
+    """
+
+    def __init__(self, type: str = "Farneback", keepRGB: bool = True) -> None:
+        super(calcRGBDifference, self).__init__()
+        self.type = type
+        self.keeprgb = keepRGB
+
+    def forward(self, video: torch.Tensor) -> torch.Tensor:
+        # [seq, h, w, 3] RGB
+        if isinstance(video, torch.Tensor):
+            video = video.numpy()
+        differences = video.copy()
+        for x in reversed(list(range(1, video.shape[0]))):
+            # 后一张图像减去前一张图像
+            differences[x, :, :, :] = video[x,
+                                            :, :, :] - video[x - 1, :, :, :]
+
+        if self.keeprgb:
+            differences = np.concatenate([video, differences], axis=-1)
+        return torch.Tensor(differences.copy())
+
+
+class calcOpticalFlowAndRGBDifference(torch.nn.Module):
+    r""" 根据提供的参数, 提取 OpticalFlow.
+    Args:
+        keepRGB (bool, optional): 是否保留原 RGB 通道. Defaults to "right".
+    """
+
+    def __init__(self, type: str = "Farneback", keepRGB: bool = True) -> None:
+        super(calcOpticalFlowAndRGBDifference, self).__init__()
+        self.type = type
+        self.keeprgb = keepRGB
+        self.opticalflow = calcOpticalFlow(type=type, keepRGB=False)
+        self.difference = calcRGBDifference(keepRGB=False)
+
+    def forward(self, video: torch.Tensor) -> torch.Tensor:
+        # [seq, h, w, 3] RGB
+        if isinstance(video, torch.Tensor):
+            video = video.numpy()
+        flows = self.opticalflow(video)
+        differences = self.difference(video)
+        if self.keeprgb:
+            return torch.Tensor(np.concatenate([video, flows, differences], axis=-1).copy())
+        return torch.Tensor(np.concatenate([flows, differences], axis=-1).copy())
 
 
 if __name__ == '__main__':
 
-    with open("/sdb/user4/SCW/data/IEMOCAP/Session3/sentences/video/Ses03M_script01_1/Ses03M_script01_1_M037.avi", "rb") as fh:
+    with open("/sdb/visitors2/SCW/data/IEMOCAP/Session3/sentences/video/Ses03M_script01_1/Ses03M_script01_1_M037.avi", "rb") as fh:
         video_file = io.BytesIO(fh.read())
 
     _av_reader = decord.VideoReader(
@@ -283,12 +335,12 @@ if __name__ == '__main__':
         *'XVID')  # 视频的编码
     # 定义视频对象输出
     writer = cv2.VideoWriter(
-        "/home/user4/SCW/torchTraining/custom_transforms/result.avi", fourcc, _fps, (width, height))
+        "/home/visitors2/SCW/torchTraining/custom_transforms/result.avi", fourcc, _fps, (width, height))
 
     # framegetter = KeyFrameGetterBasedInterDifference(
     #     window=5, smooth=False, alpha=0.07)
     # framegetter = KeyFrameGetterBasedIntervalSampling(interval=3)
-    framegetter = calcOpticalFlowFarneback()
+    framegetter = calcOpticalFlowAndRGBDifference()
     video = framegetter(torch.Tensor(video))
 
     for img in video:

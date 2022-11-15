@@ -6,6 +6,13 @@ import torch.nn.functional as F
 import math
 
 
+class EmptyModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+    def forward(self, x: Tensor) -> Tensor:
+        return x
+
+
 class Conv2dFeatureExtractor(nn.Module):
     """构建连续的2D卷积网络结构主Module
     Args:

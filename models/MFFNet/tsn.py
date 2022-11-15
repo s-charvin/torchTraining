@@ -163,7 +163,7 @@ class TSN(nn.Module):
     def _prepare_tsn(self, num_class):
 
         feature_dim = getattr(
-            self.base_model, self.base_model.last_layer_name).in_features  # 记录原原基本模型的最终全连接层输入参数
+            self.base_model, self.base_model.last_layer_name).in_features  # 记录原基本模型的最终全连接层输入参数
         if self.dropout == 0:
             setattr(self.base_model, self.base_model.last_layer_name,
                     nn.Linear(feature_dim, num_class))  # 修改原基本模型的最终全连接层参数(主要是修改输出参数和重新训练)

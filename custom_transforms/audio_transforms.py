@@ -96,7 +96,7 @@ class Wave_pad_cut(torch.nn.Module):
             if self.mode == "biside":
                 left_cut = int((length-self.samplingNum)/2.0)
                 right_cut = length-self.samplingNum-left_cut
-                waveform = waveform[:, left_cut:-right_cut]
+                waveform = waveform[:, left_cut:-right_cut].copy()
         return waveform
 
 
