@@ -3,7 +3,7 @@ data:
     name: "IEMOCAP" # EMODB, AESDD,IEMOCAP, RAVDESS, SAVEE, TESS, eNTERFACE05
     root: "/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-audio_AVSplit-audio_MFCC_Permute_Channel-video_KeyFrameGetterBasedIntervalSampling_Permute_Channel-.npy"
     para:
-        name: "pad-crop"
+        name: "crop-7s"
         isvideo: True
         cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
@@ -12,10 +12,10 @@ data:
             # AudioSplit:
             #     sample_rate: 16000
             #     durations: 3.0
-            # AVSplit:
-            #     sample_rate: 16000
-            #     frame_rate: 29.7
-            #     durations: 3.0
+            AVSplit:
+                sample_rate: 16000
+                frame_rate: 29.7
+                durations: 7.0
     transforms:
         audio:
             # Wave_pad_cut:

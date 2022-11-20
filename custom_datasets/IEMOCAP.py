@@ -3,7 +3,7 @@ from .subset import CustomDataset
 from custom_enhance import *
 from custom_transforms import *
 from utils.filefolderTool import create_folder
-from utils.extractFace import capture_face_video, capture_video
+from utils.video_featureExtract_extractFace import capture_face_video, capture_video
 from tqdm import tqdm
 import os
 import sys

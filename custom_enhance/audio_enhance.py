@@ -98,7 +98,7 @@ class AVSplit(torch.nn.Module):
             else:  # 填充比指定时间段短的数据
                 video = F.pad(
                     video, (0, 0, 0, 0, 0, 0, 0, self.video_samples-video.shape[0]))
-            video = torch.split(video, self.video_samples, dim=1)
+            video = torch.split(video, self.video_samples, dim=0)
 
             for wav, vid in zip(waveform, video):
                 for col in columns:

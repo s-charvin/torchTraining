@@ -1,8 +1,134 @@
+import os
+import sys
+from typing import Sequence
+from pathlib import Path
 from IPython import display
 from matplotlib import pyplot as plt
 import torch
 import numpy as np
 import librosa.display
+import torchaudio
+import decord
+from custom_transforms.video_transforms import *
+
+
+def plot_spectrogram(input, outdir="./logs/Image/"):
+    try:
+        outdir = Path(outdir)
+        outdir.mkdir(parents=True)
+    except FileExistsError:
+        pass
+    spectrogram = torchaudio.transforms.Spectrogram(
+        n_fft=1024, win_length=1024, hop_length=256, pad=0, power=2, normalized=True, center=True, pad_mode="reflect", onesided=True)
+    if isinstance(input, str) and os.path.isfile(input):
+        wav, sr = torchaudio.load(input)
+        spec = spectrogram(wav)
+        save_spectrogram(spec[0], path=os.path.join(
+            outdir.resolve(), Path(input).stem+".png"), title="Spectrogram (db)", ylabel="freq_bin")
+    elif isinstance(input, Sequence) and os.path.isfile(input[0]):
+        for it in input:
+            path = Path(it)
+            wav, sr = torchaudio.load(path.resolve())
+            spec = spectrogram(wav)
+            save_spectrogram(spec[0], path=os.path.join(
+                outdir.resolve(), path.stem+".png"), title="Spectrogram (db)", ylabel="freq_bin")
+
+
+def save_spectrogram(specgram, path, title, ylabel):
+
+    fig, axs = plt.subplots(1, 1)
+    axs.set_title(title)
+    axs.set_ylabel(ylabel)
+    axs.set_xlabel("frame")
+    # cmap =  ["inferno", "gnuplot2", "CMRmap", "jet", "turbo"]
+    im = axs.imshow(librosa.power_to_db(specgram),
+                    origin="lower", aspect="auto", cmap=plt.cm.jet)
+    fig.colorbar(im, ax=axs)
+    plt.savefig(path, dpi=600, transparent=True,
+                bbox_inches="tight", pad_inches=0.,)
+    plt.close()
+
+
+def plot_melspectrogram(input, outdir="./logs/Image/"):
+    try:
+        outdir = Path(outdir)
+        outdir.mkdir(parents=True)
+    except FileExistsError:
+        pass
+    melspectrogram = torchaudio.transforms.MelSpectrogram(
+        n_mels=128, n_fft=1024, win_length=1024, hop_length=256, f_min=80, f_max=7600, pad=0, power=2, normalized=True, center=True, pad_mode="", onesided=True)
+    if isinstance(input, str) and os.path.isfile(input):
+        wav, sr = torchaudio.load(input)
+        spec = melspectrogram(wav)
+        save_spectrogram(spec[0], path=os.path.join(
+            outdir.resolve(), Path(input).stem+".png"), title="MelSpectrogram (db)", ylabel="mel freq")
+    elif isinstance(input, Sequence) and os.path.isfile(input[0]):
+        for it in input:
+            path = Path(it)
+            wav, sr = torchaudio.load(path.resolve())
+            spec = melspectrogram(wav)
+            save_spectrogram(spec[0], path=os.path.join(
+                outdir.resolve(), path.stem+".png"), title="MelSpectrogram (db)", ylabel="mel freq")
+
+
+def plot_RGBDifference(input, outdir="./logs/Video/"):
+    try:
+        outdir = Path(outdir)
+        outdir.mkdir(parents=True)
+    except FileExistsError:
+        pass
+    difference = calcRGBDifference(keepRGB=False)
+    if isinstance(input, str) and os.path.isfile(input):
+        with open(input, "rb") as fh:
+            video_file = io.BytesIO(fh.read())
+        _av_reader = decord.VideoReader(
+            uri=video_file,
+            ctx=decord.cpu(0),
+            width=-1,
+            height=-1,
+            num_threads=8,
+            fault_tol=-1,)
+        width, height = video.shape[2], video.shape[1]
+        _fps = _av_reader.get_avg_fps()
+        video = _av_reader.get_batch(frame_idxs)
+        video = video.asnumpy()
+        video = difference(video).numpy()
+        save_video(video, path=os.path.join(
+            outdir.resolve(), Path(input).stem+".avi"), width=width, height=height, _fps=_fps)
+
+    elif isinstance(input, Sequence) and os.path.isfile(input[0]):
+        for it in input:
+            path = Path(it)
+            with open(path.resolve(), "rb") as fh:
+                video_file = io.BytesIO(fh.read())
+            _av_reader = decord.VideoReader(
+                uri=video_file,
+                ctx=decord.cpu(0),
+                width=-1,
+                height=-1,
+                num_threads=8,
+                fault_tol=-1,
+            )
+
+            _fps = _av_reader.get_avg_fps()
+            frame_idxs = list(range(0, len(_av_reader)))
+            video = _av_reader.get_batch(frame_idxs)
+            width, height = video.shape[2], video.shape[1]
+            video = video.asnumpy()
+            video = difference(video).numpy().astype(np.uint8)
+            save_video(video, out_path=os.path.join(
+                outdir.resolve(), Path(path).stem+".avi"), width=width, height=height, _fps=_fps)
+
+
+def save_video(video, out_path, width, height, _fps):
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')  # 视频的编码
+    # 定义视频对象输出
+    writer = cv2.VideoWriter(out_path, fourcc, _fps,
+                             (width, height))  # , isColor=False
+    for img in video:
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)  # RGB2GRAY
+        writer.write(img)  # 视频保存
+    writer.release()
 
 
 class Plot:

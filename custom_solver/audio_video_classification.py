@@ -167,7 +167,7 @@ class Audio_Video_Classification(object):
 
         # 保存最终的模型
         self.save(save_dir=self.model_save_dir, it=self.last_epochs)
-        return self.accuracylog[-self.config['logs']['test_accuracy_every']:]
+        return [sum(sorted(acclist, reverse=False)[-self.config['logs']['test_accuracy_every']:])/self.config['logs']['test_accuracy_every'] for acclist in self.accuracylog]
 
     def test(self):
 
@@ -468,9 +468,8 @@ class Audio_Video_Fusion_Classification(object):
                 audio_loss = loss_func(audio_out, labels)
                 video_loss = loss_func(video_out, labels)
                 fusion_loss = loss_func(fusion_out, labels)
-                audio_loss.backward()
-                video_loss.backward()
-                fusion_loss.backward()
+                loss = (audio_loss+video_loss+fusion_loss)/3
+                loss.backward()
                 if((batch_i+1) % 8) == 0:
                     self.optimizer.step()  # 反向传播，更新网络参数
                 self.lr_method.step(epoch + batch_i / len(self.train_loader))
@@ -498,7 +497,7 @@ class Audio_Video_Fusion_Classification(object):
 
         # 保存最终的模型
         self.save(save_dir=self.model_save_dir, it=self.last_epochs)
-        return self.accuracylog[-self.config['logs']['test_accuracy_every']:]
+        return [sum(sorted(acclist, reverse=False)[-self.config['logs']['test_accuracy_every']:])/self.config['logs']['test_accuracy_every'] for acclist in self.accuracylog]
 
     def test(self):
 

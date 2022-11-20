@@ -14,8 +14,10 @@ from torch.utils.data import DataLoader
 # 自定库
 from custom_datasets import *
 from custom_solver import *
-print("程序运行起始文件夹: "+os.getcwd())
 
+torch.backends.cudnn.enabled = True
+torch.backends.cudnn.benchmark = True
+print("程序运行起始文件夹: "+os.getcwd())
 if __name__ == '__main__':
     configpath = '/home/visitors2/SCW/torchTraining/config'
     config = {}
