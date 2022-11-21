@@ -34,7 +34,14 @@ class Audio_Classification(object):
             else:
                 self.net = globals()[
                     self.config["architecture"]["net"]["name"]]()
-
+        # 多 GPU 并行计算
+        if len(self.config["train"]['USE_GPU'].split(",")) > 1:
+            torch.distributed.init_process_group(backend="gloo")
+            # backend: 多机器间交换数据协议, init_method: 设置交换数据主节点, world_size:标识使用进程数（主机数*每台主机的GPU数/实际就是机器的个数？）
+            # rank: 标识主机和从机，主节点为 0, 剩余的为 1-(N-1), N 为要使用的机器的数量
+            self.net = self.net.cuda()
+            self.net = torch.nn.parallel.DistributedDataParallel(
+                self.net, find_unused_parameters=True)  # device_ids 默认选用本地显示的所有 GPU
         self.set_configuration()  # 设置参数
         # 加载模型及其参数
         if self.config['train']['checkpoint']:  # 是否加载历史检查点

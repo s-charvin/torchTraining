@@ -1,4 +1,4 @@
 architecture:
     net: 
-        name: "MIFFNet_Conv2D"
+        name: "VideoNet"
         para: 

@@ -1,4 +1,5 @@
 # 官方库
+import argparse
 import os
 import sys
 if sys.platform.startswith('linux'):
@@ -19,6 +20,9 @@ torch.backends.cudnn.enabled = True
 torch.backends.cudnn.benchmark = True
 print("程序运行起始文件夹: "+os.getcwd())
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--local_rank", type=int)
+    args = parser.parse_args()
     configpath = '/home/visitors2/SCW/torchTraining/config'
     config = {}
     [config.update(yaml.safe_load(open(os.path.join(configpath, i),
@@ -30,6 +34,7 @@ if __name__ == '__main__':
     print('################ 程序运行环境 ################')
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = config['train']['USE_GPU']
+
     print(f"# torch_version: {torch.__version__}")  # 软件 torch 版本
     if config["train"]['USE_GPU'] and torch.cuda.is_available():  # 如果使用 GPU 加速
         print(

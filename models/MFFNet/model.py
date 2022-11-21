@@ -99,9 +99,9 @@ class PretrainedBaseModel(nn.Module):
         layer_name = list(container.state_dict().keys())[0][:-7]
         setattr(container, layer_name, new_conv)  # 替换卷积
 
-    def forward(self, input):
+    def forward(self, x):
         # size: [B,C,H,W]
-        base_out = self.base_model(input)  # [B,C,H,W]->[B,F]
+        base_out = self.base_model(x)  # [B,C,H,W]->[B,F]
         if self.before_dropout > 0:
             base_out = self.new_fc(base_out)
         if self.before_softmax:
@@ -295,14 +295,15 @@ class VideoNet(nn.Module):
     def forward(self,  vf: Tensor, vf_len=None) -> Tensor:
         """
         Args:
-            vf (Tensor): size:[batch, channel, seq, w, h]
+            vf (Tensor): size:[B, C, Seq, W, H]
             vf_len (Sequence, optional): size:[batch]. Defaults to None.
         Returns:
             Tensor: size:[batch, out]
         """
         seq_length = vf.shape[2]
-        base_out = self.base_model(vf.permute(
-            0, 2, 1, 3, 4).view((-1, self.in_channels) + input.size()[-3:]))
+        vf = vf.permute(0, 2, 1, 3, 4).clone().contiguous()
+        # [B, Seq, C, W, H]
+        base_out = self.base_model(vf.view((-1, ) + vf.size()[-3:]))
         # [batch * seq, feature]
         base_out = base_out.view((-1, seq_length) + base_out.size()[1:])
         base_out = base_out.mean(dim=1)
