@@ -105,7 +105,7 @@ class PretrainedBaseModel(nn.Module):
         if self.before_dropout > 0:
             base_out = self.new_fc(base_out)
         if self.before_softmax:
-            base_out = F.softmax(base_out)
+            base_out = F.softmax(base_out, dim=1)
         return base_out.squeeze()
 
 
@@ -306,8 +306,9 @@ class VideoNet(nn.Module):
         base_out = self.base_model(vf.view((-1, ) + vf.size()[-3:]))
         # [batch * seq, feature]
         base_out = base_out.view((-1, seq_length) + base_out.size()[1:])
-        base_out = base_out.mean(dim=1)
-        return base_out
+        # [batch, seq, feature]
+        base_out = base_out.mean(dim=1).squeeze()
+        return F.softmax(base_out, dim=1)
 
 
 class AudioNet(nn.Module):
@@ -318,8 +319,8 @@ class AudioNet(nn.Module):
     def __init__(self, in_channels=1) -> None:
         super().__init__()
         self.in_channels = in_channels
-        self.base_model = PretrainedBaseModel(
-            in_channels=in_channels, num_class=4, base_model='resnet50', before_dropout=0, before_softmax=True)
+        # self.base_model = PretrainedBaseModel(
+        #     in_channels=in_channels, num_class=4, base_model='resnet50', before_dropout=0, before_softmax=True)
         self.base_model = LightSerNet(in_channels=in_channels, num_class=4)
 
     def forward(self,  af: Tensor, af_len=None) -> Tensor:
@@ -334,7 +335,7 @@ class AudioNet(nn.Module):
 
         # [batch, C]
 
-        return base_out
+        return F.softmax(base_out, dim=1)
 
 
 class AudioIFFNet(nn.Module):

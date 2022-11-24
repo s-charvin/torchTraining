@@ -44,7 +44,8 @@ class IEMOCAP(CustomDataset):
                  filter: dict = {"replace": {}, "dropna": {'emotion': ["other", "xxx"]}, "contains": "", "query": "", "sort_values": ""},
                  transform: dict = None,
                  enhance: dict = None,
-                 isvideo: bool = False,
+                 mode: str = "audio",
+                 videomode: str = "crop",  # "face"
                  cascPATH: Union[str, Path] = None,
                  threads: int = 0,
                  ):
@@ -54,11 +55,11 @@ class IEMOCAP(CustomDataset):
         self.root = root
         self.name = name
         self.threads = threads
-        self.isvideo = isvideo
-        if isvideo:
+        self.mode = mode
+        if self.mode in ["video", "av"]:
             if not cascPATH:
                 raise ValueError("# video 和 cascPATH 必须同时提供")
-            self.videomode = "crop"  # "face"
+            self.videomode = videomode
         if os.path.isfile(root):
             self.load_data()
             if filter:
@@ -158,7 +159,7 @@ class IEMOCAP(CustomDataset):
                             _textList[index] = text
                         except:  # 出错就跳过
                             continue
-        if self.isvideo:
+        if self.mode in ["video", "av"]:
             self.check_video_file(cascPATH, threads)
         self.datadict = {
             "path": self._pathList,
@@ -169,27 +170,29 @@ class IEMOCAP(CustomDataset):
             "label": _labelList,
             "sample_rate": _sample_rate
         }
-        print("# 构建语音数据")
-        audiolist = [None]*len(self._pathList)
-        # for n in tqdm(range(len(self.datadict["path"]))):
-        #     audiolist[n] = self._load_audio(self.datadict["path"][n])
-        if self.threads > 0:
-            audiolist = self.sequence_multithread_processing(
-                len(self._pathList), self.thread_load_audio)
-        else:
-            for i in tqdm(range(len(self.datadict["path"]))):
-                audiolist[i] = self._load_audio(self.datadict["path"][i])
 
-        self.datadict["audio"] = [torch.from_numpy(i) for i in audiolist]
-        del audiolist
+        if self.mode in ["audio", "av"]:
+            print("# 构建语音数据")
+            audiolist = [None]*len(self._pathList)
+            # for n in tqdm(range(len(self.datadict["path"]))):
+            #     audiolist[n] = self._load_audio(self.datadict["path"][n])
+            if self.threads > 0:
+                audiolist = self.sequence_multithread_processing(
+                    len(self._pathList), self.thread_load_audio)
+            else:
+                for i in tqdm(range(len(self.datadict["path"]))):
+                    audiolist[i] = self._load_audio(self.datadict["path"][i])
 
-        if self.isvideo:
+            self.datadict["audio"] = [torch.from_numpy(i) for i in audiolist]
+            del audiolist
+
+        if self.mode in ["video", "av"]:
             print("# 构建视频数据")
             videolist = [None]*len(self._pathList)
             for n in tqdm(range(len(self.datadict["path"])), desc="# Processing"):
                 videolist[n] = self._load_video(self.datadict["path"][n])
-        self.datadict["video"] = [torch.from_numpy(i) for i in videolist]
-        del videolist
+            self.datadict["video"] = [torch.from_numpy(i) for i in videolist]
+            del videolist
 
     def make_enhance(self, enhance):
         self.audio_enhance = None
@@ -209,9 +212,9 @@ class IEMOCAP(CustomDataset):
                 processors[key] = Compose(pl)
         print("# 数据增强...")
         if processors:
-            if "audio" in processors:
+            if "audio" in processors and self.mode in ["audio", "av"]:
                 self.datadict = processors["audio"](self.datadict)
-            if "video" in processors:
+            if "video" in processors and self.mode in ["video", "av"]:
                 self.datadict = processors["video"](self.datadict)
             if "text" in processors:
                 self.datadict = processors["text"](self.datadict)
@@ -241,11 +244,11 @@ class IEMOCAP(CustomDataset):
             if "text" in processors:
                 self.text_transform = processors["text"]
 
-        if self.audio_transform:
+        if self.audio_transform and self.mode in ["audio", "av"]:
             for i in range(len(self.datadict["audio"])):
                 self.datadict["audio"][i] = self.audio_transform(
                     self.datadict["audio"][i])
-        if self.video_transform and self.isvideo:
+        if self.video_transform and self.mode in ["video", "av"]:
             for i in range(len(self.datadict["video"])):
                 self.datadict["video"][i] = self.video_transform(
                     self.datadict["video"][i])
@@ -269,11 +272,11 @@ class IEMOCAP(CustomDataset):
     def filter(self, filter: dict):
         print("# 数据筛选...")
         # 根据提供的字典替换值, key 决定要替换的列, value 是 字符串字典, 决定被替换的值
-        if self.isvideo:
+        if self.mode in ["video", "av"]:
             self.datadict["video_length"] = [v.shape[0]
                                              for v in self.datadict["video"]]
         self.datadict = pd.DataFrame(self.datadict)
-        if self.isvideo:
+        if self.mode in ["video", "av"]:
             self.datadict = self.datadict[~self.datadict["path"].str.contains(
                 "Ses05F_script02_2_M", case=True)]
             self.datadict = self.datadict[~self.datadict["path"].str.contains(
@@ -577,8 +580,18 @@ class IEMOCAP(CustomDataset):
 
     def _load_iemocap_item(self, n: int) -> Dict[str, Optional[Union[int, torch.Tensor, torch.Tensor, int, str, str, Tuple[torch.Tensor, torch.Tensor, torch.Tensor], str]]]:
 
-        if self.isvideo:
-
+        if self.mode == "video":
+            return {
+                "id": n,
+                "video": self.datadict["video"][n],
+                "sample_rate": self.datadict["sample_rate"][n],
+                "text": self.datadict["text"][n],
+                "labelid": self.datadict["labelid"][n],
+                "val/act/dom": self.datadict["dimvalue"][n],
+                "gender": self.datadict["gender"][n],
+                "label": self.datadict["label"][n]
+            }
+        elif self.mode == "av":
             return {
                 "id": n,
                 "video": self.datadict["video"][n],
@@ -620,7 +633,7 @@ class IEMOCAP(CustomDataset):
 
 
 if __name__ == '__main__':
-    a = IEMOCAP("/home/visitors2/SCW/deeplearning/data/IEMOCAP", True,
-                "/home/visitors2/SCW/deeplearningcopy/utils/haarcascade_frontalface_alt2.xml", 0)
+    a = IEMOCAP("/home/user4/SCW/deeplearning/data/IEMOCAP", True,
+                "/home/user4/SCW/deeplearningcopy/utils/haarcascade_frontalface_alt2.xml", 0)
     feature = a.__getitem__(1000)
     pass

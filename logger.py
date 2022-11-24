@@ -19,7 +19,7 @@ class Logger(object):
         """Initialize summary writer.
         para log_dir: 日志保存基路径
         para model_name: 模型名称
-        para flush_secs: 将记载日志刷新到磁盘的频率，默认120秒
+        para flush_secs: 将记载日志刷新到磁盘的频率, 默认120秒
         """
 
         self.file_dir = os.path.join(log_dir, model_name)
