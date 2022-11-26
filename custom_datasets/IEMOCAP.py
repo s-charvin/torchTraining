@@ -42,8 +42,9 @@ class IEMOCAP(CustomDataset):
                  root: Union[str, Path],
                  name: str = "",
                  filter: dict = {"replace": {}, "dropna": {'emotion': ["other", "xxx"]}, "contains": "", "query": "", "sort_values": ""},
-                 transform: dict = None,
-                 enhance: dict = None,
+                 transform: dict = {},
+                 enhance: dict = {},
+                 #
                  mode: str = "audio",
                  videomode: str = "crop",  # "face"
                  cascPATH: Union[str, Path] = None,
@@ -71,6 +72,8 @@ class IEMOCAP(CustomDataset):
             self.save_frame(transform, enhance)
             if filter:
                 self.filter(filter)
+        else:
+            raise ValueError("数据库地址不对")
 
     def make_datadict(self, cascPATH, threads):
         """
@@ -194,22 +197,32 @@ class IEMOCAP(CustomDataset):
             self.datadict["video"] = [torch.from_numpy(i) for i in videolist]
             del videolist
 
+            # if self.threads > 0:
+            #     videolist = self.sequence_multithread_processing(
+            #         len(self._pathList), self.thread_load_video)
+            # else:
+            #     for i in tqdm(range(len(self.datadict["path"])), desc="# Processing"):
+            #         videolist[i] = self._load_video(self.datadict["path"][i])
+            # self.datadict["video"] = [torch.from_numpy(i) for i in videolist]
+            # del videolist
+
     def make_enhance(self, enhance):
         self.audio_enhance = None
         self.video_enhance = None
         self.text_enhance = None
 
         processors = {}
-        for key, processor in enhance.items():
-            if processor:
-                pl = []
-                for name, param in processor.items():
+        if enhance:
+            for key, processor in enhance.items():
+                if processor:
+                    pl = []
+                    for name, param in processor.items():
 
-                    if param:
-                        pl.append(globals()[name](**param))
-                    else:
-                        pl.append(globals()[name]())
-                processors[key] = Compose(pl)
+                        if param:
+                            pl.append(globals()[name](**param))
+                        else:
+                            pl.append(globals()[name]())
+                    processors[key] = Compose(pl)
         print("# 数据增强...")
         if processors:
             if "audio" in processors and self.mode in ["audio", "av"]:
@@ -225,16 +238,17 @@ class IEMOCAP(CustomDataset):
         self.text_transform = None
         print("# 数据处理...")
         processors = {}
-        for key, processor in transform.items():
-            if processor:
-                pl = []
-                for name, param in processor.items():
+        if transform:
+            for key, processor in transform.items():
+                if processor:
+                    pl = []
+                    for name, param in processor.items():
 
-                    if param:
-                        pl.append(globals()[name](**param))
-                    else:
-                        pl.append(globals()[name]())
-                processors[key] = Compose(pl)
+                        if param:
+                            pl.append(globals()[name](**param))
+                        else:
+                            pl.append(globals()[name]())
+                    processors[key] = Compose(pl)
 
         if processors:
             if "audio" in processors:
@@ -260,12 +274,14 @@ class IEMOCAP(CustomDataset):
     def save_frame(self, transform, enhance):
         print("# 存储数据...")
         namelist = []
-        for k, v in enhance.items():
-            if v:
-                namelist.append(k+"_"+"_".join([i for i in v.keys()]))
-        for k, v in transform.items():
-            if v:
-                namelist.append(k+"_"+"_".join([i for i in v.keys()]))
+        if enhance:
+            for k, v in enhance.items():
+                if v:
+                    namelist.append(k+"_"+"_".join([i for i in v.keys()]))
+        if transform:
+            for k, v in transform.items():
+                if v:
+                    namelist.append(k+"_"+"_".join([i for i in v.keys()]))
         torch.save(self.datadict, os.path.join(
             self.root, "Feature", "-".join([self.dataset_name, self.name, *namelist, ".npy"])))
 

@@ -3,7 +3,7 @@ import argparse
 import os
 import sys
 if sys.platform.startswith('linux'):
-    os.chdir("/home/user4/SCW/torchTraining")
+    os.chdir("/home/visitors2/SCW/torchTraining")
 elif sys.platform.startswith('win'):
     pass
 import yaml  # yaml文件解析模块
@@ -23,7 +23,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--local_rank", type=int)
     args = parser.parse_args()
-    configpath = '/home/user4/SCW/torchTraining/config'
+    configpath = '/home/visitors2/SCW/torchTraining/config/'
     config = {}
     [config.update(yaml.safe_load(open(os.path.join(configpath, i),
                    'r', encoding='utf-8').read())) for i in os.listdir(configpath)]

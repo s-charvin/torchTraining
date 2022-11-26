@@ -1,0 +1,961 @@
+# 数据来源和类型 备份
+data:
+    name: "IEMOCAP" # EMODB, AESDD,IEMOCAP, RAVDESS, SAVEE, TESS, eNTERFACE05
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-audio_AVSplit-audio_MFCC_Permute_Channel-video_KeyFrameGetterBasedIntervalSampling_Permute_Channel-.npy"
+    para:
+        name: "crop-7s"
+        mode: "audio" # "video", "av"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+        audio:
+            # AudioSplit:
+            #     sample_rate: 16000
+            #     durations: 3.0
+            AVSplit:
+                sample_rate: 16000
+                frame_rate: 29.7
+                durations: 7.0
+    transforms:
+        audio:
+            # Wave_pad_cut:
+            #     samplingNum: 112000
+
+            # MelSpectrogram:
+            #     sample_rate: 16000
+            #     n_fft: 1024
+            #     win_length: 1024
+            #     hop_length: 256
+            #     f_min: 80.
+            #     f_max: 7600.
+            #     pad: 0
+            #     n_mels: 128
+            #     power: 2.
+            #     normalized: True
+            #     center:  True
+            #     pad_mode: "reflect"
+            #     onesided: True
+            MFCC:
+                sample_rate: 16000
+                n_mfcc: 40
+                log_mels: True
+                melkwargs:
+                    n_fft: 1024
+                    win_length: 1024
+                    hop_length: 256
+                    f_min: 80.
+                    f_max: 7600.
+                    pad: 0
+                    n_mels: 128
+                    power: 2.
+                    normalized: True
+                    center:  True
+                    pad_mode: "reflect"
+                    onesided: True
+            Permute_Channel:
+                dims: [2,1,0] # [c,seq.fea] - > [seq,fea,c]
+                    
+        video:
+            # Video_pad_cut:
+            #     FramNum: 90
+
+            # KeyFrameGetterBasedInterDifference:
+            #     window: 5
+            #     smooth: False
+            #     alpha: 0.07
+
+            KeyFrameGetterBasedIntervalSampling:
+                interval: 3
+            # calcRGBDifference: # calcOpticalFlow, calcRGBDifference, calcOpticalFlowAndRGBDifference
+            #     keepRGB: False
+            Permute_Channel:
+                dims: [0,1,2,3] # [seq,w,h,c]
+    filters: {
+        # # angry, bored, calm, disgusted, excited, fearful, frustrated, happy, neutral, sad, surprised, surprised pleased
+        # IEMOCAP
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "excited" , "frustrated", "disgusted", "fearful", "surprised"] },
+        # # angry happy neutral sad, "excited" , "frustrated", "disgusted", "fearful", "surprised"
+        # "contains": {'path': "impro"},
+        # "query": 'video_length>7',
+        "sort_values": "duration"
+
+        # # EMODB
+        # "dropna": {'label': [ "other", "xxx", "bored" , "disgusted","fearful"] },
+        # # angry happy neutral sad "bored" , "disgusted","fearful"
+        # "query": '',
+        # "sort_values": "duration"
+        }
+
+
+
+
+
+# audio-MFCC-Split(3s)
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: "3s"
+        mode: "audio"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+        audio:
+            AudioSplit:
+                sample_rate: 16000
+                durations: 3.0
+    transforms:
+        audio:
+            MFCC:
+                sample_rate: 16000
+                n_mfcc: 40
+                log_mels: True
+                melkwargs:
+                    n_fft: 1024
+                    win_length: 1024
+                    hop_length: 256
+                    f_min: 80.
+                    f_max: 7600.
+                    pad: 0
+                    n_mels: 128
+                    power: 2.
+                    normalized: True
+                    center:  True
+                    pad_mode: "reflect"
+                    onesided: True
+            Permute_Channel:
+                dims: [2,1,0]
+    filters: {
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# audio-MelSpectrogram-Split(3s)
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: "3s"
+        mode: "audio"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+        audio:
+            AudioSplit:
+                sample_rate: 16000
+                durations: 3.0
+    transforms:
+        audio:
+            MelSpectrogram:
+                sample_rate: 16000
+                n_fft: 1024
+                win_length: 1024
+                hop_length: 256
+                f_min: 80.
+                f_max: 7600.
+                pad: 0
+                n_mels: 128
+                power: 2.
+                normalized: True
+                center:  True
+                pad_mode: "reflect"
+                onesided: True
+            Permute_Channel:
+                dims: [2,1,0]
+    filters: {
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# audio-Spectrogram-Split(3s)
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: "3s"
+        mode: "audio"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+        audio:
+            AudioSplit:
+                sample_rate: 16000
+                durations: 3.0
+    transforms:
+        audio:
+            Spectrogram:
+                n_fft: 1024
+                win_length: 1024
+                hop_length: 256
+                pad: 0
+                power: 2.
+                normalized: True
+                center:  True
+                pad_mode: "reflect"
+                onesided: True
+            Permute_Channel:
+                dims: [2,1,0]
+    filters: {
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# audio-MFCC-Split(7s)
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: "7s"
+        mode: "audio"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+        audio:
+            AudioSplit:
+                sample_rate: 16000
+                durations: 7.0
+    transforms:
+        audio:
+            MFCC:
+                sample_rate: 16000
+                n_mfcc: 40
+                log_mels: True
+                melkwargs:
+                    n_fft: 1024
+                    win_length: 1024
+                    hop_length: 256
+                    f_min: 80.
+                    f_max: 7600.
+                    pad: 0
+                    n_mels: 128
+                    power: 2.
+                    normalized: True
+                    center:  True
+                    pad_mode: "reflect"
+                    onesided: True
+            Permute_Channel:
+                dims: [2,1,0] # [c,seq.fea] - > [seq,fea,c]
+    filters: {
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# audio-MelSpectrogram-Split(7s)
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: "7s"
+        mode: "audio"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+        audio:
+            AudioSplit:
+                sample_rate: 16000
+                durations: 7.0
+    transforms:
+        audio:
+            MelSpectrogram:
+                sample_rate: 16000
+                n_fft: 1024
+                win_length: 1024
+                hop_length: 256
+                f_min: 80.
+                f_max: 7600.
+                pad: 0
+                n_mels: 128
+                power: 2.
+                normalized: True
+                center:  True
+                pad_mode: "reflect"
+                onesided: True
+            Permute_Channel:
+                dims: [2,1,0] # [c,seq.fea] - > [seq,fea,c]
+    filters: {
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# audio-Spectrogram-Split(7s)
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: "7s"
+        mode: "audio"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+        audio:
+            AudioSplit:
+                sample_rate: 16000
+                durations: 7.0
+    transforms:
+        audio:
+            Spectrogram:
+                n_fft: 1024
+                win_length: 1024
+                hop_length: 256
+                pad: 0
+                power: 2.
+                normalized: True
+                center:  True
+                pad_mode: "reflect"
+                onesided: True
+            Permute_Channel:
+                dims: [2,1,0] # [c,seq.fea] - > [seq,fea,c]
+    filters: {
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# audio-MFCC-pad_cut(3s)
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: "3s"
+        mode: "audio"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+    transforms:
+        audio:
+            Wave_pad_cut:
+                samplingNum: 48000
+            MFCC:
+                sample_rate: 16000
+                n_mfcc: 40
+                log_mels: True
+                melkwargs:
+                    n_fft: 1024
+                    win_length: 1024
+                    hop_length: 256
+                    f_min: 80.
+                    f_max: 7600.
+                    pad: 0
+                    n_mels: 128
+                    power: 2.
+                    normalized: True
+                    center:  True
+                    pad_mode: "reflect"
+                    onesided: True
+            Permute_Channel:
+                dims: [2,1,0] # [c,seq.fea] - > [seq,fea,c]
+    filters: {
+
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# audio-MelSpectrogram-pad_cut(3s)
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: "3s"
+        mode: "audio"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+    transforms:
+        audio:
+            Wave_pad_cut:
+                samplingNum: 48000
+            MelSpectrogram:
+                sample_rate: 16000
+                n_fft: 1024
+                win_length: 1024
+                hop_length: 256
+                f_min: 80.
+                f_max: 7600.
+                pad: 0
+                n_mels: 128
+                power: 2.
+                normalized: True
+                center:  True
+                pad_mode: "reflect"
+                onesided: True
+            Permute_Channel:
+                dims: [2,1,0] # [c,seq.fea] - > [seq,fea,c]
+    filters: {
+
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# audio-Spectrogram-pad_cut(3s)
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: "3s"
+        mode: "audio"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+    transforms:
+        audio:
+            Wave_pad_cut:
+                samplingNum: 48000
+            Spectrogram:
+                n_fft: 1024
+                win_length: 1024
+                hop_length: 256
+                pad: 0
+                power: 2.
+                normalized: True
+                center:  True
+                pad_mode: "reflect"
+                onesided: True
+            Permute_Channel:
+                dims: [2,1,0] # [c,seq.fea] - > [seq,fea,c]
+    filters: {
+
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# audio-MFCC-pad_cut(7s)
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: "7s"
+        mode: "audio"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+    transforms:
+        audio:
+            Wave_pad_cut:
+                samplingNum: 112000
+            MFCC:
+                sample_rate: 16000
+                n_mfcc: 40
+                log_mels: True
+                melkwargs:
+                    n_fft: 1024
+                    win_length: 1024
+                    hop_length: 256
+                    f_min: 80.
+                    f_max: 7600.
+                    pad: 0
+                    n_mels: 128
+                    power: 2.
+                    normalized: True
+                    center:  True
+                    pad_mode: "reflect"
+                    onesided: True
+            Permute_Channel:
+                dims: [2,1,0] # [c,seq.fea] - > [seq,fea,c]
+    filters: {
+
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# audio-MelSpectrogram-pad_cut(7s)
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: "7s"
+        mode: "audio"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+    transforms:
+        audio:
+            Wave_pad_cut:
+                samplingNum: 112000
+            MelSpectrogram:
+                sample_rate: 16000
+                n_fft: 1024
+                win_length: 1024
+                hop_length: 256
+                f_min: 80.
+                f_max: 7600.
+                pad: 0
+                n_mels: 128
+                power: 2.
+                normalized: True
+                center:  True
+                pad_mode: "reflect"
+                onesided: True
+            Permute_Channel:
+                dims: [2,1,0] # [c,seq.fea] - > [seq,fea,c]
+    filters: {
+
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# audio-Spectrogram-pad_cut(7s)
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: "7s"
+        mode: "audio"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+    transforms:
+        audio:
+            Wave_pad_cut:
+                samplingNum: 112000
+            Spectrogram:
+                n_fft: 1024
+                win_length: 1024
+                hop_length: 256
+                pad: 0
+                power: 2.
+                normalized: True
+                center:  True
+                pad_mode: "reflect"
+                onesided: True
+            Permute_Channel:
+                dims: [2,1,0] # [c,seq.fea] - > [seq,fea,c]
+    filters: {
+
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# audio-MFCC-pad_cut(10s)
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: "10s"
+        mode: "audio"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+    transforms:
+        audio:
+            Wave_pad_cut:
+                samplingNum: 160000
+            MFCC:
+                sample_rate: 16000
+                n_mfcc: 40
+                log_mels: True
+                melkwargs:
+                    n_fft: 1024
+                    win_length: 1024
+                    hop_length: 256
+                    f_min: 80.
+                    f_max: 7600.
+                    pad: 0
+                    n_mels: 128
+                    power: 2.
+                    normalized: True
+                    center:  True
+                    pad_mode: "reflect"
+                    onesided: True
+            Permute_Channel:
+                dims: [2,1,0] # [c,seq.fea] - > [seq,fea,c]
+    filters: {
+
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# audio-MelSpectrogram-pad_cut(10s)
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: "10s"
+        mode: "audio"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+    transforms:
+        audio:
+            Wave_pad_cut:
+                samplingNum: 160000
+            MelSpectrogram:
+                sample_rate: 16000
+                n_fft: 1024
+                win_length: 1024
+                hop_length: 256
+                f_min: 80.
+                f_max: 7600.
+                pad: 0
+                n_mels: 128
+                power: 2.
+                normalized: True
+                center:  True
+                pad_mode: "reflect"
+                onesided: True
+            Permute_Channel:
+                dims: [2,1,0] # [c,seq.fea] - > [seq,fea,c]
+    filters: {
+
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# audio-Spectrogram-pad_cut(10s)
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: "10s"
+        mode: "audio"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+    transforms:
+        audio:
+            Wave_pad_cut:
+                samplingNum: 160000
+            Spectrogram:
+                n_fft: 1024
+                win_length: 1024
+                hop_length: 256
+                pad: 0
+                power: 2.
+                normalized: True
+                center:  True
+                pad_mode: "reflect"
+                onesided: True
+            Permute_Channel:
+                dims: [2,1,0] # [c,seq.fea] - > [seq,fea,c]
+    filters: {
+
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# audio-MFCC
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: ""
+        mode: "audio"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+    transforms:
+        audio:
+            MFCC:
+                sample_rate: 16000
+                n_mfcc: 40
+                log_mels: True
+                melkwargs:
+                    n_fft: 1024
+                    win_length: 1024
+                    hop_length: 256
+                    f_min: 80.
+                    f_max: 7600.
+                    pad: 0
+                    n_mels: 128
+                    power: 2.
+                    normalized: True
+                    center:  True
+                    pad_mode: "reflect"
+                    onesided: True
+            Permute_Channel:
+                dims: [2,1,0] # [c,seq.fea] - > [seq,fea,c]
+    filters: {
+
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# audio-MelSpectrogram
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: ""
+        mode: "audio"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+    transforms:
+        audio:
+            MelSpectrogram:
+                sample_rate: 16000
+                n_fft: 1024
+                win_length: 1024
+                hop_length: 256
+                f_min: 80.
+                f_max: 7600.
+                pad: 0
+                n_mels: 128
+                power: 2.
+                normalized: True
+                center:  True
+                pad_mode: "reflect"
+                onesided: True
+            Permute_Channel:
+                dims: [2,1,0] # [c,seq.fea] - > [seq,fea,c]
+    filters: {
+
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# audio-Spectrogram
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: ""
+        mode: "audio"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+    transforms:
+        audio:
+            Spectrogram:
+                n_fft: 1024
+                win_length: 1024
+                hop_length: 256
+                pad: 0
+                power: 2.
+                normalized: True
+                center:  True
+                pad_mode: "reflect"
+                onesided: True
+            Permute_Channel:
+                dims: [2,1,0] # [c,seq.fea] - > [seq,fea,c]
+    filters: {
+
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# video-crop-Sample-Split(3s)
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: "crop-3s"
+        mode: "video"
+        videomode: "crop"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+        video:
+            VideoSplit:
+                frame_rate: 29.7
+                durations: 3.0
+    transforms:       
+        video:
+            KeyFrameGetterBasedIntervalSampling:
+                interval: 3
+            Permute_Channel:
+                dims: [0,1,2,3] # [seq,w,h,c]
+    filters: {
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "excited" , "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# video-crop-Sample-Split(7s)
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: "crop-7s"
+        mode: "video"
+        videomode: "crop"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+        video:
+            VideoSplit:
+                frame_rate: 29.7
+                durations: 7.0
+    transforms:       
+        video:
+            KeyFrameGetterBasedIntervalSampling:
+                interval: 3
+            Permute_Channel:
+                dims: [0,1,2,3] # [seq,w,h,c]
+    filters: {
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "excited" , "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# video-crop-Sample-Split(10s)
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: "crop-10s"
+        mode: "video"
+        videomode: "crop"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+        video:
+            VideoSplit:
+                frame_rate: 29.7
+                durations: 10.0
+    transforms:       
+        video:
+            KeyFrameGetterBasedIntervalSampling:
+                interval: 3
+            Permute_Channel:
+                dims: [0,1,2,3] # [seq,w,h,c]
+    filters: {
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "excited" , "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# video-crop-Sample-pad_cut(3s)
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: "crop-3s"
+        mode: "video"
+        videomode: "crop"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+    transforms:       
+        video:
+            Video_pad_cut:
+              FramNum: 89.91
+            KeyFrameGetterBasedIntervalSampling:
+                interval: 3
+            Permute_Channel:
+                dims: [0,1,2,3] # [seq,w,h,c]
+    filters: {
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "excited" , "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# video-crop-Sample-pad_cut(7s)
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: "crop-7s"
+        mode: "video"
+        videomode: "crop"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+    transforms:       
+        video:
+            Video_pad_cut:
+              FramNum: 209.79
+            KeyFrameGetterBasedIntervalSampling:
+                interval: 3
+            Permute_Channel:
+                dims: [0,1,2,3] # [seq,w,h,c]
+    filters: {
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "excited" , "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# video-crop-Sample-pad_cut(10s)
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: "crop-10s"
+        mode: "video"
+        videomode: "crop"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+    transforms:       
+        video:
+            Video_pad_cut:
+              FramNum: 299.7
+            KeyFrameGetterBasedIntervalSampling:
+                interval: 3
+            Permute_Channel:
+                dims: [0,1,2,3] # [seq,w,h,c]
+    filters: {
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "excited" , "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+# video-crop-Sample
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    para:
+        name: "crop"
+        mode: "video"
+        videomode: "crop"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+    enhances:
+    transforms:       
+        video:
+            KeyFrameGetterBasedIntervalSampling:
+                interval: 3
+            Permute_Channel:
+                dims: [0,1,2,3] # [seq,w,h,c]
+    filters: {
+        "replace": {'label':{"excited":"happy"}},
+        "dropna": {'label': [ "other", "xxx", "excited" , "frustrated", "disgusted", "fearful", "surprised"] },
+        "sort_values": "duration"
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

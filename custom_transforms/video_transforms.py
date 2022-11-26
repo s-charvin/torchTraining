@@ -16,7 +16,7 @@ class Video_pad_cut(torch.nn.Module):
 
     def __init__(self, FramNum: int = -1, mode: str = "right") -> None:
         super(Video_pad_cut, self).__init__()
-        self.FramNum = FramNum
+        self.FramNum = int(FramNum)
         self.mode = mode
         if self.FramNum < -1:
             raise ValueError("采样点数量必须为正数或-1")
@@ -24,38 +24,38 @@ class Video_pad_cut(torch.nn.Module):
     def forward(self, Video: torch.Tensor) -> torch.Tensor:
         r"""
 
-        Args:
-            waveform (torch.Tensor): Video of dimension of `(3,N,H,W)`.
+        Args:[seq, h, w, 3]
+            Video (torch.Tensor): Video of dimension of `(N,H,W,3)`.
 
         Returns:
-            torch.Tensor: Video of dimension of `(3,N,H,W)`.
+            torch.Tensor: Video of dimension of `(N,H,W,3)`.
         """
 
         if self.FramNum == -1:
             return Video
-        length = Video.shape[1]
+        length = Video.shape[0]
 
         if length <= self.FramNum:
             if self.mode == "left":
                 Video = F.pad(
-                    Video, (0, 0, 0, 0, self.FramNum-length, 0), 'constant', 0)
+                    Video, (0, 0, 0, 0, 0, 0, self.FramNum-length, 0), 'constant', 0)
             if self.mode == "right":
                 Video = F.pad(
-                    Video, (0, 0, 0, 0, 0, self.FramNum-length), 'constant', 0)
+                    Video, (0, 0, 0, 0, 0, 0, 0, self.FramNum-length), 'constant', 0)
             if self.mode == "biside":
                 left_pad = int((self.FramNum-length)/2.0)
                 right_pad = self.FramNum-length-left_pad
                 Video = F.pad(
-                    Video, (0, 0, 0, 0, left_pad, right_pad), 'constant', 0)
+                    Video, (0, 0, 0, 0, 0, 0, left_pad, right_pad), 'constant', 0)
         elif length > self.FramNum:
             if self.mode == "left":
-                Video = Video[:, -self.FramNum:, :, :]
+                Video = Video[-self.FramNum:, :, :, :]
             if self.mode == "right":
-                Video = Video[:, :self.FramNum, :, :]
+                Video = Video[:self.FramNum, :, :, :]
             if self.mode == "biside":
                 left_cut = int((length-self.FramNum)/2.0)
                 right_cut = length-self.FramNum-left_cut
-                Video = Video[:, left_cut:-right_cut, :, :]
+                Video = Video[left_cut:-right_cut, :, :, :]
         return Video.clone()
 
 
