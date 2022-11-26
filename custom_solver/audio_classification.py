@@ -127,7 +127,7 @@ class Audio_Classification(object):
 
                 # 清空梯度数据
                 self.reset_grad()
-                out = self.net(features.permute(
+                out, _ = self.net(features.permute(
                     0, 3, 1, 2), feature_lens)
                 loss = loss_func(out, labels)
                 loss.backward()
@@ -191,7 +191,7 @@ class Audio_Classification(object):
             true_labels = true_labels.long().to(device=self.device)
 
             with torch.no_grad():
-                out = self.net(features.permute(
+                out, _ = self.net(features.permute(
                     0, 3, 1, 2), feature_lens)  # 计算模型输出分类值
                 label_pre = torch.max(out, dim=1)[1]  # 获取概率最大值位置
                 label_preds = torch.cat(

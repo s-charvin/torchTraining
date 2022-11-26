@@ -1,20 +1,15 @@
 # video-crop-Sample
 data:
     name: "IEMOCAP"
-    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
+    root: "/sdb/user4/SCW/data/IEMOCAP/Feature/IEMOCAP-7s-audio_AudioSplit-audio_Spectrogram_Permute_Channel-.npy"
     para:
-        name: "crop-10s"
-        mode: "video"
+        name: ""
+        mode: "audio"
         videomode: "crop"
-        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/user4/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
-    transforms:       
-        video:
-            KeyFrameGetterBasedIntervalSampling:
-                interval: 3
-            Permute_Channel:
-                dims: [0,1,2,3] # [seq,w,h,c]
+    transforms:
     filters: {
         "replace": {'label':{"excited":"happy"}},
         "dropna": {'label': [ "other", "xxx", "excited" , "frustrated", "disgusted", "fearful", "surprised"] },

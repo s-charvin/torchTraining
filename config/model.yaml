@@ -1,4 +1,4 @@
 architecture:
     net: 
-        name: "VideoNet"
+        name: "AudioSVCNet"
         para: 
