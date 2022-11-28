@@ -80,6 +80,14 @@ if __name__ == '__main__':
             print(f'################ 开始训练第 {step} 次模型 ################')
             print(f"# 训练集数据数量: {len(train_data)}")
             print(f"# 测试集数据数量: {len(test_data)}")
+            if config["sorlver"]["loss_weights"] == True:
+                config["sorlver"]["loss_weights"] = None
+                labels = [train_data[i]["label"]
+                          for i in range(len(train_data))]
+                categories = train_data.dataset.datadict["categories"]
+                total = len(labels)
+                config["sorlver"]["loss_weights"] = [
+                    total/labels.count(emo) for emo in categories]
             train_loader = DataLoader(
                 train_data, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn)
             test_loader = DataLoader(
@@ -107,6 +115,14 @@ if __name__ == '__main__':
             data, [train_size, test_size])
         print(f"# 训练集大小: {len(train_data)}")
         print(f"# 测试集大小: {len(test_data)}")
+
+        if config["sorlver"]["loss_weights"] == True:
+            config["sorlver"]["loss_weights"] = None
+            labels = [train_data[i]["label"] for i in range(len(train_data))]
+            categories = train_data.dataset.datadict["categories"]
+            total = len(labels)
+            config["sorlver"]["loss_weights"] = [
+                total/labels.count(emo) for emo in categories]
         train_loader = DataLoader(
             train_data, batch_size=batch_size, shuffle=True, num_workers=num_workers, collate_fn=collate_fn)
         test_loader = DataLoader(

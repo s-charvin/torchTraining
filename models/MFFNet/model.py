@@ -116,7 +116,7 @@ class MIFFNet_Conv3D(nn.Module):
 
     def __init__(self) -> None:
         super().__init__()
-        self.audio_feature_extractor = LightSerNet(in_channels=1, num_class=0)
+        self.audio_feature_extractor = LightSerNet(in_channels=1)
         self.video_feature_extractor = LightSerConv3dNet()
         self.audio_classifier = nn.Linear(in_features=320, out_features=4)
         self.video_classifier = nn.Linear(in_features=320, out_features=4)
@@ -195,7 +195,7 @@ class MIFFNet_Conv3D_GRU(nn.Module):
 
     def __init__(self) -> None:
         super().__init__()
-        self.audio_feature_extractor = LightSerNet(in_channels=1, num_class=0)
+        self.audio_feature_extractor = LightSerNet(in_channels=1)
         self.video_feature_extractor = LightSerConv3dNet()
         self.audio_classifier = nn.Linear(in_features=320, out_features=4)
         self.video_classifier = nn.Linear(in_features=320, out_features=4)
@@ -288,7 +288,7 @@ class AudioNet(nn.Module):
     def __init__(self, num_class=4) -> None:
         super().__init__()
         # self.audio_feature_extractor = PretrainedBaseModel(in_channels=1, num_class=320, base_model='resnet50', before_dropout=0, before_softmax=False)
-        self.audio_feature_extractor = LightSerNet(in_channels=1, num_class=0)
+        self.audio_feature_extractor = LightSerNet(in_channels=1)
         self.audio_classifier = nn.Linear(
             in_features=320, out_features=num_class)
 
@@ -311,9 +311,9 @@ class AudioSVCNet(nn.Module):
     def __init__(self, num_class=4, af_seq_len=63*3) -> None:
         super().__init__()
         self.af_seq_len = af_seq_len
-        self.audio_feature_extractor = PretrainedBaseModel(
-            in_channels=1, num_class=320, base_model='resnet50', before_dropout=0, before_softmax=False)
-        # self.audio_feature_extractor = LightSerNet(in_channels=1, num_class=0)
+        # self.audio_feature_extractor = PretrainedBaseModel(
+        #     in_channels=1, num_class=320, base_model='resnet50', before_dropout=0, before_softmax=False)
+        self.audio_feature_extractor = LightSerNet(in_channels=1)
 
         self.audio_classifier = nn.Linear(
             in_features=320, out_features=num_class)
@@ -369,9 +369,9 @@ class AudioSVNet(nn.Module):
     def __init__(self, num_class=4, af_seq_len=63*3) -> None:
         super().__init__()
         self.af_seq_len = af_seq_len
-        self.audio_feature_extractor = PretrainedBaseModel(
-            in_channels=1, num_class=320, base_model='resnet50', before_dropout=0, before_softmax=False)
-        # self.audio_feature_extractor = LightSerNet(in_channels=1, num_class=0)
+        # self.audio_feature_extractor = PretrainedBaseModel(
+        #     in_channels=1, num_class=320, base_model='resnet50', before_dropout=0, before_softmax=False)
+        self.audio_feature_extractor = LightSerNet(in_channels=1)
         self.audio_emotional_GRU = nn.GRU(input_size=320, hidden_size=64,
                                           num_layers=1, batch_first=True)
         self.calc_audio_weight = nn.Sequential(nn.Linear(64, 1), nn.Sigmoid())
@@ -600,7 +600,7 @@ class MIFFNet_Conv2D(nn.Module):
         self.af_seq_len = af_seq_len
         self.vf_seq_len = vf_seq_len
 
-        self.audio_feature_extractor = LightSerNet(in_channels=1, num_class=0)
+        self.audio_feature_extractor = LightSerNet(in_channels=1)
         self.video_feature_extractor = PretrainedBaseModel(
             in_channels=3, num_class=320, base_model='resnet50', before_dropout=0, before_softmax=False)
 
@@ -701,7 +701,7 @@ class MIFFNet_Conv2D_GRU(nn.Module):
         self.af_seq_len = af_seq_len
         self.vf_seq_len = vf_seq_len
 
-        self.audio_feature_extractor = LightSerNet(in_channels=1, num_class=0)
+        self.audio_feature_extractor = LightSerNet(in_channels=1)
         self.video_feature_extractor = PretrainedBaseModel(
             in_channels=3, num_class=320, base_model='resnet50', before_dropout=0, before_softmax=False)
 
@@ -819,7 +819,7 @@ class MIFFNet_Conv2D_GRU_InterFusion(nn.Module):
         self.af_seq_len = af_seq_len
         self.vf_seq_len = vf_seq_len
 
-        self.audio_feature_extractor = LightSerNet(in_channels=1, num_class=0)
+        self.audio_feature_extractor = LightSerNet(in_channels=1)
         self.video_feature_extractor = PretrainedBaseModel(
             in_channels=3, num_class=320, base_model='resnet50', before_dropout=0, before_softmax=False)
 
@@ -962,7 +962,7 @@ class MIFFNet_Conv2D_GRU_InterFusion_coeff(nn.Module):
         self.af_seq_len = af_seq_len
         self.vf_seq_len = vf_seq_len
 
-        self.audio_feature_extractor = LightSerNet(in_channels=1, num_class=0)
+        self.audio_feature_extractor = LightSerNet(in_channels=1)
         self.video_feature_extractor = PretrainedBaseModel(
             in_channels=3, num_class=320, base_model='resnet50', before_dropout=0, before_softmax=False)
 

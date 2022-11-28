@@ -8,7 +8,7 @@ class LightSerNet(nn.Module):
     paper: Light-SERNet: A lightweight fully convolutional neural network for speech emotion recognition
     """
 
-    def __init__(self, in_channels=1, num_class=4) -> None:
+    def __init__(self, in_channels=1) -> None:
         super().__init__()
         self.path1 = nn.Sequential(
             components.Conv2dSame(in_channels=in_channels, out_channels=32, kernel_size=(
@@ -43,10 +43,6 @@ class LightSerNet(nn.Module):
             bias=False
         )
         self.dropout = nn.Dropout(0.3)
-        self.last_linear = None
-        if num_class:
-            self.last_linear = nn.Linear(
-                in_features=320, out_features=num_class)
 
     def forward(self, x: Tensor, feature_lens=None) -> Tensor:
         out1 = self.path1(x)
@@ -57,6 +53,4 @@ class LightSerNet(nn.Module):
 
         x = self.conv_extractor(x)
         x = self.dropout(x.squeeze())
-        if self.last_linear:
-            x = self.last_linear(x)
         return x

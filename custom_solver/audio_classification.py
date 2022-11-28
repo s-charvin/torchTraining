@@ -103,7 +103,11 @@ class Audio_Classification(object):
         step = 0
 
         # 设置损失函数
-        loss_func = nn.CrossEntropyLoss(reduction='mean')
+        loss_weights = None
+        if self.config["sorlver"]["loss_weights"]:
+            loss_weights = torch.Tensor(
+                self.config["sorlver"]["loss_weights"]).cuda(device=self.device)
+        loss_func = nn.CrossEntropyLoss(reduction='mean', weight=loss_weights)
 
         for epoch in range(start_iter, self.n_epochs):  # 迭代循环 [0, epoch)
             for batch_i, data in enumerate(self.train_loader):  # [0, batch)

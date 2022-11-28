@@ -320,7 +320,8 @@ class IEMOCAP(CustomDataset):
 
         self.datadict.reset_index(drop=True, inplace=True)
         self.datadict = self.datadict.to_dict(orient="list")
-        self.datadict["labelid"] = label2id(self.datadict["label"])
+        self.datadict["labelid"], self.datadict["categories"] = label2id(
+            self.datadict["label"])
 
     def load_data(self):
         print("# 加载数据...")
