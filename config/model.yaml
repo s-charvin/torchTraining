@@ -1,4 +1,4 @@
 architecture:
     net: 
-        name: "AudioNet"
+        name: "AudioSVCNet"
         para: 
