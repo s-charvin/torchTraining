@@ -14,7 +14,7 @@ from models import *
 
 class Audio_Classification(object):
 
-    def __init__(self, train_loader, test_loader, config: dict, device):
+    def __init__(self, train_loader=None, test_loader=None, config: dict = {}, device=None):
         """分类模型训练方法框架
         Args:
             train_loader (_type_): 训练集，可迭代类型数据
@@ -42,7 +42,8 @@ class Audio_Classification(object):
             self.net = self.net.cuda()
             self.net = torch.nn.parallel.DistributedDataParallel(
                 self.net, find_unused_parameters=True)  # device_ids 默认选用本地显示的所有 GPU
-        self.set_configuration()  # 设置参数
+        if self.train_loader:
+            self.set_configuration()  # 设置参数
         # 加载模型及其参数
         if self.config['train']['checkpoint']:  # 是否加载历史检查点
             self.load(self.config['train']['checkpoint'])
@@ -86,7 +87,7 @@ class Audio_Classification(object):
 
     def train(self):
         """训练主函数"""
-
+        assert self.train_loader, "未提供训练数据"
         #############################################################
         #                            训练                           #
         #############################################################
@@ -166,7 +167,7 @@ class Audio_Classification(object):
         return self.accuracylog[-self.config['logs']['test_accuracy_every']:]
 
     def test(self):
-
+        assert self.test_loader, "未提供测试数据"
         # 测试模型准确率。
         label_preds = torch.rand(0).to(
             device=self.device, dtype=torch.long)  # 预测标签列表
@@ -218,6 +219,17 @@ class Audio_Classification(object):
             self.logger.scalar_summary(
                 "Val/Accuracy_Eval", eval_accuracy, self.last_epochs)
         self.accuracylog.append([eval_accuracy])
+
+    def calculate(self, inputs: list):
+        self.to_device(device=self.device)
+        self.set_eval_mode()
+        label_pres = []
+
+        for i, inp in enumerate(inputs):
+            out, _ = self.net(inputs[i].to(
+                device=self.device).unsqueeze(0).permute(0, 3, 1, 2))
+            label_pres.append(torch.max(out, dim=1)[1].item())
+        return label_pres
 
     def set_train_mode(self):
         # 设置模型为训练模式，可添加多个模型
@@ -285,8 +297,11 @@ class Audio_Classification(object):
         self.net.load_state_dict(dictionary['net'])
         self.optimizer.load_state_dict(dictionary['optimizer'])
         # self.optimizer = torch.optim.Adam(**dictionary['optimizer'])
-        self.set_configuration()  # 设置加载的检查点的参数设置
-        print("# Models 和 optimizers 加载成功")
+        if self.train_loader:
+            self.set_configuration()  # 设置加载的检查点的参数设置
+            print("# Models 和 optimizers 加载成功")
+        else:
+            print("# Models 加载成功, 目前仅可进行计算操作")
 
 
 if __name__ == '__main__':

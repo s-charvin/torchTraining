@@ -2,7 +2,7 @@ from tkinter.tix import Tree
 import torch
 from torch import Tensor, nn
 import torch.nn.functional as F
-
+import numpy as np
 
 from .components import *
 from .lightserconv3dnet import LightSerConv3dNet
@@ -329,8 +329,11 @@ class AudioSVCNet(nn.Module):
         """
         # 处理语音数据
         # [B, C, Seq, F]
-        af = torch.split(af, self.af_seq_len, dim=2)  # 分割数据段
-
+        if af.shape[2] > self.af_seq_len:
+            af = [af[:, :, 63*i:63*i+self.af_seq_len, :]
+                  for i in range(int(((af.shape[2]-self.af_seq_len) / 63)+1))]
+        else:
+            af = [af]
         # af_seg_len * [B, C, af_seq_len, F]
 
         # 避免最后一个数据段长度太短
@@ -338,6 +341,7 @@ class AudioSVCNet(nn.Module):
         if af[-1].shape[2] != af[0].shape[2]:
             af = af[:-1]
             af_floor_ = True  # 控制计算有效长度时是否需要去掉最后一段数据
+
         # 记录分段数量, af_seg_len = ceil or floor(seq/af_seq_len)
         af_seg_len = len(af)
         af = torch.stack(af).permute(1, 0, 2, 3, 4).clone().contiguous()
@@ -352,21 +356,27 @@ class AudioSVCNet(nn.Module):
         if af_len is not None:  # 如果提供了原数据的有效 Seq 长度
             batch_size, max_len, _ = af_fea.shape
             # 计算每一段实际的有效数据段数量
-            af_len = torch.floor(
-                af_len/self.af_seq_len) if af_floor_ else torch.ceil(af_len/self.af_seq_len)
-            af_mask = torch.arange(max_len, device=af_len.device
-                                   ).expand(batch_size, max_len) >= af_len[:, None]
+
+            af_len_ = []
+            for l in af_len:
+                if l.item() > self.af_seq_len:
+                    af_len_.append(int((l.item()-self.af_seq_len)/63+1))
+                else:
+                    af_len_.append(l.item())
+            af_len = torch.Tensor(af_len_).to(device=af_len.device)
+            af_mask = torch.arange(max_len, device=af_len.device).expand(
+                batch_size, max_len) >= af_len[:, None]
             af_fea[af_mask] = 0.0
 
         af_fea = af_fea.mean(dim=1)
         # 分类
-        af_out = self.audio_classifier(af_fea).squeeze()
+        af_out = self.audio_classifier(af_fea).squeeze(-1)
         return F.softmax(af_out, dim=1), None
 
 
 class AudioSVNet(nn.Module):
 
-    def __init__(self, num_class=4, af_seq_len=63*7) -> None:
+    def __init__(self, num_class=4, af_seq_len=63*3) -> None:
         super().__init__()
         self.af_seq_len = af_seq_len
         # self.audio_feature_extractor = PretrainedBaseModel(
