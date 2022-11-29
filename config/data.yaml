@@ -1,7 +1,11 @@
 # video-crop-Sample
 data:
     name: "IEMOCAP"
-    root: "/sdb/user4/SCW/data/IEMOCAP/Feature/IEMOCAP-pad-audio_MFCC_Permute_Channel.npy"
+    # IEMOCAP-7s-audio_Wave_pad_cut_MFCC_Permute_Channel-.npy, IEMOCAP-7s-audio_AudioSplit-audio_MFCC_Permute_Channel-.npy
+    # IEMOCAP-3s-audio_Wave_pad_cut_MFCC_Permute_Channel-.npy, IEMOCAP-3s-audio_AudioSplit-audio_MFCC_Permute_Channel-.npy
+    # IEMOCAP-10s-audio_Wave_pad_cut_MFCC_Permute_Channel-.npy
+    # IEMOCAP-pad-audio_MFCC_Permute_Channel.npy
+    root: "/sdb/user4/SCW/data/IEMOCAP/Feature/IEMOCAP-10s-audio_Wave_pad_cut_MFCC_Permute_Channel-.npy"
     para:
         name: ""
         mode: "audio"

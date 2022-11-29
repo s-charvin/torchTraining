@@ -308,7 +308,7 @@ class AudioNet(nn.Module):
 
 class AudioSVCNet(nn.Module):
 
-    def __init__(self, num_class=4, af_seq_len=63*3) -> None:
+    def __init__(self, num_class=4, af_seq_len=63*7) -> None:
         super().__init__()
         self.af_seq_len = af_seq_len
         # self.audio_feature_extractor = PretrainedBaseModel(
@@ -366,7 +366,7 @@ class AudioSVCNet(nn.Module):
 
 class AudioSVNet(nn.Module):
 
-    def __init__(self, num_class=4, af_seq_len=63*3) -> None:
+    def __init__(self, num_class=4, af_seq_len=63*7) -> None:
         super().__init__()
         self.af_seq_len = af_seq_len
         # self.audio_feature_extractor = PretrainedBaseModel(
