@@ -314,6 +314,63 @@ class AudioSVCNet(nn.Module):
         # self.audio_feature_extractor = PretrainedBaseModel(
         #     in_channels=1, num_class=320, base_model='resnet50', before_dropout=0, before_softmax=False)
         self.audio_feature_extractor = LightSerNet(in_channels=1)
+        self.audio_classifier = nn.Linear(
+            in_features=320, out_features=num_class)
+
+    def forward(self, af: Tensor, af_len=None) -> Tensor:
+        """
+        Args:
+            af (Tensor): size:[B, C,Seq, F]
+            af_len (Sequence, optional): size:[B]. Defaults to None.
+
+        Returns:
+            Tensor: size:[batch, out]
+        """
+        # 处理语音数据
+        # [B, C, Seq, F]
+        af = torch.split(af, self.af_seq_len, dim=2)  # 分割数据段
+
+        # af_seg_len * [B, C, af_seq_len, F]
+
+        # 避免最后一个数据段长度太短
+        af_floor_ = False
+        if af[-1].shape[2] != af[0].shape[2]:
+            af = af[:-1]
+            af_floor_ = True  # 控制计算有效长度时是否需要去掉最后一段数据
+        # 记录分段数量, af_seg_len = ceil or floor(seq/af_seq_len)
+        af_seg_len = len(af)
+        af = torch.stack(af).permute(1, 0, 2, 3, 4).clone().contiguous()
+        # [B, af_seg_len, C, af_seq_len, F]
+
+        # [B * af_seg_len, C, af_seq_len, F]
+        af_fea = self.audio_feature_extractor(
+            af.view((-1,)+af.size()[2:]))
+        # [B * af_seg_len, F]
+        af_fea = af_fea.view((-1, af_seg_len) + af_fea.size()[1:])
+        # [B, af_seg_len, F]
+        if af_len is not None:  # 如果提供了原数据的有效 Seq 长度
+            batch_size, max_len, _ = af_fea.shape
+            # 计算每一段实际的有效数据段数量
+            af_len = torch.floor(
+                af_len/self.af_seq_len) if af_floor_ else torch.ceil(af_len/self.af_seq_len)
+            af_mask = torch.arange(max_len, device=af_len.device
+                                   ).expand(batch_size, max_len) >= af_len[:, None]
+            af_fea[af_mask] = 0.0
+
+        af_fea = af_fea.mean(dim=1)
+        # 分类
+        af_out = self.audio_classifier(af_fea).squeeze()
+        return F.softmax(af_out, dim=1), None
+
+
+class AudioSVCNet_Step(nn.Module):
+
+    def __init__(self, num_class=4, af_seq_len=63*3) -> None:
+        super().__init__()
+        self.af_seq_len = af_seq_len
+        # self.audio_feature_extractor = PretrainedBaseModel(
+        #     in_channels=1, num_class=320, base_model='resnet50', before_dropout=0, before_softmax=False)
+        self.audio_feature_extractor = LightSerNet(in_channels=1)
 
         self.audio_classifier = nn.Linear(
             in_features=320, out_features=num_class)
@@ -335,12 +392,6 @@ class AudioSVCNet(nn.Module):
         else:
             af = [af]
         # af_seg_len * [B, C, af_seq_len, F]
-
-        # 避免最后一个数据段长度太短
-        af_floor_ = False
-        if af[-1].shape[2] != af[0].shape[2]:
-            af = af[:-1]
-            af_floor_ = True  # 控制计算有效长度时是否需要去掉最后一段数据
 
         # 记录分段数量, af_seg_len = ceil or floor(seq/af_seq_len)
         af_seg_len = len(af)
@@ -427,6 +478,76 @@ class AudioSVNet(nn.Module):
             af_mask = torch.arange(max_len, device=af_len.device
                                    ).expand(batch_size, max_len) >= af_len[:, None]
             af_fea[af_mask] = 0.0
+        audio_weight = self.audio_emotional_GRU(af_fea)[0]
+        # [B, af_seg_len, F_]
+        audio_weight = self.calc_audio_weight(audio_weight)
+        # [B, af_seg_len, F] * [B, af_seg_len, 1]
+        af_fea = af_fea * audio_weight
+        # [B, af_seg_len, F]
+
+        af_fea = af_fea.mean(dim=1)
+        # 分类
+        af_out = self.audio_classifier(af_fea).squeeze()
+        return F.softmax(af_out, dim=1), audio_weight
+
+
+class AudioSVNet_Step(nn.Module):
+
+    def __init__(self, num_class=4, af_seq_len=63*3) -> None:
+        super().__init__()
+        self.af_seq_len = af_seq_len
+        # self.audio_feature_extractor = PretrainedBaseModel(
+        #     in_channels=1, num_class=320, base_model='resnet50', before_dropout=0, before_softmax=False)
+        self.audio_feature_extractor = LightSerNet(in_channels=1)
+        self.audio_emotional_GRU = nn.GRU(input_size=320, hidden_size=64,
+                                          num_layers=1, batch_first=True)
+        self.calc_audio_weight = nn.Sequential(nn.Linear(64, 1), nn.Sigmoid())
+        self.audio_classifier = nn.Linear(
+            in_features=320, out_features=num_class)
+
+    def forward(self, af: Tensor, af_len=None) -> Tensor:
+        """
+        Args:
+            af (Tensor): size:[B, C,Seq, F]
+            af_len (Sequence, optional): size:[B]. Defaults to None.
+
+        Returns:
+            Tensor: size:[batch, out]
+        """
+        # 处理语音数据
+        # [B, C, Seq, F]
+        if af.shape[2] > self.af_seq_len:
+            af = [af[:, :, 63*i:63*i+self.af_seq_len, :]
+                  for i in range(int(((af.shape[2]-self.af_seq_len) / 63)+1))]
+        else:
+            af = [af]
+        # af_seg_len * [B, C, af_seq_len, F]
+
+        # 记录分段数量, af_seg_len = ceil or floor(seq/af_seq_len)
+        af_seg_len = len(af)
+        af = torch.stack(af).permute(1, 0, 2, 3, 4).clone().contiguous()
+        # [B, af_seg_len, C, af_seq_len, F]
+
+        # [B * af_seg_len, C, af_seq_len, F]
+        af_fea = self.audio_feature_extractor(
+            af.view((-1,)+af.size()[2:]))
+        # [B * af_seg_len, F]
+        af_fea = af_fea.view((-1, af_seg_len) + af_fea.size()[1:])
+        # [B, af_seg_len, F]
+        if af_len is not None:  # 如果提供了原数据的有效 Seq 长度
+            batch_size, max_len, _ = af_fea.shape
+            # 计算每一段实际的有效数据段数量
+            af_len_ = []
+            for l in af_len:
+                if l.item() > self.af_seq_len:
+                    af_len_.append(int((l.item()-self.af_seq_len)/63+1))
+                else:
+                    af_len_.append(l.item())
+            af_len = torch.Tensor(af_len_).to(device=af_len.device)
+            af_mask = torch.arange(max_len, device=af_len.device
+                                   ).expand(batch_size, max_len) >= af_len[:, None]
+            af_fea[af_mask] = 0.0
+
         audio_weight = self.audio_emotional_GRU(af_fea)[0]
         # [B, af_seg_len, F_]
         audio_weight = self.calc_audio_weight(audio_weight)
