@@ -1,7 +1,7 @@
 train:
     # 训练基础设置
-    name: "AudioSVCNet_Step_MultiObject_hanming_pc_7[3]s_CustomScheduler_step1s" # 本次运行模型名称
-    USE_GPU: "0" # 是否使用 GPU 加速, 如果使用则设置当前可用的 GPU,并使这些 CPU 重新按照[0，1]排序, 如果含有多个 GPU 将自动使用多GPU
+    name: "AudioSVCNet_Step_MultiObject_noClassWeights_hanming_pc_10[7]s_CustomScheduler_step1s" # 本次运行模型名称
+    USE_GPU: "0" # 是否使用 GPU 加速, 如果使用则设置当前可用的 GPU,并使这些 CPU 重新按照[0，1]排序, 如果含有多个 GPU 将自动使用多 GPU
     num_workers: 0 # 数据加载进程数
     seed: 42 # 设置随机数种子, 当设置了固定的随机数种子,之后依次生成的随机数序列也会被固定下来。
     train_rate: 0.8
@@ -15,7 +15,7 @@ train:
     loss_weight: True # 设置损失加权系数
 
 sorlver:
-    name: "Audio_Classification2MultiObject_MGDA_UB" # Audio_Classification, Video_Classification, Audio_Video_Classification, Audio_Video_Fusion_Classification
+    name: "Audio_Classification2MultiObject_MGDA_UB" # Audio_Classification, Video_Classification, Audio_Video_Classification, Audio_Video_Fusion_Classification,Audio_Classification2MultiObject_MGDA_UB
     optimizer: 
         name: "AdamW"
         lr: 0.0001 # 学习率
@@ -45,9 +45,9 @@ sorlver:
 logs: # 记录参数
 
     use_tensorboard: True # 记录展示
-    log_dir: '/sdb/user4/SCW/logs/' # 记录存储文件夹
+    log_dir: '/sdb/visitors2/SCW/logs/' # 记录存储文件夹
     log_every: 1 # 每几次 step进行记录
-    model_save_dir: '/sdb/user4/SCW/checkpoint/' # 模型存放地址
+    model_save_dir: '/sdb/visitors2/SCW/checkpoint/' # 模型存放地址
     test_every: 1 # 每几次 epoch 进行测试
     model_save_every: 1 # 每几次 epoch 进行模型保存
     test_accuracy_every: 20 # 计算多少 epoch 的平均测试准确率

@@ -24,10 +24,9 @@ class Audio_Classification(object):
         self.config = config  # 参数字典
         self.device = device  # 定义主设备
         # 设置要使用的模型
-        if 'para' in self.config["architecture"]['net']:
-            if self.config['architecture']['net']['para']:
-                self.net = globals(
-                )[self.config["architecture"]["net"]["name"]](**self.config["architecture"]['net']['para'])
+        if self.config['architecture']['net']['para']:
+            self.net = globals()[self.config["architecture"]["net"]["name"]](
+                **self.config["architecture"]['net']['para'])
         else:
             self.net = globals()[
                 self.config["architecture"]["net"]["name"]]()

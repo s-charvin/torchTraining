@@ -493,7 +493,7 @@ class AudioSVNet(nn.Module):
 
 class AudioSVNet_Step(nn.Module):
 
-    def __init__(self, num_class=4, af_seq_len=63*3) -> None:
+    def __init__(self, num_class=4, af_seq_len=63*7) -> None:
         super().__init__()
         self.af_seq_len = af_seq_len
         # self.audio_feature_extractor = PretrainedBaseModel(
@@ -1646,7 +1646,7 @@ class MIFFNet_Conv2D_GRU_InterFusion_coeff_Step_OnlyAv(nn.Module):
 
 class AudioSVCNet_Step_MultiObject(nn.Module):
 
-    def __init__(self, num_classes=4, af_seq_len=63*3) -> None:
+    def __init__(self, num_classes=4, af_seq_len=63*7) -> None:
         super().__init__()
         self.af_seq_len = af_seq_len
         self.num_classes = num_classes
@@ -1720,14 +1720,104 @@ class AudioSVCNet_Step_MultiObject_Classifier(nn.Module):
         super().__init__()
         self.num_classes = num_classes
         for i in range(num_classes):
-            setattr(self, "audio_classifier_{i}", nn.Linear(
+            setattr(self, f"audio_classifier_{i}", nn.Linear(
                 in_features=320, out_features=1))
 
     def forward(self, fea: Tensor) -> Tensor:
         # 分类
         af_out = []
         for i in range(self.num_classes):
-            audio_classifier = getattr(self, "audio_classifier_{i}")
+            audio_classifier = getattr(self, f"audio_classifier_{i}")
+            out = audio_classifier(fea)
+            af_out.append(out.squeeze())
+        return af_out, None
+
+
+class AudioSVNet_Step_MultiObject(nn.Module):
+
+    def __init__(self, num_classes=4, af_seq_len=63*7) -> None:
+        super().__init__()
+        self.af_seq_len = af_seq_len
+        self.num_classes = num_classes
+        self.encoder = AudioSVNet_Step_MultiObject_Encoder(
+            af_seq_len=af_seq_len)
+        self.classifier = AudioSVNet_Step_MultiObject_Classifier(
+            num_classes=num_classes)
+
+
+class AudioSVNet_Step_MultiObject_Encoder(nn.Module):
+
+    def __init__(self, af_seq_len) -> None:
+        super().__init__()
+        self.af_seq_len = af_seq_len
+        # self.audio_feature_extractor = PretrainedBaseModel(
+        #     in_channels=1, num_class=320, base_model='resnet50', before_dropout=0, before_softmax=False)
+        self.audio_feature_extractor = LightSerNet(in_channels=1)
+        self.audio_emotional_GRU = nn.GRU(input_size=320, hidden_size=64,
+                                          num_layers=1, batch_first=True)
+        self.calc_audio_weight = nn.Sequential(nn.Linear(64, 1), nn.Sigmoid())
+
+    def forward(self, af: Tensor, af_len=None) -> Tensor:
+        # 处理语音数据
+        # [B, C, Seq, F]
+        if af.shape[2] > self.af_seq_len:
+            af = [af[:, :, 63*i:63*i+self.af_seq_len, :]
+                  for i in range(int(((af.shape[2]-self.af_seq_len) / 63)+1))]
+        else:
+            af = [af]
+        # af_seg_len * [B, C, af_seq_len, F]
+
+        # 记录分段数量, af_seg_len = ceil or floor(seq/af_seq_len)
+        af_seg_len = len(af)
+        af = torch.stack(af).permute(1, 0, 2, 3, 4).clone().contiguous()
+        # [B, af_seg_len, C, af_seq_len, F]
+
+        # [B * af_seg_len, C, af_seq_len, F]
+        af_fea = self.audio_feature_extractor(
+            af.view((-1,)+af.size()[2:]))
+        # [B * af_seg_len, F]
+        af_fea = af_fea.view((-1, af_seg_len) + af_fea.size()[1:])
+        # [B, af_seg_len, F]
+        if af_len is not None:  # 如果提供了原数据的有效 Seq 长度
+            batch_size, max_len, _ = af_fea.shape
+            # 计算每一段实际的有效数据段数量
+            af_len_ = []
+            for l in af_len:
+                if l.item() > self.af_seq_len:
+                    af_len_.append(int((l.item()-self.af_seq_len)/63+1))
+                else:
+                    af_len_.append(l.item())
+            af_len = torch.Tensor(af_len_).to(device=af_len.device)
+            af_mask = torch.arange(max_len, device=af_len.device
+                                   ).expand(batch_size, max_len) >= af_len[:, None]
+            af_fea[af_mask] = 0.0
+
+        audio_weight = self.audio_emotional_GRU(af_fea)[0]
+        # [B, af_seg_len, F_]
+        audio_weight = self.calc_audio_weight(audio_weight)
+        # [B, af_seg_len, F] * [B, af_seg_len, 1]
+        af_fea = af_fea * audio_weight
+        # [B, af_seg_len, F]
+
+        af_fea = af_fea.mean(dim=1)
+
+        return af_fea
+
+
+class AudioSVNet_Step_MultiObject_Classifier(nn.Module):
+
+    def __init__(self, num_classes) -> None:
+        super().__init__()
+        self.num_classes = num_classes
+        for i in range(num_classes):
+            setattr(self, f"audio_classifier_{i}", nn.Linear(
+                in_features=320, out_features=1))
+
+    def forward(self, fea: Tensor) -> Tensor:
+        # 分类
+        af_out = []
+        for i in range(self.num_classes):
+            audio_classifier = getattr(self, f"audio_classifier_{i}")
             out = audio_classifier(fea)
             af_out.append(out.squeeze())
         return af_out, None

@@ -26,13 +26,12 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
         self.config = config  # 参数字典
         self.device = device  # 定义主设备
         # 设置要使用的模型
-        if 'para' in self.config["architecture"]['net']:
-            if self.config['architecture']['net']['para']:
-                self.net = globals(
-                )[self.config["architecture"]["net"]["name"]](**self.config["architecture"]['net']['para'])
-            else:
-                self.net = globals()[
-                    self.config["architecture"]["net"]["name"]]()
+        if self.config['architecture']['net']['para']:
+            self.net = globals()[self.config["architecture"]["net"]["name"]](
+                **self.config["architecture"]['net']['para'])
+        else:
+            self.net = globals()[
+                self.config["architecture"]["net"]["name"]]()
         if self.train_loader:
             self.set_configuration()  # 设置参数
         # 加载模型及其参数
@@ -146,7 +145,7 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
                 # list([batch,1], ..),None
                 for t in range(len(out_t)):  # 遍历所有分类任务
                     loss_func = nn.BCEWithLogitsLoss(
-                        reduction='mean', pos_weight=loss_weights[t])
+                        reduction='mean', pos_weight=None)  # loss_weights[t]
                     # 获取第 t 个分类任务的交叉熵损失
                     loss = loss_func(out_t[t], labels[:, t])
                     loss_data[str(t)] = loss.item()
@@ -180,7 +179,7 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
                 for t in range(len(out_t)):
                     # 计算每个任务输出的损失值
                     loss_func = nn.BCEWithLogitsLoss(
-                        reduction='mean', pos_weight=loss_weights[t])
+                        reduction='mean', pos_weight=None)  # loss_weights[t]
                     # 获取第 t 个分类任务的交叉熵损失
                     loss_t = loss_func(out_t[t], labels[:, t])
 

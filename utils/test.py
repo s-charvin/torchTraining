@@ -7,7 +7,7 @@ import torchaudio
 
 
 if sys.platform.startswith('linux'):
-    os.chdir("/home/user4/SCW/deeplearning/")
+    os.chdir("/home/visitors2/SCW/deeplearning/")
 elif sys.platform.startswith('win'):
     pass
 

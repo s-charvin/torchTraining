@@ -3,7 +3,7 @@ import argparse
 import os
 import sys
 if sys.platform.startswith('linux'):
-    os.chdir("/home/user4/SCW/torchTraining")
+    os.chdir("/home/visitors2/SCW/torchTraining")
 elif sys.platform.startswith('win'):
     pass
 import yaml  # yaml文件解析模块
@@ -26,10 +26,10 @@ print("程序运行起始文件夹: "+os.getcwd())
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", help="语音文件列表或文件夹",
-                        default="/sdb/user4/SCW/data/IEMOCAP/Session3/sentences/wav/Ses03F_impro04/")
+                        default="/sdb/visitors2/SCW/data/IEMOCAP/Session3/sentences/wav/Ses03F_impro04/")
     parser.add_argument("--devices", type=str, default="1")
     args = parser.parse_args()
-    configpath = '/home/user4/SCW/torchTraining/config/'
+    configpath = '/home/visitors2/SCW/torchTraining/config/'
     config = {}
     [config.update(yaml.safe_load(open(os.path.join(configpath, i),
                    'r', encoding='utf-8').read())) for i in os.listdir(configpath)]
