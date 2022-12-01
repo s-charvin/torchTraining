@@ -1,4 +1,4 @@
 architecture:
     net: 
-        name: "AudioSVCNet"
+        name: "AudioSVCNet_Step_MultiObject"
         para: 

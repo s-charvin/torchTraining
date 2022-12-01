@@ -608,7 +608,7 @@ class VideoSVCNet_Conv2D(nn.Module):
         self.video_classifier = nn.Linear(
             in_features=320, out_features=num_class)
 
-    def forward(self, af: Tensor, af_len=None) -> Tensor:
+    def forward(self, vf: Tensor, vf_len=None) -> Tensor:
         """
         Args:
             vf (Tensor): size:[B, C, Seq, W, H]
@@ -654,6 +654,69 @@ class VideoSVCNet_Conv2D(nn.Module):
         return F.softmax(vf_out, dim=1), None
 
 
+class VideoSVCNet_Step_Conv2D(nn.Module):
+    """
+    """
+
+    def __init__(self, num_class=4, vf_seq_len=10*3) -> None:
+        super().__init__()
+        self.vf_seq_len = vf_seq_len
+        self.video_feature_extractor = PretrainedBaseModel(
+            in_channels=3, num_class=320, base_model='resnet50', before_dropout=0, before_softmax=False)
+
+        self.video_classifier = nn.Linear(
+            in_features=320, out_features=num_class)
+
+    def forward(self, vf: Tensor, vf_len=None) -> Tensor:
+        """
+        Args:
+            vf (Tensor): size:[B, C, Seq, W, H]
+            vf_len (Sequence, optional): size:[B]. Defaults to None.
+
+        Returns:
+            Tensor: size:[batch, out]
+        """
+        # 处理视频数据
+        # [B, C, Seq, W, H]
+        if vf.shape[2] > self.vf_seq_len:
+            vf = [vf[:, :, 10*i:10*i+self.vf_seq_len, :, :]
+                  for i in range(int(((vf.shape[2]-self.vf_seq_len) / 10)+1))]
+        else:
+            vf = [vf]
+        # vf_seg_len * [B, C, vf_seq_len, W, H]
+
+        vf_seg_len = len(vf)  # 记录分段数量, vf_seg_len = ceil(seq/vf_seg_len)
+        vf = torch.stack(vf).permute(1, 0, 3, 2, 4, 5).clone().contiguous()
+        # [B, vf_seg_len, vf_seq_len, C, W, H]
+        # [B * vf_seg_len * vf_seq_len, C, W, H]
+
+        vf_fea = self.video_feature_extractor(
+            vf.view((-1, ) + vf.size()[-3:]))
+        # [B * vf_seg_len * vf_seq_len, F]
+        vf_fea = vf_fea.view(
+            (-1, vf_seg_len, self.vf_seq_len) + vf_fea.size()[1:])
+        # [B, vf_seg_len, vf_seq_len, F]
+        vf_fea = vf_fea.mean(dim=2)
+        # [B, vf_seg_len, F]
+        if vf_len is not None:
+            batch_size, max_len, _ = vf_fea.shape
+
+            vf_len_ = []
+            for l in vf_len:
+                if l.item() > self.vf_seq_len:
+                    vf_len_.append(int((l.item()-self.vf_seq_len)/10+1))
+                else:
+                    vf_len_.append(l.item())
+            vf_len = torch.Tensor(vf_len_).to(device=vf_len.device)
+            vf_mask = torch.arange(max_len, device=vf_len.device
+                                   ).expand(batch_size, max_len) >= vf_len[:, None]
+            vf_fea[vf_mask] = 0.0
+
+        vf_fea = vf_fea.mean(dim=1)
+        vf_out = self.video_classifier(vf_fea).squeeze()
+        return F.softmax(vf_out, dim=1), None
+
+
 class VideoSVNet_Conv2D(nn.Module):
     """
     """
@@ -669,7 +732,7 @@ class VideoSVNet_Conv2D(nn.Module):
         self.video_classifier = nn.Linear(
             in_features=320, out_features=num_class)
 
-    def forward(self, af: Tensor, af_len=None) -> Tensor:
+    def forward(self, vf: Tensor, vf_len=None) -> Tensor:
         """
         Args:
             vf (Tensor): size:[B, C, Seq, W, H]
@@ -706,6 +769,77 @@ class VideoSVNet_Conv2D(nn.Module):
             batch_size, max_len, _ = vf_fea.shape
             vf_len = torch.floor(
                 vf_len/self.vf_seq_len) if vf_floor_ else torch.ceil(vf_len/self.vf_seq_len)
+            vf_mask = torch.arange(max_len, device=vf_len.device
+                                   ).expand(batch_size, max_len) >= vf_len[:, None]
+            vf_fea[vf_mask] = 0.0
+
+        video_weight = self.video_emotional_GRU(vf_fea)[0]
+        # [B, vf_seg_len, F_]
+        video_weight = self.calc_video_weight(video_weight)
+        # [B, vf_seg_len, F] * [B, vf_seg_len, 1]
+        vf_fea = vf_fea * video_weight
+        # [B, vf_seg_len, F]
+        vf_fea = vf_fea.mean(dim=1)
+        vf_out = self.video_classifier(vf_fea).squeeze()
+        return F.softmax(vf_out, dim=1), video_weight
+
+
+class VideoSVNet_Step_Conv2D(nn.Module):
+    """
+    """
+
+    def __init__(self, num_class=4, vf_seq_len=10*3) -> None:
+        super().__init__()
+        self.vf_seq_len = vf_seq_len
+        self.video_feature_extractor = PretrainedBaseModel(
+            in_channels=3, num_class=320, base_model='resnet50', before_dropout=0, before_softmax=False)
+        self.video_emotional_GRU = nn.GRU(input_size=320, hidden_size=64,
+                                          num_layers=1, batch_first=True)
+        self.calc_video_weight = nn.Sequential(nn.Linear(64, 1), nn.Sigmoid())
+        self.video_classifier = nn.Linear(
+            in_features=320, out_features=num_class)
+
+    def forward(self, vf: Tensor, vf_len=None) -> Tensor:
+        """
+        Args:
+            vf (Tensor): size:[B, C, Seq, W, H]
+            vf_len (Sequence, optional): size:[B]. Defaults to None.
+
+        Returns:
+            Tensor: size:[batch, out]
+        """
+        # 处理视频数据
+        # [B, C, Seq, W, H]
+        if vf.shape[2] > self.vf_seq_len:
+            vf = [vf[:, :, 10*i:10*i+self.vf_seq_len, :, :]
+                  for i in range(int(((vf.shape[2]-self.vf_seq_len) / 10)+1))]
+        else:
+            vf = [vf]
+
+        # vf_seg_len * [B, C, vf_seq_len, W, H]
+
+        vf_seg_len = len(vf)  # 记录分段数量, vf_seg_len = ceil(seq/vf_seg_len)
+        vf = torch.stack(vf).permute(1, 0, 3, 2, 4, 5).clone().contiguous()
+        # [B, vf_seg_len, vf_seq_len, C, W, H]
+        # [B * vf_seg_len * vf_seq_len, C, W, H]
+
+        vf_fea = self.video_feature_extractor(
+            vf.view((-1, ) + vf.size()[-3:]))
+        # [B * vf_seg_len * vf_seq_len, F]
+        vf_fea = vf_fea.view(
+            (-1, vf_seg_len, self.vf_seq_len) + vf_fea.size()[1:])
+        # [B, vf_seg_len, vf_seq_len, F]
+        vf_fea = vf_fea.mean(dim=2)
+        # [B, vf_seg_len, F]
+        if vf_len is not None:
+            batch_size, max_len, _ = vf_fea.shape
+            vf_len_ = []
+            for l in vf_len:
+                if l.item() > self.vf_seq_len:
+                    vf_len_.append(int((l.item()-self.vf_seq_len)/10+1))
+                else:
+                    vf_len_.append(l.item())
+            vf_len = torch.Tensor(vf_len_).to(device=vf_len.device)
             vf_mask = torch.arange(max_len, device=vf_len.device
                                    ).expand(batch_size, max_len) >= vf_len[:, None]
             vf_fea[vf_mask] = 0.0
@@ -1225,3 +1359,375 @@ class MIFFNet_Conv2D_GRU_InterFusion_coeff(nn.Module):
         vf_out = self.video_classifier(vf_fea)
         av_out = self.video_classifier(fusion_fea)
         return F.softmax(af_out, dim=1), F.softmax(vf_out, dim=1), F.softmax(av_out, dim=1)
+
+
+class MIFFNet_Conv2D_GRU_InterFusion_coeff_Step(nn.Module):
+    """
+    paper: MIFFNet: Multimodal interframe feature fusion network
+    """
+
+    def __init__(self, num_class=4, af_seq_len=63*3, vf_seq_len=10*3) -> None:
+        super().__init__()
+        self.af_seq_len = af_seq_len
+        self.vf_seq_len = vf_seq_len
+
+        self.audio_feature_extractor = LightSerNet(in_channels=1)
+        self.video_feature_extractor = PretrainedBaseModel(
+            in_channels=3, num_class=320, base_model='resnet50', before_dropout=0, before_softmax=False)
+
+        self.audio_emotional_GRU = nn.GRU(input_size=320, hidden_size=64,
+                                          num_layers=1, batch_first=True)
+        self.calc_audio_weight = nn.Sequential(nn.Linear(64, 1), nn.Sigmoid())
+        self.video_emotional_GRU = nn.GRU(input_size=320, hidden_size=64,
+                                          num_layers=1, batch_first=True)
+        self.calc_video_weight = nn.Sequential(nn.Linear(64, 1), nn.Sigmoid())
+
+        self.fusion_feature = nn.Linear(in_features=320*2, out_features=320)
+
+        self.audio_classifier = nn.Linear(
+            in_features=320*2, out_features=num_class)
+        self.video_classifier = nn.Linear(
+            in_features=320*2, out_features=num_class)
+        self.fusion_classifier = nn.Linear(
+            in_features=320*2, out_features=num_class)
+
+    def forward(self, af: Tensor, vf: Tensor, af_len=None, vf_len=None) -> Tensor:
+        """
+        Args:
+            af (Tensor): size:[B, C,Seq, F]
+            vf (Tensor): size:[B, C, Seq, W, H]
+            af_len (Sequence, optional): size:[B]. Defaults to None.
+            vf_len (Sequence, optional): size:[B]. Defaults to None.
+
+        Returns:
+            Tensor: size:[batch, out]
+        """
+        # 处理语音数据
+        # [B, C, Seq, F]
+        if af.shape[2] > self.af_seq_len:
+            af = [af[:, :, 63*i:63*i+self.af_seq_len, :]
+                  for i in range(int(((af.shape[2]-self.af_seq_len) / 63)+1))]
+        else:
+            af = [af]
+        # af_seg_len * [B, C, af_seq_len, F]
+
+        # 记录分段数量, af_seg_len = ceil or floor(seq/af_seq_len)
+        af_seg_len = len(af)
+        af = torch.stack(af).permute(1, 0, 2, 3, 4).clone().contiguous()
+        # [B, af_seg_len, C, af_seq_len, F]
+
+        # [B * af_seg_len, C, af_seq_len, F]
+
+        af_fea = self.audio_feature_extractor(af.view((-1,)+af.size()[2:]))
+        # [B * af_seg_len, F]
+        af_fea = af_fea.view(
+            (-1, af_seg_len) + af_fea.size()[1:])
+        # [B, af_seg_len, F]
+        if af_len is not None:  # 如果提供了原数据的有效 Seq 长度
+            batch_size, max_len, _ = af_fea.shape
+            # 计算每一段实际的有效数据段数量
+            af_len_ = []
+            for l in af_len:
+                if l.item() > self.af_seq_len:
+                    af_len_.append(int((l.item()-self.af_seq_len)/63+1))
+                else:
+                    af_len_.append(l.item())
+            af_len = torch.Tensor(af_len_).to(device=af_len.device)
+            af_mask = torch.arange(max_len, device=af_len.device
+                                   ).expand(batch_size, max_len) >= af_len[:, None]
+            af_fea[af_mask] = 0.0
+        audio_weight = self.audio_emotional_GRU(af_fea)[0]
+        # [B, af_seg_len, F_]
+        audio_weight = self.calc_audio_weight(audio_weight)
+        # [B, af_seg_len, F] * [B, af_seg_len, 1]
+        af_fea = af_fea * audio_weight
+        # [B, af_seg_len, F]
+
+        # 处理视频数据
+        # [B, C, Seq, W, H]
+        if vf.shape[2] > self.vf_seq_len:
+            vf = [vf[:, :, 10*i:10*i+self.vf_seq_len, :, :]
+                  for i in range(int(((vf.shape[2]-self.vf_seq_len) / 10)+1))]
+        else:
+            vf = [vf]
+
+        # vf_seg_len * [B, C, vf_seq_len, W, H]
+
+        vf_seg_len = len(vf)  # 记录分段数量, vf_seg_len = ceil(seq/vf_seg_len)
+        vf = torch.stack(vf).permute(1, 0, 3, 2, 4, 5).clone().contiguous()
+        # [B, vf_seg_len, vf_seq_len, C, W, H]
+        # [B * vf_seg_len * vf_seq_len, C, W, H]
+
+        vf_fea = self.video_feature_extractor(
+            vf.view((-1, ) + vf.size()[-3:]))
+        # [B * vf_seg_len * vf_seq_len, F]
+        vf_fea = vf_fea.view(
+            (-1, vf_seg_len, self.vf_seq_len) + vf_fea.size()[1:])
+        # [B, vf_seg_len, vf_seq_len, F]
+        vf_fea = vf_fea.mean(dim=2)
+        # [B, vf_seg_len, F]
+        if vf_len is not None:
+            batch_size, max_len, _ = vf_fea.shape
+            vf_len_ = []
+            for l in vf_len:
+                if l.item() > self.vf_seq_len:
+                    vf_len_.append(int((l.item()-self.vf_seq_len)/10+1))
+                else:
+                    vf_len_.append(l.item())
+            vf_len = torch.Tensor(vf_len_).to(device=vf_len.device)
+            vf_mask = torch.arange(max_len, device=vf_len.device
+                                   ).expand(batch_size, max_len) >= vf_len[:, None]
+            vf_fea[vf_mask] = 0.0
+
+        video_weight = self.video_emotional_GRU(vf_fea)[0]
+        # [B, vf_seg_len, F_]
+        video_weight = self.calc_video_weight(video_weight)
+        # [B, vf_seg_len, F] * [B, vf_seg_len, 1]
+        vf_fea = vf_fea * video_weight
+        # [B, vf_seg_len, F]
+
+        # 中间融合
+
+        seg_len = min(vf_seg_len, af_seg_len)
+        fusion_fea = torch.cat(
+            [vf_fea[:, :seg_len, :], af_fea[:, :seg_len, :]], dim=-1)
+        # [B, seg_len, 2*F]
+
+        common_feature = self.fusion_feature(
+            fusion_fea.detach())  # detach 不改变原来的tensor属性
+        common_feature = common_feature.mean(dim=1)
+
+        af_fea = af_fea.mean(dim=1)
+        vf_fea = vf_fea.mean(dim=1)
+        fusion_fea = fusion_fea.mean(dim=1)
+        af_fea = torch.cat([af_fea, common_feature], dim=1)
+        vf_fea = torch.cat([vf_fea, common_feature], dim=1)
+        # [B, 2*F]
+
+        # 分类
+        af_out = self.audio_classifier(af_fea)
+        vf_out = self.video_classifier(vf_fea)
+        av_out = self.video_classifier(fusion_fea)
+        return F.softmax(af_out, dim=1), F.softmax(vf_out, dim=1), F.softmax(av_out, dim=1)
+
+
+class MIFFNet_Conv2D_GRU_InterFusion_coeff_Step_OnlyAv(nn.Module):
+    """
+    paper: MIFFNet: Multimodal interframe feature fusion network
+    """
+
+    def __init__(self, num_class=4, af_seq_len=63*3, vf_seq_len=10*3) -> None:
+        super().__init__()
+        self.af_seq_len = af_seq_len
+        self.vf_seq_len = vf_seq_len
+
+        self.audio_feature_extractor = LightSerNet(in_channels=1)
+        self.video_feature_extractor = PretrainedBaseModel(
+            in_channels=3, num_class=320, base_model='resnet50', before_dropout=0, before_softmax=False)
+
+        self.audio_emotional_GRU = nn.GRU(input_size=320, hidden_size=64,
+                                          num_layers=1, batch_first=True)
+        self.calc_audio_weight = nn.Sequential(nn.Linear(64, 1), nn.Sigmoid())
+        self.video_emotional_GRU = nn.GRU(input_size=320, hidden_size=64,
+                                          num_layers=1, batch_first=True)
+        self.calc_video_weight = nn.Sequential(nn.Linear(64, 1), nn.Sigmoid())
+
+        self.fusion_feature = nn.Linear(in_features=320*2, out_features=320)
+        self.fusion_classifier = nn.Linear(
+            in_features=320*2, out_features=num_class)
+
+    def forward(self, af: Tensor, vf: Tensor, af_len=None, vf_len=None) -> Tensor:
+        """
+        Args:
+            af (Tensor): size:[B, C,Seq, F]
+            vf (Tensor): size:[B, C, Seq, W, H]
+            af_len (Sequence, optional): size:[B]. Defaults to None.
+            vf_len (Sequence, optional): size:[B]. Defaults to None.
+
+        Returns:
+            Tensor: size:[batch, out]
+        """
+        # 处理语音数据
+        # [B, C, Seq, F]
+        if af.shape[2] > self.af_seq_len:
+            af = [af[:, :, 63*i:63*i+self.af_seq_len, :]
+                  for i in range(int(((af.shape[2]-self.af_seq_len) / 63)+1))]
+        else:
+            af = [af]
+        # af_seg_len * [B, C, af_seq_len, F]
+
+        # 记录分段数量, af_seg_len = ceil or floor(seq/af_seq_len)
+        af_seg_len = len(af)
+        af = torch.stack(af).permute(1, 0, 2, 3, 4).clone().contiguous()
+        # [B, af_seg_len, C, af_seq_len, F]
+
+        # [B * af_seg_len, C, af_seq_len, F]
+
+        af_fea = self.audio_feature_extractor(af.view((-1,)+af.size()[2:]))
+        # [B * af_seg_len, F]
+        af_fea = af_fea.view(
+            (-1, af_seg_len) + af_fea.size()[1:])
+        # [B, af_seg_len, F]
+        if af_len is not None:  # 如果提供了原数据的有效 Seq 长度
+            batch_size, max_len, _ = af_fea.shape
+            # 计算每一段实际的有效数据段数量
+            af_len_ = []
+            for l in af_len:
+                if l.item() > self.af_seq_len:
+                    af_len_.append(int((l.item()-self.af_seq_len)/63+1))
+                else:
+                    af_len_.append(l.item())
+            af_len = torch.Tensor(af_len_).to(device=af_len.device)
+            af_mask = torch.arange(max_len, device=af_len.device
+                                   ).expand(batch_size, max_len) >= af_len[:, None]
+            af_fea[af_mask] = 0.0
+        audio_weight = self.audio_emotional_GRU(af_fea)[0]
+        # [B, af_seg_len, F_]
+        audio_weight = self.calc_audio_weight(audio_weight)
+        # [B, af_seg_len, F] * [B, af_seg_len, 1]
+        af_fea = af_fea * audio_weight
+        # [B, af_seg_len, F]
+
+        # 处理视频数据
+        # [B, C, Seq, W, H]
+        if vf.shape[2] > self.vf_seq_len:
+            vf = [vf[:, :, 10*i:10*i+self.vf_seq_len, :, :]
+                  for i in range(int(((vf.shape[2]-self.vf_seq_len) / 10)+1))]
+        else:
+            vf = [vf]
+
+        # vf_seg_len * [B, C, vf_seq_len, W, H]
+
+        vf_seg_len = len(vf)  # 记录分段数量, vf_seg_len = ceil(seq/vf_seg_len)
+        vf = torch.stack(vf).permute(1, 0, 3, 2, 4, 5).clone().contiguous()
+        # [B, vf_seg_len, vf_seq_len, C, W, H]
+        # [B * vf_seg_len * vf_seq_len, C, W, H]
+
+        vf_fea = self.video_feature_extractor(
+            vf.view((-1, ) + vf.size()[-3:]))
+        # [B * vf_seg_len * vf_seq_len, F]
+        vf_fea = vf_fea.view(
+            (-1, vf_seg_len, self.vf_seq_len) + vf_fea.size()[1:])
+        # [B, vf_seg_len, vf_seq_len, F]
+        vf_fea = vf_fea.mean(dim=2)
+        # [B, vf_seg_len, F]
+        if vf_len is not None:
+            batch_size, max_len, _ = vf_fea.shape
+            vf_len_ = []
+            for l in vf_len:
+                if l.item() > self.vf_seq_len:
+                    vf_len_.append(int((l.item()-self.vf_seq_len)/10+1))
+                else:
+                    vf_len_.append(l.item())
+            vf_len = torch.Tensor(vf_len_).to(device=vf_len.device)
+            vf_mask = torch.arange(max_len, device=vf_len.device
+                                   ).expand(batch_size, max_len) >= vf_len[:, None]
+            vf_fea[vf_mask] = 0.0
+
+        video_weight = self.video_emotional_GRU(vf_fea)[0]
+        # [B, vf_seg_len, F_]
+        video_weight = self.calc_video_weight(video_weight)
+        # [B, vf_seg_len, F] * [B, vf_seg_len, 1]
+        vf_fea = vf_fea * video_weight
+        # [B, vf_seg_len, F]
+
+        # 中间融合
+        af_fea = af_fea.mean(dim=1)
+        vf_fea = vf_fea.mean(dim=1)
+        # [B, F]
+        fusion_fea = torch.cat([vf_fea, af_fea], dim=-1)
+        # [B, 2*F]
+        fusion_fea = self.fusion_feature(fusion_fea)
+        # [B, F]
+        # 分类
+        av_out = self.video_classifier(fusion_fea)
+        return F.softmax(av_out, dim=1)
+
+
+class AudioSVCNet_Step_MultiObject(nn.Module):
+
+    def __init__(self, num_classes=4, af_seq_len=63*3) -> None:
+        super().__init__()
+        self.af_seq_len = af_seq_len
+        self.num_classes = num_classes
+        self.encoder = AudioSVCNet_Step_MultiObject_Encoder(
+            af_seq_len=af_seq_len)
+        self.classifier = AudioSVCNet_Step_MultiObject_Classifier(
+            num_classes=num_classes)
+
+
+class AudioSVCNet_Step_MultiObject_Encoder(nn.Module):
+
+    def __init__(self, af_seq_len) -> None:
+        super().__init__()
+        self.af_seq_len = af_seq_len
+        # self.audio_feature_extractor = PretrainedBaseModel(
+        #     in_channels=1, num_class=320, base_model='resnet50', before_dropout=0, before_softmax=False)
+        self.audio_feature_extractor = LightSerNet(in_channels=1)
+
+    def forward(self, af: Tensor, af_len=None) -> Tensor:
+        """
+        Args:
+            af (Tensor): size:[B, C,Seq, F]
+            af_len (Sequence, optional): size:[B]. Defaults to None.
+
+        Returns:
+            Tensor: size:[batch, out]
+        """
+
+        # 处理语音数据
+        # [B, C, Seq, F]
+        if af.shape[2] > self.af_seq_len:
+            af = [af[:, :, 63*i:63*i+self.af_seq_len, :]
+                  for i in range(int(((af.shape[2]-self.af_seq_len) / 63)+1))]
+        else:
+            af = [af]
+        # af_seg_len * [B, C, af_seq_len, F]
+
+        # 记录分段数量, af_seg_len = ceil or floor(seq/af_seq_len)
+        af_seg_len = len(af)
+        af = torch.stack(af).permute(1, 0, 2, 3, 4).clone().contiguous()
+        # [B, af_seg_len, C, af_seq_len, F]
+
+        # [B * af_seg_len, C, af_seq_len, F]
+        af_fea = self.audio_feature_extractor(
+            af.view((-1,)+af.size()[2:]))
+        # [B * af_seg_len, F]
+        af_fea = af_fea.view((-1, af_seg_len) + af_fea.size()[1:])
+        # [B, af_seg_len, F]
+        if af_len is not None:  # 如果提供了原数据的有效 Seq 长度
+            batch_size, max_len, _ = af_fea.shape
+            # 计算每一段实际的有效数据段数量
+
+            af_len_ = []
+            for l in af_len:
+                if l.item() > self.af_seq_len:
+                    af_len_.append(int((l.item()-self.af_seq_len)/63+1))
+                else:
+                    af_len_.append(l.item())
+            af_len = torch.Tensor(af_len_).to(device=af_len.device)
+            af_mask = torch.arange(max_len, device=af_len.device).expand(
+                batch_size, max_len) >= af_len[:, None]
+            af_fea[af_mask] = 0.0
+
+        af_fea = af_fea.mean(dim=1)
+        return af_fea
+
+
+class AudioSVCNet_Step_MultiObject_Classifier(nn.Module):
+
+    def __init__(self, num_classes) -> None:
+        super().__init__()
+        self.num_classes = num_classes
+        for i in range(num_classes):
+            setattr(self, "audio_classifier_{i}", nn.Linear(
+                in_features=320, out_features=1))
+
+    def forward(self, fea: Tensor) -> Tensor:
+        # 分类
+        af_out = []
+        for i in range(self.num_classes):
+            audio_classifier = getattr(self, "audio_classifier_{i}")
+            out = audio_classifier(fea)
+            af_out.append(out.squeeze())
+        return af_out, None

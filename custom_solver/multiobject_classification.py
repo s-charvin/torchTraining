@@ -3,18 +3,17 @@ import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-from tqdm import tqdm
 from sklearn.metrics import accuracy_score
 from logger import Logger
 from .lr_scheduler import *
 from .optimizer import *
 from models import *
+from .min_norm_solvers import MinNormSolver, gradient_normalizers
 
 
-class Video_Classification(object):
+class Audio_Classification2MultiObject_MGDA_UB(object):
 
-    def __init__(self, train_loader, test_loader, config: dict, device):
+    def __init__(self, train_loader=None, test_loader=None, config: dict = {}, device=None):
         """分类模型训练方法框架
         Args:
             train_loader (_type_): 训练集，可迭代类型数据
@@ -31,18 +30,11 @@ class Video_Classification(object):
             if self.config['architecture']['net']['para']:
                 self.net = globals(
                 )[self.config["architecture"]["net"]["name"]](**self.config["architecture"]['net']['para'])
-        else:
-            self.net = globals()[
-                self.config["architecture"]["net"]["name"]]()
-        # 多 GPU 并行计算
-        if len(self.config["train"]['USE_GPU'].split(",")) > 1:
-            torch.distributed.init_process_group(backend="gloo")
-            # backend: 多机器间交换数据协议, init_method: 设置交换数据主节点, world_size:标识使用进程数（主机数*每台主机的GPU数/实际就是机器的个数？）
-            # rank: 标识主机和从机，主节点为 0, 剩余的为 1-(N-1), N 为要使用的机器的数量
-            self.net = self.net.cuda()
-            self.net = torch.nn.parallel.DistributedDataParallel(
-                self.net, find_unused_parameters=True)  # device_ids 默认选用本地显示的所有 GPU
-        self.set_configuration()  # 设置参数
+            else:
+                self.net = globals()[
+                    self.config["architecture"]["net"]["name"]]()
+        if self.train_loader:
+            self.set_configuration()  # 设置参数
         # 加载模型及其参数
         if self.config['train']['checkpoint']:  # 是否加载历史检查点
             self.load(self.config['train']['checkpoint'])
@@ -54,13 +46,16 @@ class Video_Classification(object):
         if self.last_epochs < -1:
             raise ValueError("last_epochs 值必须为大于等于 -1 的整数, 当其为 -1 时, 表示重新训练.")
         # 优化器及其参数
+        model_params = []
+        model_params += self.net.encoder.parameters()
+        model_params += self.net.classifier.parameters()
         if 'para' in self.config["sorlver"]['optimizer']:
             if self.config["sorlver"]['optimizer']['para']:
                 self.optimizer = globals(
-                )[self.config["sorlver"]['optimizer']["name"]](params=self.net.parameters(), lr=self.config["sorlver"]['optimizer']['lr'], **self.config["sorlver"]['optimizer']['para'])
+                )[self.config["sorlver"]['optimizer']["name"]](params=model_params, lr=self.config["sorlver"]['optimizer']['lr'], **self.config["sorlver"]['optimizer']['para'])
         else:
             self.optimizer = globals(
-            )[self.config["sorlver"]['optimizer']["name"]](params=self.net.parameters())
+            )[self.config["sorlver"]['optimizer']["name"]](params=model_params)
 
         # 使用 tensorboard 记录
         self.use_tensorboard = self.config['logs']['use_tensorboard']
@@ -86,7 +81,7 @@ class Video_Classification(object):
 
     def train(self):
         """训练主函数"""
-
+        assert self.train_loader, "未提供训练数据"
         #############################################################
         #                            训练                           #
         #############################################################
@@ -95,7 +90,7 @@ class Video_Classification(object):
         # 更新学习率的方法
         self.lr_method = globals()[self.config["sorlver"]["lr_method"]["name"]](optimizer=self.optimizer,
                                                                                 last_epoch=self.last_epochs if self.last_epochs >= 1 else -1, **self.config["sorlver"]["lr_method"]["para"])
-        # 预测结果记录aram_groups[0] when resuming
+        # 预测结果记录
         self.accuracylog = []
         # 训练开始时间记录
         start_time = datetime.now()
@@ -103,7 +98,10 @@ class Video_Classification(object):
         step = 0
 
         # 设置损失函数
-        loss_func = nn.CrossEntropyLoss(reduction='mean')
+        loss_weights = None
+        if self.config["sorlver"]["loss_weights"]:
+            loss_weights = torch.Tensor(
+                self.config["sorlver"]["loss_weights"]).to(device=self.device)
 
         for epoch in range(start_iter, self.n_epochs):  # 迭代循环 [0, epoch)
             for batch_i, data in enumerate(self.train_loader):  # [0, batch)
@@ -112,26 +110,87 @@ class Video_Classification(object):
                 self.to_device(device=self.device)
                 self.set_train_mode()
                 # 获取特征
-                if isinstance(data["video"], torch.nn.utils.rnn.PackedSequence):
+                if isinstance(data["audio"], torch.nn.utils.rnn.PackedSequence):
                     features, feature_lens = torch.nn.utils.rnn.pad_packed_sequence(
-                        data["video"], batch_first=True)
-                elif isinstance(data["video"], torch.Tensor):
-                    features, feature_lens = data["video"], None
+                        data["audio"], batch_first=True)
+                elif isinstance(data["audio"], torch.Tensor):
+                    features, feature_lens = data["audio"], None
                 # 获取标签
                 labels = data["labelid"]
                 # 将数据迁移到训练设备
-                features = features.to(device=self.device, dtype=torch.float32)
+                features = features.to(device=self.device)
                 if feature_lens is not None:
                     feature_lens = feature_lens.to(device=self.device)
-                labels = labels.long().to(device=self.device)
-
+                labels = F.one_hot(labels.long(), num_classes=self.net.num_classes).to(
+                    device=self.device).float()
+                # [batch, class]
+                # 根据算法计算损失值的权重 scale
+                loss_data = {}
+                grads = {}
+                scale = {}
                 # 清空梯度数据
                 self.reset_grad()
-                out, _ = self.net(features.permute(
-                    0, 4, 1, 2, 3), feature_lens)
-                loss = loss_func(out, labels)
+                # First compute representations (z)
+                # 首先计算共有表征 (z)
+                with torch.no_grad():
+                    # 使用使用共享参数 (Encoder) 提取共有特征
+                    rep = self.net.encoder(
+                        features.permute(0, 3, 1, 2), feature_lens)
+                    # As an approximate solution we only need gradients for input
+                    # 作为近似解, 我们只需要每个任务的特有梯度
+                rep_variable = rep.clone().requires_grad_()
+
+                # 计算每个独立的二分类任务的损失函数关于其特有参数的梯度
+                self.reset_grad()
+                out_t, _ = self.net.classifier(rep_variable)
+                # list([batch,1], ..),None
+                for t in range(len(out_t)):  # 遍历所有分类任务
+                    loss_func = nn.BCEWithLogitsLoss(
+                        reduction='mean', pos_weight=loss_weights[t])
+                    # 获取第 t 个分类任务的交叉熵损失
+                    loss = loss_func(out_t[t], labels[:, t])
+                    loss_data[str(t)] = loss.item()
+                    loss.backward()
+                    grads[str(t)] = []  # 保留每个独立分类任务反向传播后, rep_variable 的梯度
+                    grads[str(t)].append(
+                        rep_variable.grad.data.clone().requires_grad_(False))
+                    rep_variable.grad.data.zero_()  # 清空当前任务反向传播的梯度
+
+                gn = gradient_normalizers(
+                    grads, loss_data, 'loss+')
+                # 将每个任务的梯度均除以自身的梯度权重
+                for t in range(len(out_t)):
+                    for gr_i in range(len(grads[str(t)])):
+                        grads[str(t)][gr_i] = grads[str(t)][gr_i] / gn[str(t)]
+
+                # 使用 Frank-Wolfe 算法计算梯度权重
+                sol, min_norm = MinNormSolver.find_min_norm_element(
+                    [grads[str(t)] for t in range(len(out_t))])
+
+                for t in range(len(out_t)):
+                    scale[str(t)] = float(sol[t])  # 存储每个任务的损失权重
+
+                # 清空之前使用算法计算损失权重时利用到的梯度(如果有)
+                self.reset_grad()
+                # 使用使用共享参数 (Encoder) 提取共有特征
+                rep = self.net.encoder(
+                    features.permute(0, 3, 1, 2), feature_lens)
+                # 使用特有参数 (Decoder) 获取每个任务的目标输出
+                out_t, _ = self.net.classifier(rep)
+                for t in range(len(out_t)):
+                    # 计算每个任务输出的损失值
+                    loss_func = nn.BCEWithLogitsLoss(
+                        reduction='mean', pos_weight=loss_weights[t])
+                    # 获取第 t 个分类任务的交叉熵损失
+                    loss_t = loss_func(out_t[t], labels[:, t])
+
+                    if t > 0:  # 对其余的任务,
+                        loss = loss + scale[str(t)]*loss_t
+                    else:  # 对第一个任务
+                        loss = scale[str(t)]*loss_t
                 loss.backward()
                 self.optimizer.step()
+
             #############################################################
             #                            记录                           #
             #############################################################
@@ -162,7 +221,7 @@ class Video_Classification(object):
         return self.accuracylog[-self.config['logs']['test_accuracy_every']:]
 
     def test(self):
-
+        assert self.test_loader, "未提供测试数据"
         # 测试模型准确率。
         label_preds = torch.rand(0).to(
             device=self.device, dtype=torch.long)  # 预测标签列表
@@ -177,22 +236,24 @@ class Video_Classification(object):
             self.set_eval_mode()
 
             # 获取特征
-            if isinstance(data["video"], torch.nn.utils.rnn.PackedSequence):
+            if isinstance(data["audio"], torch.nn.utils.rnn.PackedSequence):
                 features, feature_lens = torch.nn.utils.rnn.pad_packed_sequence(
-                    data["video"], batch_first=True)
-            elif isinstance(data["video"], torch.Tensor):
-                features, feature_lens = data["video"], None
+                    data["audio"], batch_first=True)
+            elif isinstance(data["audio"], torch.Tensor):
+                features, feature_lens = data["audio"], None
             # 获取标签
             true_labels = data["labelid"]
             # 将数据迁移到训练设备
-            features = features.to(device=self.device, dtype=torch.float32)
+            features = features.to(device=self.device)
             if feature_lens is not None:
                 feature_lens = feature_lens.to(device=self.device)
             true_labels = true_labels.long().to(device=self.device)
 
             with torch.no_grad():
-                out, _ = self.net(features.permute(
-                    0, 4, 1, 2, 3), feature_lens)  # 计算模型输出分类值
+                rep = self.net.encoder(
+                    features.permute(0, 3, 1, 2), feature_lens)
+                out_t, _ = self.net.classifier(rep)
+                out = torch.stack(out_t).permute(1, 0)
                 label_pre = torch.max(out, dim=1)[1]  # 获取概率最大值位置
                 label_preds = torch.cat(
                     (label_preds, label_pre), dim=0)  # 保存所有预测结果
@@ -215,10 +276,24 @@ class Video_Classification(object):
                 "Val/Accuracy_Eval", eval_accuracy, self.last_epochs)
         self.accuracylog.append([eval_accuracy])
 
+    def calculate(self, inputs: list):
+        self.to_device(device=self.device)
+        self.set_eval_mode()
+        label_pres = []
+
+        for i, inp in enumerate(inputs):
+            with torch.no_grad():
+                rep = self.net.encoder(inputs.permute(0, 3, 1, 2))
+                out_t, _ = self.net.classifier(rep)
+            out, _ = self.net(inputs[i].to(
+                device=self.device).unsqueeze(0).permute(0, 3, 1, 2))
+            label_pres.append(torch.max(out, dim=1)[1].item())
+        return label_pres
+
     def set_train_mode(self):
         # 设置模型为训练模式，可添加多个模型
-        self.net.train()  # 训练时使用BN层和Dropout层
-
+        self.net.encoder.train()  # 训练时使用 BN 层和 Dropout 层
+        self.net.classifier.train()
         # 冻结部分前置模块参数的示例
         # for param in self.net.module.wav2vec2.wav2vec2.base_model.parameters():
         #     param.requires_grad = False
@@ -226,11 +301,13 @@ class Video_Classification(object):
     def set_eval_mode(self):
         # 设置模型为评估模式，可添加多个模型
         # 处于评估模式时,批归一化层和dropout层不会在推断时有效果
-        self.net.eval()
+        self.net.encoder.eval()
+        self.net.classifier.eval()
 
     def to_device(self, device):
         # 将使用到的单个模型或多个模型放到指定的CPU or GPU上
-        self.net.to(device=device)
+        self.net.encoder.to(device=device)
+        self.net.classifier.to(device=device)
 
     def print_network(self, model, name):
         """打印网络结构信息"""
@@ -258,7 +335,8 @@ class Video_Classification(object):
 
         self.config['train']['last_epochs'] = it
 
-        state = {'net': self.net.state_dict(),
+        state = {'encoder': self.net.encoder.state_dict(),
+                 "classifier": self.net.classifier.state_dict(),
                  'optimizer': self.optimizer.state_dict(),
                  'config': self.config,
                  }
@@ -278,11 +356,14 @@ class Video_Classification(object):
             dictionary = torch.load(load_dir, map_location='cpu')
 
         self.config = dictionary['config']
-        self.net.load_state_dict(dictionary['net'])
+        self.net.encoder.load_state_dict(dictionary['encoder'])
+        self.net.classifier.load_state_dict(dictionary['classifier'])
         self.optimizer.load_state_dict(dictionary['optimizer'])
-        # self.optimizer = torch.optim.Adam(**dictionary['optimizer'])
-        self.set_configuration()  # 设置加载的检查点的参数设置
-        print("# Models 和 optimizers 加载成功")
+        if self.train_loader:
+            self.set_configuration()  # 设置加载的检查点的参数设置
+            print("# Models 和 optimizers 加载成功")
+        else:
+            print("# Models 加载成功, 目前仅可进行计算操作")
 
 
 if __name__ == '__main__':

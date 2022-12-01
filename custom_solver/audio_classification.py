@@ -2,9 +2,6 @@ from datetime import datetime
 import os
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
-from tqdm import tqdm
 from sklearn.metrics import accuracy_score
 from logger import Logger
 from .lr_scheduler import *
@@ -31,9 +28,9 @@ class Audio_Classification(object):
             if self.config['architecture']['net']['para']:
                 self.net = globals(
                 )[self.config["architecture"]["net"]["name"]](**self.config["architecture"]['net']['para'])
-            else:
-                self.net = globals()[
-                    self.config["architecture"]["net"]["name"]]()
+        else:
+            self.net = globals()[
+                self.config["architecture"]["net"]["name"]]()
         # 多 GPU 并行计算
         if len(self.config["train"]['USE_GPU'].split(",")) > 1:
             torch.distributed.init_process_group(backend="gloo")

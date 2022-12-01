@@ -31,9 +31,9 @@ class Audio_Video_Classification(object):
             if self.config['architecture']['net']['para']:
                 self.net = globals(
                 )[self.config["architecture"]["net"]["name"]](**self.config["architecture"]['net']['para'])
-            else:
-                self.net = globals()[
-                    self.config["architecture"]["net"]["name"]]()
+        else:
+            self.net = globals()[
+                self.config["architecture"]["net"]["name"]]()
         # 多 GPU 并行计算
         if len(self.config["train"]['USE_GPU'].split(",")) > 1:
             torch.distributed.init_process_group(backend="gloo")
@@ -57,9 +57,9 @@ class Audio_Video_Classification(object):
             if self.config["sorlver"]['optimizer']['para']:
                 self.optimizer = globals(
                 )[self.config["sorlver"]['optimizer']["name"]](params=self.net.parameters(), lr=self.config["sorlver"]['optimizer']['lr'], **self.config["sorlver"]['optimizer']['para'])
-            else:
-                self.optimizer = globals(
-                )[self.config["sorlver"]['optimizer']["name"]](params=self.net.parameters())
+        else:
+            self.optimizer = globals(
+            )[self.config["sorlver"]['optimizer']["name"]](params=self.net.parameters())
 
         # 使用 tensorboard 记录
         self.use_tensorboard = self.config['logs']['use_tensorboard']
@@ -366,9 +366,9 @@ class Audio_Video_Fusion_Classification(object):
             if self.config['architecture']['net']['para']:
                 self.net = globals(
                 )[self.config["architecture"]["net"]["name"]](**self.config["architecture"]['net']['para'])
-            else:
-                self.net = globals()[
-                    self.config["architecture"]["net"]["name"]]()
+        else:
+            self.net = globals()[
+                self.config["architecture"]["net"]["name"]]()
 
         self.set_configuration()  # 设置参数
         # 加载模型及其参数
