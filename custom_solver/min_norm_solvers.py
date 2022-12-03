@@ -5,6 +5,8 @@ import numpy as np
 class MinNormSolver:
     MAX_ITER = 250
     STOP_CRIT = 1e-5
+    # ref: https://github.com/tuananhbui89/min_norm_solvers/blob/main/min_norm_solvers.py
+    # ref: https://github.com/isl-org/MultiObjectiveOptimization/blob/master/multi_task/train_multi_task.py
 
     def _min_norm_element_from2(v1v1, v1v2, v2v2):
         """

@@ -140,7 +140,7 @@ class Audio_Video_Classification(object):
 
                 # 清空梯度数据
                 self.reset_grad()
-                audio_out, video_out = self.net(audio_features.permute(
+                audio_out, video_out, _ = self.net(audio_features.permute(
                     0, 3, 1, 2), video_features.permute(
                     0, 4, 1, 2, 3), audio_feature_lens, video_feature_lens)
                 audio_loss = loss_func(audio_out, labels)
@@ -228,7 +228,7 @@ class Audio_Video_Classification(object):
             true_labels = true_labels.long().to(device=self.device)
 
             with torch.no_grad():
-                audio_out, video_out = self.net(audio_features.permute(
+                audio_out, video_out, _ = self.net(audio_features.permute(
                     0, 3, 1, 2), video_features.permute(
                     0, 4, 1, 2, 3), audio_feature_lens, video_feature_lens)  # 计算模型输出分类值
                 audio_label_pre = torch.max(audio_out, dim=1)[1]  # 获取概率最大值位置
@@ -467,7 +467,7 @@ class Audio_Video_Fusion_Classification(object):
 
                 # 清空梯度数据
                 self.reset_grad()
-                audio_out, video_out, fusion_out = self.net(audio_features.permute(
+                audio_out, video_out, fusion_out, _ = self.net(audio_features.permute(
                     0, 3, 1, 2), video_features.permute(
                     0, 4, 1, 2, 3), audio_feature_lens, video_feature_lens)
                 audio_loss = loss_func(audio_out, labels)
@@ -565,7 +565,7 @@ class Audio_Video_Fusion_Classification(object):
             true_labels = true_labels.long().to(device=self.device)
 
             with torch.no_grad():
-                audio_out, video_out, fusion_out = self.net(audio_features.permute(
+                audio_out, video_out, fusion_out, _ = self.net(audio_features.permute(
                     0, 3, 1, 2), video_features.permute(
                     0, 4, 1, 2, 3), audio_feature_lens, video_feature_lens)  # 计算模型输出分类值
                 audio_label_pre = torch.max(audio_out, dim=1)[1]  # 获取概率最大值位置

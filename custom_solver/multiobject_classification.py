@@ -133,7 +133,7 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
                 # 首先计算共有表征 (z)
                 with torch.no_grad():
                     # 使用使用共享参数 (Encoder) 提取共有特征
-                    rep = self.net.encoder(
+                    rep, _ = self.net.encoder(
                         features.permute(0, 3, 1, 2), feature_lens)
                     # As an approximate solution we only need gradients for input
                     # 作为近似解, 我们只需要每个任务的特有梯度
@@ -145,7 +145,7 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
                 # list([batch,1], ..),None
                 for t in range(len(out_t)):  # 遍历所有分类任务
                     loss_func = nn.BCEWithLogitsLoss(
-                        reduction='mean', pos_weight=None)  # loss_weights[t]
+                        reduction='mean', pos_weight=loss_weights[t] if loss_weights else None)  #
                     # 获取第 t 个分类任务的交叉熵损失
                     loss = loss_func(out_t[t], labels[:, t])
                     loss_data[str(t)] = loss.item()
@@ -172,14 +172,14 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
                 # 清空之前使用算法计算损失权重时利用到的梯度(如果有)
                 self.reset_grad()
                 # 使用使用共享参数 (Encoder) 提取共有特征
-                rep = self.net.encoder(
+                rep, _ = self.net.encoder(
                     features.permute(0, 3, 1, 2), feature_lens)
                 # 使用特有参数 (Decoder) 获取每个任务的目标输出
                 out_t, _ = self.net.classifier(rep)
                 for t in range(len(out_t)):
                     # 计算每个任务输出的损失值
                     loss_func = nn.BCEWithLogitsLoss(
-                        reduction='mean', pos_weight=None)  # loss_weights[t]
+                        reduction='mean', pos_weight=loss_weights[t] if loss_weights else None)
                     # 获取第 t 个分类任务的交叉熵损失
                     loss_t = loss_func(out_t[t], labels[:, t])
 
@@ -249,7 +249,7 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
             true_labels = true_labels.long().to(device=self.device)
 
             with torch.no_grad():
-                rep = self.net.encoder(
+                rep, _ = self.net.encoder(
                     features.permute(0, 3, 1, 2), feature_lens)
                 out_t, _ = self.net.classifier(rep)
                 out = torch.stack(out_t).permute(1, 0)
@@ -282,7 +282,7 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
 
         for i, inp in enumerate(inputs):
             with torch.no_grad():
-                rep = self.net.encoder(inputs.permute(0, 3, 1, 2))
+                rep, _ = self.net.encoder(inputs.permute(0, 3, 1, 2))
                 out_t, _ = self.net.classifier(rep)
             out, _ = self.net(inputs[i].to(
                 device=self.device).unsqueeze(0).permute(0, 3, 1, 2))
