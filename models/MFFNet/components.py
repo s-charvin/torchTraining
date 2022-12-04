@@ -383,7 +383,7 @@ class BiLSTM_Attention(nn.Module):
 
     def forward(self, X):
         # X : [batch_size, len_seq, input_size]
-        X = X.permute(1, 0, 2)
+        X = X.permute(1, 0, 2).contiguous()
         # X : [len_seq, batch_size, input_size]
 
         # [num_layers * num_directions, batch_size, hidden_size]
@@ -396,7 +396,7 @@ class BiLSTM_Attention(nn.Module):
         output, (final_hidden_state, final_cell_state) = self.lstm(
             input, (hidden_state, cell_state))
 
-        output = output.permute(1, 0, 2)
+        output = output.permute(1, 0, 2).contiguous()
         # output : [batch_size, len_seq, num_directions * hidden_size]
         attn_output, attention = self.attention_net(output, final_hidden_state)
         # model : [batch_size, num_classes], attention : [batch_size, n_step]

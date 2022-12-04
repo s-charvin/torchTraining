@@ -10,11 +10,11 @@ class CustomScheduler(_LRScheduler):
     r"""
     """
 
-    def __init__(self, optimizer, epoch, batchlen, decay, last_epoch=-1, verbose=False):
+    def __init__(self, optimizer, num_batch, num_iter_step, num_decay_step, last_epoch=-1, verbose=False):
 
-        self.batchlen = batchlen
-        self.num_iter = epoch * batchlen
-        self.decay = decay
+        self.num_batch = num_batch
+        self.num_iter_step = num_iter_step
+        self.num_decay_step = num_decay_step
         super(CustomScheduler, self).__init__(optimizer, last_epoch, verbose)
 
     def get_lr(self):
@@ -22,12 +22,13 @@ class CustomScheduler(_LRScheduler):
             warnings.warn("To get the last learning rate computed by the scheduler, "
                           "please use `get_last_lr()`.", UserWarning)
 
-        decay_deltas = [base_lr / self.decay for base_lr in self.base_lrs]
+        decay_deltas = [
+            base_lr / self.num_decay_step for base_lr in self.base_lrs]
 
         decay_iter = self.last_epoch - \
-            (self.num_iter - self.decay)  # 当前迭代次数-总迭代次数+更新延迟次数
+            (self.num_iter_step - self.num_decay_step)  # 当前迭代次数-总迭代次数+更新延迟次数
 
-        if (self.last_epoch == 0) or (self.num_iter - self.decay < self.last_epoch):
+        if (self.last_epoch == 0) or (self.num_iter_step - self.num_decay_step < self.last_epoch):
             lrlist = []
             for base_lr, decay_delta in zip(self.base_lrs, decay_deltas):
                 lrlist.append(base_lr - decay_iter * decay_delta)
@@ -48,8 +49,8 @@ class CustomScheduler(_LRScheduler):
                 raise ValueError(
                     "Expected non-negative epoch, but got {}".format(epoch))
 
-        self.last_epoch = int(math.floor(epoch) * self.batchlen +
-                              (epoch-math.floor(epoch)) * self.batchlen)
+        self.last_epoch = int(math.floor(epoch) * self.num_batch +
+                              (epoch-math.floor(epoch)) * self.num_batch)
 
         class _enable_get_lr_call:
 

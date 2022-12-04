@@ -105,7 +105,7 @@ class PretrainedBaseModel(nn.Module):
             base_out = self.new_fc(base_out)
         if self.before_softmax:
             base_out = F.softmax(base_out, dim=1)
-        return base_out.squeeze()
+        return base_out
 
 
 class MIFFNet_Conv3D(nn.Module):
@@ -155,7 +155,7 @@ class MIFFNet_Conv3D(nn.Module):
         for i in af:
             af_fea.append(self.audio_feature_extractor(i))
         af_fea = torch.stack(af_fea).permute(
-            1, 0, 2)  # [batch, ceil(seq/af_seqlen), fea]
+            1, 0, 2).contiguous()  # [batch, ceil(seq/af_seqlen), fea]
         if af_len is not None:
             batch_size, max_len, _ = af_fea.shape
             af_len = torch.floor(
@@ -172,7 +172,7 @@ class MIFFNet_Conv3D(nn.Module):
         for i in vf:
             vf_fea.append(self.video_feature_extractor(i))
         vf_fea = torch.stack(vf_fea).permute(
-            1, 0, 2)  # [batch, ceil(seq/vf_seqlen), fea]
+            1, 0, 2).contiguous()  # [batch, ceil(seq/vf_seqlen), fea]
         if vf_len is not None:
             batch_size, max_len, _ = vf_fea.shape
             vf_len = torch.floor(
@@ -240,7 +240,7 @@ class MIFFNet_Conv3D_GRU(nn.Module):
         for i in af:
             af_fea.append(self.audio_feature_extractor(i))
         af_fea = torch.stack(af_fea).permute(
-            1, 0, 2)  # [batch, ceil(seq/af_seqlen), fea]
+            1, 0, 2).contiguous()  # [batch, ceil(seq/af_seqlen), fea]
         if af_len is not None:
             batch_size, max_len, _ = af_fea.shape
             af_len = torch.floor(
@@ -261,7 +261,7 @@ class MIFFNet_Conv3D_GRU(nn.Module):
         for i in vf:
             vf_fea.append(self.video_feature_extractor(i))
         vf_fea = torch.stack(vf_fea).permute(
-            1, 0, 2)  # [batch, ceil(seq/vf_seqlen), fea]
+            1, 0, 2).contiguous()  # [batch, ceil(seq/vf_seqlen), fea]
         if vf_len is not None:
             batch_size, max_len, _ = vf_fea.shape
             vf_len = torch.floor(
@@ -306,7 +306,7 @@ class AudioNet(nn.Module):
         """
         af_fea = self.audio_feature_extractor(af)
         # 分类
-        af_out = self.audio_classifier(af_fea).squeeze()
+        af_out = self.audio_classifier(af_fea)
         return F.softmax(af_out, dim=1), None
 
 
@@ -371,7 +371,7 @@ class AudioSVCNet(nn.Module):
 
         af_fea = af_fea.mean(dim=1)
         # 分类
-        af_out = self.audio_classifier(af_fea).squeeze()
+        af_out = self.audio_classifier(af_fea)
         return F.softmax(af_out, dim=1), None
 
 
@@ -440,7 +440,7 @@ class AudioSVCNet_Step(nn.Module):
 
         af_fea = af_fea.mean(dim=1)
         # 分类
-        af_out = self.audio_classifier(af_fea).squeeze(-1)
+        af_out = self.audio_classifier(af_fea)
         return F.softmax(af_out, dim=1), None
 
 
@@ -517,7 +517,7 @@ class AudioSVNet(nn.Module):
 
         af_fea = af_fea.mean(dim=1)
         # 分类
-        af_out = self.audio_classifier(af_fea).squeeze()
+        af_out = self.audio_classifier(af_fea)
         return F.softmax(af_out, dim=1), audio_weight
 
 
@@ -598,7 +598,7 @@ class AudioSVNet_Step(nn.Module):
 
         af_fea = af_fea.mean(dim=1)
         # 分类
-        af_out = self.audio_classifier(af_fea).squeeze()
+        af_out = self.audio_classifier(af_fea)
         return F.softmax(af_out, dim=1), audio_weight
 
 
@@ -697,7 +697,7 @@ class AudioSVCNet_Step_MultiObject_Classifier(nn.Module):
         for i in range(self.num_classes):
             audio_classifier = getattr(self, f"audio_classifier_{i}")
             out = audio_classifier(fea)
-            af_out.append(out.squeeze())
+            af_out.append(out)
         return af_out, None
 
 
@@ -803,7 +803,7 @@ class AudioSVNet_Step_MultiObject_Classifier(nn.Module):
         for i in range(self.num_classes):
             audio_classifier = getattr(self, f"audio_classifier_{i}")
             out = audio_classifier(fea)
-            af_out.append(out.squeeze())
+            af_out.append(out)
         return af_out, None
 
 
@@ -840,7 +840,7 @@ class VideoNet_Conv2D(nn.Module):
 
         vf_out = vf_out.view((-1, seq_length) + vf_out.size()[1:])
         # [batch, seq, num_class]
-        vf_out = vf_out.mean(dim=1).squeeze()
+        vf_out = vf_out.mean(dim=1)
         return F.softmax(vf_out, dim=1), None
 
 
@@ -902,7 +902,7 @@ class VideoSVCNet_Conv2D(nn.Module):
             vf_fea[vf_mask] = 0.0
 
         vf_fea = vf_fea.mean(dim=1)
-        vf_out = self.video_classifier(vf_fea).squeeze()
+        vf_out = self.video_classifier(vf_fea)
         return F.softmax(vf_out, dim=1), None
 
 
@@ -969,7 +969,7 @@ class VideoSVCNet_Step_Conv2D(nn.Module):
             vf_fea[vf_mask] = 0.0
 
         vf_fea = vf_fea.mean(dim=1)
-        vf_out = self.video_classifier(vf_fea).squeeze()
+        vf_out = self.video_classifier(vf_fea)
         return F.softmax(vf_out, dim=1), None
 
 
@@ -1042,7 +1042,7 @@ class VideoSVNet_Conv2D(nn.Module):
         vf_fea = vf_fea * video_weight
         # [B, vf_seg_len, F]
         vf_fea = vf_fea.mean(dim=1)
-        vf_out = self.video_classifier(vf_fea).squeeze()
+        vf_out = self.video_classifier(vf_fea)
         return F.softmax(vf_out, dim=1), video_weight
 
 
@@ -1119,7 +1119,7 @@ class VideoSVNet_Step_Conv2D(nn.Module):
         vf_fea = vf_fea * video_weight
         # [B, vf_seg_len, F]
         vf_fea = vf_fea.mean(dim=1)
-        vf_out = self.video_classifier(vf_fea).squeeze()
+        vf_out = self.video_classifier(vf_fea)
         return F.softmax(vf_out, dim=1), video_weight
 
 
