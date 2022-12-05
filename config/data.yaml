@@ -5,10 +5,11 @@ data:
     # IEMOCAP-3s-audio_Wave_pad_cut_MFCC_Permute_Channel-.npy, IEMOCAP-3s-audio_AudioSplit-audio_MFCC_Permute_Channel-.npy
     # IEMOCAP-10s-audio_Wave_pad_cut_MFCC_Permute_Channel-.npy
     # IEMOCAP-pad-audio_MFCC_Permute_Channel.npy
-    root: "/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-3s-audio_Wave_pad_cut_MFCC_Permute_Channel-.npy"
+    # IEMOCAP-crop-3s-video_VideoSplit-video_KeyFrameGetterBasedIntervalSampling_Permute_Channel-.npy
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-3s-video_VideoSplit-video_KeyFrameGetterBasedIntervalSampling_Permute_Channel-.npy"
     para:
         name: ""
-        mode: "audio"
+        mode: "video"
         videomode: "crop"
         cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8

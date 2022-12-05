@@ -2,19 +2,16 @@ from datetime import datetime
 import os
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
-from tqdm import tqdm
-from sklearn.metrics import accuracy_score
 from logger import Logger
 from .lr_scheduler import *
 from .optimizer import *
 from models import *
+import torch.distributed as dist
 
 
 class Video_Classification(object):
 
-    def __init__(self, train_loader, test_loader, config: dict, device):
+    def __init__(self, train_loader=None, test_loader=None, config: dict = {}, device=None, batch_delay=1):
         """分类模型训练方法框架
         Args:
             train_loader (_type_): 训练集，可迭代类型数据
@@ -22,10 +19,13 @@ class Video_Classification(object):
             config (_type_): 参数设置
             device (_type_): 运行设备
         """
+        assert batch_delay >= 1, "batch_delay 需要大于等于 1."
         self.train_loader = train_loader  # 训练数据迭代器
         self.test_loader = test_loader  # 测试数据迭代器
         self.config = config  # 参数字典
         self.device = device  # 定义主设备
+        # 定义训练延迟, 当 batch 不太大时的一种训练优化方法, 设置延迟几个 epoch 后再优化参数.
+        self.batch_delay = batch_delay
         # 设置要使用的模型
         if self.config['architecture']['net']['para']:
             self.net = globals()[self.config["architecture"]["net"]["name"]](
@@ -34,54 +34,55 @@ class Video_Classification(object):
             self.net = globals()[
                 self.config["architecture"]["net"]["name"]]()
         # 多 GPU 并行计算
-        if len(self.config["train"]['USE_GPU'].split(",")) > 1:
-            torch.distributed.init_process_group(backend="gloo")
-            # backend: 多机器间交换数据协议, init_method: 设置交换数据主节点, world_size:标识使用进程数（主机数*每台主机的GPU数/实际就是机器的个数？）
-            # rank: 标识主机和从机，主节点为 0, 剩余的为 1-(N-1), N 为要使用的机器的数量
-            self.net = self.net.cuda()
+        if self.config["train"]['USE_GPU']:
+            self.net = self.net.to(device=self.device)
             self.net = torch.nn.parallel.DistributedDataParallel(
-                self.net, find_unused_parameters=True)  # device_ids 默认选用本地显示的所有 GPU
-        self.set_configuration()  # 设置参数
+                self.net, device_ids=[self.device])  # device_ids 默认选用本地显示的所有 GPU
+
+        # 设置优化器
+        if 'para' in self.config["sorlver"]['optimizer'] and self.config["sorlver"]['optimizer']['para']:
+            self.optimizer = globals(
+            )[self.config["sorlver"]['optimizer']["name"]](params=self.net.parameters(), lr=self.config["sorlver"]['optimizer']['lr'], **self.config["sorlver"]['optimizer']['para'])
+        else:
+            self.optimizer = globals(
+            )[self.config["sorlver"]['optimizer']["name"]](params=self.net.parameters())
+
+        if self.train_loader is not None:
+            self.set_configuration()  # 设置参数
+
         # 加载模型及其参数
         if self.config['train']['checkpoint']:  # 是否加载历史检查点
             self.load(self.config['train']['checkpoint'])
 
     def set_configuration(self):
         self.n_epochs = self.config['train']['n_epochs']  # 迭代次数
-        # 已经训练完成的 epoch, 初次为 -1
+        # 设置已经训练完成的 epoch, 如果是初次为 -1, epoch 从 0 开始
         self.last_epochs = self.config['train']["last_epochs"]
         if self.last_epochs < -1:
             raise ValueError("last_epochs 值必须为大于等于 -1 的整数, 当其为 -1 时, 表示重新训练.")
-        # 优化器及其参数
-        if 'para' in self.config["sorlver"]['optimizer']:
-            if self.config["sorlver"]['optimizer']['para']:
-                self.optimizer = globals(
-                )[self.config["sorlver"]['optimizer']["name"]](params=self.net.parameters(), lr=self.config["sorlver"]['optimizer']['lr'], **self.config["sorlver"]['optimizer']['para'])
-        else:
-            self.optimizer = globals(
-            )[self.config["sorlver"]['optimizer']["name"]](params=self.net.parameters())
 
-        # 使用 tensorboard 记录
-        self.use_tensorboard = self.config['logs']['use_tensorboard']
-        self.log_every = self.config['logs']['log_every']  # 每几步记录
         self.test_every = self.config['logs']['test_every']
-
-        # 每几步保存模型
-        self.model_save_every = self.config['logs']['model_save_every']
-        self.model_save_dir = self.config['logs']['model_save_dir']  # 模型保存地址
-        self.logname = "-".join([
-            str(self.config['train']['name']),  # 当前训练名称
-            str(self.config['train']['seed']),
-            str(self.config['train']['batch_size']),
-            str(self.n_epochs),
-            self.config['sorlver']['name'],
-            self.config['sorlver']['optimizer']["name"] +
-            str(self.config['sorlver']['optimizer']["lr"]),
-            self.config['data']['name']
-        ])
-        if self.use_tensorboard:
-            self.logger = Logger(
-                self.config['logs']['log_dir'], self.logname)
+        if (self.config['self_auto']['local_rank'] in [0, None]):
+            # 使用 tensorboard 记录
+            self.use_tensorboard = self.config['logs']['use_tensorboard']
+            self.log_every = self.config['logs']['log_every']  # 每几步记录
+            # 每几步保存模型
+            self.model_save_every = self.config['logs']['model_save_every']
+            # 模型保存地址
+            self.model_save_dir = self.config['logs']['model_save_dir']
+            self.logname = "-".join([
+                str(self.config['train']['name']),  # 当前训练名称
+                str(self.config['train']['seed']),
+                str(self.config['train']['batch_size']),
+                str(self.n_epochs),
+                self.config['sorlver']['name'],
+                self.config['sorlver']['optimizer']["name"] +
+                str(self.config['sorlver']['optimizer']["lr"]),
+                self.config['data']['name']
+            ])
+            if self.use_tensorboard:
+                self.logger = Logger(
+                    self.config['logs']['log_dir'], self.logname)
 
     def train(self):
         """训练主函数"""
@@ -90,22 +91,30 @@ class Video_Classification(object):
         #                            训练                           #
         #############################################################
         start_iter = self.last_epochs+1  # 训练的新模型则从 1 开始，恢复的模型则从接续的迭代次数开始
-
+        step = 0  # 每次迭代的步数, 也就是所有数据总共分的 batch 数量
         # 更新学习率的方法
-        self.lr_method = globals()[self.config["sorlver"]["lr_method"]["name"]](optimizer=self.optimizer,
-                                                                                last_epoch=self.last_epochs if self.last_epochs >= 1 else -1, **self.config["sorlver"]["lr_method"]["para"])
-        # 预测结果记录aram_groups[0] when resuming
-        self.accuracylog = []
+        if self.config["sorlver"]["lr_method"]["mode"] == "epoch":
+            self.lr_method = globals()[self.config["sorlver"]["lr_method"]["name"]](optimizer=self.optimizer,
+                                                                                    last_epoch=self.last_epochs if self.last_epochs >= 1 else -1, **self.config["sorlver"]["lr_method"]["para"])
+        elif self.config["sorlver"]["lr_method"]["mode"] == "step":
+            self.lr_method = globals()[self.config["sorlver"]["lr_method"]["name"]](optimizer=self.optimizer,
+                                                                                    last_epoch=self.last_epochs if self.last_epochs >= 1 else -1, num_batch=len(self.train_loader), **self.config["sorlver"]["lr_method"]["para"])
+
         # 训练开始时间记录
         start_time = datetime.now()
         print(f'# 训练开始时间: {start_time}')  # 读取开始运行时间
-        step = 0
 
         # 设置损失函数
-        loss_func = nn.CrossEntropyLoss(reduction='mean')
+        loss_weights = None
+        if self.config["self_auto"]["loss_weights"]:
+            loss_weights = torch.Tensor(
+                self.config["self_auto"]["loss_weights"]).to(device=self.device)
+        loss_func = nn.CrossEntropyLoss(
+            reduction='mean', weight=loss_weights).to(device=self.device)
 
         for epoch in range(start_iter, self.n_epochs):  # 迭代循环 [0, epoch)
-            for batch_i, data in enumerate(self.train_loader):  # [0, batch)
+            # [0, num_batch)
+            for batch_i, data in enumerate(self.train_loader):
                 step = step + 1
                 # 设置训练模式和设备
                 self.to_device(device=self.device)
@@ -129,39 +138,54 @@ class Video_Classification(object):
                 out, _ = self.net(features.permute(
                     0, 4, 1, 2, 3), feature_lens)
                 loss = loss_func(out, labels)
+                loss_ = loss.clone()
+
+                # 在所有进程运行到这一步之前，先完成此前代码的进程会在这里等待其他进程。
+                if self.config["train"]['USE_GPU']:
+                    torch.distributed.barrier()
+                    dist.all_reduce(loss_, op=dist.ReduceOp.SUM)
+                    # 计算所有 GPU 的平均损失
+                    loss_ /= self.config['self_auto']['world_size']
+
                 loss.backward()
-                self.optimizer.step()
+                if ((batch_i+1) % self.batch_delay) == 0:
+                    self.optimizer.step()  # 根据反向传播的梯度，更新网络参数
             #############################################################
             #                            记录                           #
             #############################################################
-                # tensorboard 可视化
-                if (step % self.log_every == 0) and self.use_tensorboard:
-                    log_loss = {}
-                    log_loss['train/train_loss'] = loss.item()
-                    for tag, value in log_loss.items():
-                        self.logger.scalar_summary(tag, value, step)
-                elapsed = datetime.now() - start_time
-                print(
-                    f"# <trained>: [Epoch {epoch+1}/{self.n_epochs}] [Batch {batch_i+1}/{len(self.train_loader)}] [lr: {self.optimizer.param_groups[0]['lr']}] [train_loss: {loss.item()}] [time: {elapsed}]")
+                if (self.config['self_auto']['local_rank'] in [0, None]):
+                    if (step % self.log_every == 0) and self.use_tensorboard:
+                        log_loss = {}
+                        log_loss['train/train_loss'] = loss_.item()
+                        for tag, value in log_loss.items():
+                            self.logger.scalar_summary(tag, value, step)
+                    elapsed = datetime.now() - start_time
+                    print(
+                        f"# <trained>: [Epoch {epoch+1}/{self.n_epochs}] [Batch {batch_i+1}/{len(self.train_loader)}] [lr: {self.optimizer.param_groups[0]['lr']}] [train_loss: {loss_.item()}] [time: {elapsed}]")
+
                 if self.config["sorlver"]["lr_method"]["mode"] == "step":
                     self.lr_method.step(
                         epoch + (batch_i+1) / len(self.train_loader))
             if self.config["sorlver"]["lr_method"]["mode"] == "epoch":
                 self.lr_method.step(epoch)
+
             # 保存模型
-            self.last_epochs = epoch  # 记录当前迭代次数
-            if ((epoch+1) % self.model_save_every) == 0:  # 每 epoch 次保存一次模型
+            self.last_epochs = epoch  # 记录当前已经训练完的迭代次数
+            # 每 epoch 次保存一次模型
+            if (self.config['self_auto']['local_rank'] in [0, None]) and ((epoch+1) % self.model_save_every) == 0:
                 self.save(save_dir=self.model_save_dir,
                           it=self.last_epochs)
-            if((epoch+1) % self.test_every == 0):  # 每 epoch 次测试下模型
+            # 每 epoch 次测试下模型
+            if((epoch+1) % self.test_every == 0):
                 self.test()
 
         # 保存最终的模型
-        self.save(save_dir=self.model_save_dir, it=self.last_epochs)
-        return self.accuracylog[-self.config['logs']['test_accuracy_every']:]
+        if (self.config['self_auto']['local_rank'] in [0, None]):
+            self.save(save_dir=self.model_save_dir, it=self.last_epochs)
+        return True
 
     def test(self):
-
+        assert self.test_loader, "未提供测试数据"
         # 测试模型准确率。
         label_preds = torch.rand(0).to(
             device=self.device, dtype=torch.long)  # 预测标签列表
@@ -169,7 +193,8 @@ class Video_Classification(object):
             device=self.device, dtype=torch.long)  # 真实标签列表
         total_loss = torch.rand(0).to(
             device=self.device, dtype=torch.float)  # 损失值列表
-        loss_func = nn.CrossEntropyLoss(reduction='mean')
+        loss_func = nn.CrossEntropyLoss(
+            reduction='mean').to(device=self.device)
 
         for data in self.test_loader:
             self.to_device(device=self.device)
@@ -200,19 +225,39 @@ class Video_Classification(object):
                 label_loss = torch.tensor(
                     [loss_func(out, true_labels)], device=self.device)
                 total_loss = torch.cat((total_loss, label_loss), dim=0)
-        eval_accuracy = accuracy_score(
-            total_labels.cpu(), label_preds.cpu())  # 计算准确率
-        eval_loss = total_loss.mean().item()
+        # 计算准确率
+        eval_accuracy = (total_labels == label_preds).sum() / len(label_preds)
+        eval_loss = total_loss.mean()
+        eval_loss_ = eval_loss.clone()
+        eval_accuracy_ = eval_accuracy.clone()
+        if self.config["train"]['USE_GPU']:
+            torch.distributed.barrier()
+            dist.all_reduce(eval_loss_, op=dist.ReduceOp.SUM)
+            dist.all_reduce(eval_accuracy_, op=dist.ReduceOp.SUM)
+            eval_loss_ /= self.config['self_auto']['world_size']
+            eval_accuracy_ /= self.config['self_auto']['world_size']
+        eval_loss_ = eval_loss_.item()
+        eval_accuracy_ = eval_accuracy_.item()
 
-        print(
-            f"# <test>: [eval_loss: {eval_loss}] [eval_accuracy: {eval_accuracy}]")
+        if (self.config['self_auto']['local_rank'] in [0, None]):
+            print(
+                f"# <test>: [eval_loss: {eval_loss_}] [eval_accuracy: {eval_accuracy_}]")
+            if self.use_tensorboard:
+                self.logger.scalar_summary(
+                    "Val/Loss_Eval", eval_loss_, self.last_epochs)
+                self.logger.scalar_summary(
+                    "Val/Accuracy_Eval", eval_accuracy_, self.last_epochs)
 
-        if self.use_tensorboard:
-            self.logger.scalar_summary(
-                "Val/Loss_Eval", eval_loss, self.last_epochs)
-            self.logger.scalar_summary(
-                "Val/Accuracy_Eval", eval_accuracy, self.last_epochs)
-        self.accuracylog.append([eval_accuracy])
+    def calculate(self, inputs: list):
+        self.to_device(device=self.device)
+        self.set_eval_mode()
+        label_pres = []
+        for i, inp in enumerate(inputs):
+            with torch.no_grad():
+                out, _ = self.net(inputs[i].to(
+                    device=self.device).unsqueeze(0).permute(0, 4, 1, 2, 3))
+            label_pres.append(torch.max(out, dim=1)[1].item())
+        return label_pres
 
     def set_train_mode(self):
         # 设置模型为训练模式，可添加多个模型
@@ -231,17 +276,17 @@ class Video_Classification(object):
         # 将使用到的单个模型或多个模型放到指定的CPU or GPU上
         self.net.to(device=device)
 
-    def print_network(self, model, name):
+    def print_network(self):
         """打印网络结构信息"""
-        print(f"# 模型名称: {name}")
+        modelname = self.config["architecture"]["net"]["name"]
+        print(f"# 模型名称: {modelname}")
         num_params = 0
-        for p in model.parameters():
+        for p in self.net.parameters():
             num_params += p.numel()  # 获得张量的元素个数
-        print(f"网络参数数量:{num_params}")
         if self.config["logs"]["verbose"]["model"]:
             print("# 打印网络结构:")
-            print(model)
-        return num_params
+            print(self.net)
+        print(f"网络参数数量:{num_params}")
 
     def reset_grad(self):
         """将梯度清零。"""
@@ -260,6 +305,8 @@ class Video_Classification(object):
         state = {'net': self.net.state_dict(),
                  'optimizer': self.optimizer.state_dict(),
                  'config': self.config,
+                 "train_indices": self.train_loader.dataset.indices,  # 训练数据索引
+                 "test_indices": self.test_loader.dataset.indices,  # 测试数据索引
                  }
         path = os.path.join(path, f"{it:06}.ckpt")
         torch.save(state, path)
@@ -270,18 +317,24 @@ class Video_Classification(object):
         load_dir: 要加载模型的完整地址
         """
         print(f"# 模型加载地址: {load_dir}。")
-
-        if self.config['train']['USE_GPU'] and torch.cuda.is_available():
-            dictionary = torch.load(load_dir, map_location='cuda:0')
-        else:
-            dictionary = torch.load(load_dir, map_location='cpu')
+        self_auto_config = self.config["self_auto"]  # 保存每个训练进程自己生成的信息
+        dictionary = torch.load(load_dir, map_location=self.device)
 
         self.config = dictionary['config']
+
+        self.config["self_auto"] = self_auto_config
         self.net.load_state_dict(dictionary['net'])
         self.optimizer.load_state_dict(dictionary['optimizer'])
-        # self.optimizer = torch.optim.Adam(**dictionary['optimizer'])
-        self.set_configuration()  # 设置加载的检查点的参数设置
-        print("# Models 和 optimizers 加载成功")
+
+        # 保证当前的训练数据与之前的训练数据一致(这里是为了防止迁移训练环境后导致训练数据的随机分布发生变化)
+        if self.train_loader:
+            self.train_loader.dataset.indices = dictionary["train_indices"]
+            self.test_loader.dataset.indices = dictionary["test_indices"]
+            self.set_configuration()  # 设置加载的检查点的参数设置
+            print("# Models 和 optimizers 加载成功")
+        else:
+            print("# Models 加载成功, 目前仅可进行计算操作")
+        del dictionary
 
 
 if __name__ == '__main__':

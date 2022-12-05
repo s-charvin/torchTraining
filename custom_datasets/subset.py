@@ -39,19 +39,18 @@ class Subset():
         return len(self.indices)
 
 
-def random_split_K(dataset: Dataset, K: int = 10, shuffle=False) -> List[Subset]:
+def random_split_index_K(n_samples: int, K: int = 5, shuffle=True):
     r"""
     Args:
-        dataset (Dataset): 要分割的Dataset 
+        n_samples (Dataset): 数据集总数据数量
         K (int): 分割份数.
         shuffle (seed): 是否打乱数据.
     """
-    n_samples = len(dataset)  # 获取数据集总数据数量
     if shuffle:
         indices = np.random.permutation(n_samples)  # 打乱数据index
     else:
         indices = np.arange(0, n_samples)
-    test_indices = np.array_split(indices, 10)
+    test_indices = np.array_split(indices, K)
     # fold_sizes = np.full(K, n_samples // K, dtype=int)
     # fold_sizes[:n_samples % K] += 1  # 获取完整的分割index
     for test_indice in test_indices:
@@ -59,8 +58,7 @@ def random_split_K(dataset: Dataset, K: int = 10, shuffle=False) -> List[Subset]
         test_index[test_indice] = True
         train_index = indices[np.logical_not(test_index)]
         test_index = indices[test_index]
-        yield (Subset(dataset, train_index),
-               Subset(dataset, test_index))
+        yield (train_index, test_index)
 
 
 def collate_fn(batch):

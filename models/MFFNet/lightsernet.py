@@ -49,7 +49,7 @@ class LightSerNet(nn.Module):
         out2 = self.path2(x)
         out3 = self.path3(x)
 
-        x = torch.cat([out1, out2, out3], dim=1)
+        x = torch.cat([out1, out2, out3], dim=1).contiguous()
 
         x = self.conv_extractor(x)
         x = self.dropout(x.squeeze(-1).squeeze(-1))

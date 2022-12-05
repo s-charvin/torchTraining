@@ -9,17 +9,27 @@ train:
     num_workers: 0 # 数据加载进程数
     seed: 42 # 设置随机数种子, 当设置了固定的随机数种子,之后依次生成的随机数序列也会被固定下来。
     train_rate: 0.8
-    batch_size: 64 # 数据块大小
-    n_epochs: 792 # 训练迭代次数, 我一般设为 3200000/训练数据总量
-    Kfold: 5 # 
+    batch_size: 16 # 数据块大小
+    n_epochs: 3 # 训练迭代次数, 我一般设为 3200000/训练数据总量
+    Kfold: 1 # 大于 1 时, 进行 K 折交叉实验
     # 预训练设置
-    last_epochs: -1 # 恢复迭代的起始步
-    checkpoint: False # "./checkpoints/Test model/000010.ckpt"
+    last_epochs: -1 # 自定义恢复迭代的起始步, 也就是已经训练完的 epoch 次数
+    ## 这里实现方面还有问题, 因为输入数据是随机选取的, 导致接续训练的时候, 会将之前测试集的数据放到训练集中
+    checkpoint: "" 
     # 分类
     loss_weight: True # 设置损失加权系数
+    gpu_queuer:
+        wait_gpus: True # 是否需要接受排队等待
+        para:
+            host: '127.0.0.1'
+            port: 6379
+            min_free_memory: "5GiB" # gpu 内存触发阈值
+            password: Sudadenglu
+            username: trainer
+
 
 sorlver:
-    name: "Audio_Classification" # Audio_Classification, Video_Classification, Audio_Video_Classification, Audio_Video_Fusion_Classification,Audio_Classification2MultiObject_MGDA_UB
+    name: "Video_Classification" # Audio_Classification, Video_Classification, Audio_Video_Classification, Audio_Video_Fusion_Classification,Audio_Classification2MultiObject_MGDA_UB
     optimizer: 
         name: "AdamW"
         lr: 0.0001 # 学习率
@@ -44,8 +54,9 @@ sorlver:
         para: 
             num_iter_step : 50000 # 一般设置为 3200000/batch_size
             num_decay_step: 49900 # 任意设置
-            num_batch: 32 # 
     loss_weights: True
+    batch_delay: 1
+
 logs: # 记录参数
 
     use_tensorboard: True # 记录展示

@@ -1,9 +1,9 @@
 architecture:
     net: 
-        name: "AudioNet" # VideoNet_Conv2D, AudioNet
+        name: "VideoNet_Conv2D" # VideoNet_Conv2D, AudioNet
         para: 
             num_classes: 4
-            model_name: "lightsernet" # 'resnet50', "lightsernet"
+            model_name: "resnet50" # 'resnet50', "lightsernet"
             last_hidden_dim: 320
 
 # architecture:
