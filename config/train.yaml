@@ -1,16 +1,16 @@
 train:
     # 训练基础设置
-    name: "AudioSVCNet_Step_MultiObject_noClassWeights_hanming_pc_10[7]s_CustomScheduler_step1s" # 本次运行模型名称
+    name: "AudioSVNet_Step_hanming_pc_none[3]s_CustomScheduler_step1s" # 本次运行模型名称
     nodes: 1 # 本次训练总共要使用的节点数量, 如果需要多台计算机进行分布式计算才需要设置. 从 1 开始
     node_rank: 0 # 当前节点在所有节点中的排名, 从 0 开始
     master_addr: '127.0.0.1' # 声明主进程 0 的 IP 地址和通信端口, 以便所有进程可以同步更新参数.
-    master_port: '8888'
+    master_port: '8917' # 每个任务都需要不同的端口
     USE_GPU: "0,1" # 设置当前节点(计算机)可用的 GPU 数量和顺序, 如果含有多个 GPU 将自动使用多 GPU 分布计算模式
     num_workers: 0 # 数据加载进程数
     seed: 42 # 设置随机数种子, 当设置了固定的随机数种子,之后依次生成的随机数序列也会被固定下来。
     train_rate: 0.8
-    batch_size: 16 # 数据块大小
-    n_epochs: 3 # 训练迭代次数, 我一般设为 3200000/训练数据总量
+    batch_size: 64 # 数据块大小
+    n_epochs: 889 # 训练迭代次数, 我一般设为 3200000/训练数据总量(3592)
     Kfold: 1 # 大于 1 时, 进行 K 折交叉实验
     # 预训练设置
     last_epochs: -1 # 自定义恢复迭代的起始步, 也就是已经训练完的 epoch 次数
@@ -23,13 +23,13 @@ train:
         para:
             host: '127.0.0.1'
             port: 6379
-            min_free_memory: "5GiB" # gpu 内存触发阈值
+            min_free_memory: "20GiB" # gpu 内存触发阈值
             password: Sudadenglu
             username: trainer
 
 
 sorlver:
-    name: "Video_Classification" # Audio_Classification, Video_Classification, Audio_Video_Classification, Audio_Video_Fusion_Classification,Audio_Classification2MultiObject_MGDA_UB
+    name: "Audio_Classification2MultiObject_MGDA_UB" # Audio_Classification, Video_Classification, Audio_Video_Classification, Audio_Video_Fusion_Classification,Audio_Classification2MultiObject_MGDA_UB
     optimizer: 
         name: "AdamW"
         lr: 0.0001 # 学习率
@@ -54,21 +54,20 @@ sorlver:
         para: 
             num_iter_step : 50000 # 一般设置为 3200000/batch_size
             num_decay_step: 49900 # 任意设置
-    loss_weights: True
     batch_delay: 1
 
 logs: # 记录参数
 
     use_tensorboard: True # 记录展示
-    log_dir: '/sdb/visitors2/SCW/logs/' # 记录存储文件夹
+    log_dir: '/sdb/user4/SCW/logs/' # 记录存储文件夹
     log_every: 1 # 每几次 step进行记录
-    model_save_dir: '/sdb/visitors2/SCW/checkpoint/' # 模型存放地址
+    model_save_dir: '/sdb/user4/SCW/checkpoint/' # 模型存放地址
     test_every: 1 # 每几次 epoch 进行测试
     model_save_every: 1 # 每几次 epoch 进行模型保存
     test_accuracy_every: 20 # 计算多少 epoch 的平均测试准确率
     verbose:
-        config: True
-        model: True
+        config: True # 是否打印训练参数设置
+        model: True # 是否打印模型结构
     SMTP:
         mail_host: "smtp.163.com"
         mail_port: "465"

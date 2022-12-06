@@ -98,6 +98,7 @@ class RedisClient:
                 wait_num = len(self.client.lrange('wait_queue', 0, -1))
                 print(f"尝试更新任务队列失败, 当前任务仍需等待. 显存容量不足！")
                 return False
+        wait_num = len(self.client.lrange('wait_queue', 0, -1))
         print(f"尝试更新任务队列失败, 当前任务仍需等待. 前方还有 {wait_num} 个训练任务！")
         return False
 

@@ -3,7 +3,7 @@ import argparse
 import os
 import sys
 if sys.platform.startswith('linux'):
-    os.chdir("/home/visitors2/SCW/torchTraining")
+    os.chdir("/home/user4/SCW/torchTraining")
 elif sys.platform.startswith('win'):
     pass
 import yaml  # yaml文件解析模块
@@ -25,7 +25,7 @@ from utils import *
 parser = argparse.ArgumentParser()
 parser.add_argument('--config',
                     metavar='DIR',
-                    default='/home/visitors2/SCW/torchTraining/config/',
+                    default='/home/user4/SCW/torchTraining/config/',
                     help='path to congigs')
 
 
@@ -224,10 +224,10 @@ if __name__ == '__main__':
     while True:
         redis_client.check_data()
         if not redis_client.pop_wait_queue():
-            time.sleep(5)  # 休息一下, 再重新尝试
+            time.sleep(60)  # 休息一下, 再重新尝试
             continue
         if not redis_client.is_can_run():
-            time.sleep(5)  # 休息一下, 再重新尝试
+            time.sleep(60)  # 休息一下, 再重新尝试
             continue
         try:
             # 定义训练主程序
@@ -237,6 +237,6 @@ if __name__ == '__main__':
         except RuntimeError as e:
             if "CUDA out of memory" in e.args[0]:
                 redis_client.pop_run_queue(success=False)
-                time.sleep(5)
+                time.sleep(60)
             else:
                 raise e

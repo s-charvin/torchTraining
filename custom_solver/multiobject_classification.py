@@ -43,7 +43,7 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
                 self.net.encoder, device_ids=[self.device])  # device_ids 默认选用本地显示的所有 GPU
             self.net.classifier = self.net.classifier.to(device=self.device)
             self.net.classifier = torch.nn.parallel.DistributedDataParallel(
-                self.net.encoder, device_ids=[self.device])  # device_ids 默认选用本地显示的所有 GPU
+                self.net.classifier, device_ids=[self.device])  # device_ids 默认选用本地显示的所有 GPU
 
         # 设置优化器
 
@@ -164,7 +164,7 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
                 # list([batch,1], ..),None
                 for t in range(len(out_t)):  # 遍历所有分类任务
                     loss_func = nn.BCEWithLogitsLoss(
-                        reduction='mean', pos_weight=loss_weights[t] if loss_weights else None).to(device=self.device)  #
+                        reduction='mean', pos_weight=loss_weights[t] if (loss_weights is not None) else None).to(device=self.device)  #
                     # 获取第 t 个分类任务的交叉熵损失
                     loss = loss_func(out_t[t], labels[:, t])
                     loss_data[str(t)] = loss.item()
@@ -184,7 +184,7 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
                 # 使用 Frank-Wolfe 算法计算梯度权重
                 sol, min_norm = MinNormSolver.find_min_norm_element(
                     [grads[str(t)] for t in range(len(out_t))])
-                sol_ = sol.clone()
+                sol_ = sol.clone().to(device=self.device)  #
 
                 # 在所有进程运行到这一步之前，先完成此前代码的进程会在这里等待其他进程。
                 if self.config["train"]['USE_GPU']:
@@ -205,7 +205,7 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
                 for t in range(len(out_t)):
                     # 计算每个任务输出的损失值
                     loss_func = nn.BCEWithLogitsLoss(
-                        reduction='mean', pos_weight=loss_weights[t] if loss_weights else None).to(device=self.device)
+                        reduction='mean', pos_weight=loss_weights[t] if (loss_weights is not None) else None).to(device=self.device)
                     # 获取第 t 个分类任务的交叉熵损失
                     loss_t = loss_func(out_t[t], labels[:, t])
 
@@ -361,7 +361,7 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
         self.net.encoder.to(device=device)
         self.net.classifier.to(device=device)
 
-    def print_network(self, model, name):
+    def print_network(self):
         """打印网络结构信息"""
         modelname = self.config["architecture"]["net"]["name"]
         print(f"# 模型名称: {modelname}")

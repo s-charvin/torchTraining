@@ -462,7 +462,7 @@ class AudioSVNet(nn.Module):
                 in_channels=1, num_class=self.last_hidden_dim, base_model=model_name, before_dropout=0, before_softmax=False)
 
         self.audio_emotional_GRU = nn.GRU(input_size=self.last_hidden_dim, hidden_size=self.emo_rnn_hidden_dim,
-                                          num_layers=1, batch_first=True, bidirectional=True)
+                                          num_layers=1, batch_first=True, bidirectional=False)
 
         self.calc_audio_weight = nn.Sequential(
             nn.Linear(self.emo_rnn_hidden_dim, 1), nn.Sigmoid())
@@ -539,7 +539,7 @@ class AudioSVNet_Step(nn.Module):
                 in_channels=1, num_class=self.last_hidden_dim, base_model=model_name, before_dropout=0, before_softmax=False)
 
         self.audio_emotional_GRU = nn.GRU(input_size=self.last_hidden_dim, hidden_size=self.emo_rnn_hidden_dim,
-                                          num_layers=1, batch_first=True, bidirectional=True)
+                                          num_layers=1, batch_first=True, bidirectional=False)
 
         self.calc_audio_weight = nn.Sequential(
             nn.Linear(self.emo_rnn_hidden_dim, 1), nn.Sigmoid())
@@ -697,7 +697,7 @@ class AudioSVCNet_Step_MultiObject_Classifier(nn.Module):
         for i in range(self.num_classes):
             audio_classifier = getattr(self, f"audio_classifier_{i}")
             out = audio_classifier(fea)
-            af_out.append(out)
+            af_out.append(out.squeeze(-1))
         return af_out, None
 
 
@@ -712,7 +712,7 @@ class AudioSVNet_Step_MultiObject(nn.Module):
         self.emo_rnn_hidden_dim = emo_rnn_hidden_dim
 
         self.encoder = AudioSVNet_Step_MultiObject_Encoder(
-            seq_len=seq_len)
+            seq_len=seq_len, model_name=model_name, last_hidden_dim=last_hidden_dim, emo_rnn_hidden_dim=emo_rnn_hidden_dim)
         self.classifier = AudioSVNet_Step_MultiObject_Classifier(
             num_classes=num_classes, last_hidden_dim=self.last_hidden_dim)
 
@@ -734,7 +734,7 @@ class AudioSVNet_Step_MultiObject_Encoder(nn.Module):
                 in_channels=1, num_class=self.last_hidden_dim, base_model=model_name, before_dropout=0, before_softmax=False)
 
         self.audio_emotional_GRU = nn.GRU(input_size=self.last_hidden_dim, hidden_size=self.emo_rnn_hidden_dim,
-                                          num_layers=1, batch_first=True, bidirectional=True)
+                                          num_layers=1, batch_first=True, bidirectional=False)
 
         self.calc_audio_weight = nn.Sequential(
             nn.Linear(self.emo_rnn_hidden_dim, 1), nn.Sigmoid())
@@ -803,7 +803,7 @@ class AudioSVNet_Step_MultiObject_Classifier(nn.Module):
         for i in range(self.num_classes):
             audio_classifier = getattr(self, f"audio_classifier_{i}")
             out = audio_classifier(fea)
-            af_out.append(out)
+            af_out.append(out.squeeze(-1))
         return af_out, None
 
 
@@ -988,7 +988,7 @@ class VideoSVNet_Conv2D(nn.Module):
         self.video_feature_extractor = PretrainedBaseModel(
             in_channels=3, num_class=self.last_hidden_dim, base_model=model_name, before_dropout=0, before_softmax=False)
         self.video_emotional_GRU = nn.GRU(input_size=self.last_hidden_dim, hidden_size=self.emo_rnn_hidden_dim,
-                                          num_layers=1, batch_first=True, bidirectional=True)
+                                          num_layers=1, batch_first=True, bidirectional=False)
         self.calc_video_weight = nn.Sequential(
             nn.Linear(self.emo_rnn_hidden_dim, 1), nn.Sigmoid())
         self.video_classifier = nn.Linear(
@@ -1061,7 +1061,7 @@ class VideoSVNet_Step_Conv2D(nn.Module):
         self.video_feature_extractor = PretrainedBaseModel(
             in_channels=3, num_class=self.last_hidden_dim, base_model=model_name, before_dropout=0, before_softmax=False)
         self.video_emotional_GRU = nn.GRU(input_size=self.last_hidden_dim, hidden_size=self.emo_rnn_hidden_dim,
-                                          num_layers=1, batch_first=True, bidirectional=True)
+                                          num_layers=1, batch_first=True, bidirectional=False)
         self.calc_video_weight = nn.Sequential(
             nn.Linear(self.emo_rnn_hidden_dim, 1), nn.Sigmoid())
         self.video_classifier = nn.Linear(
@@ -1382,12 +1382,12 @@ class MIFFNet_Conv2D_SV(nn.Module):
             in_channels=3, num_class=self.vf_last_hidden_dim, base_model=self.vf_model_name, before_dropout=0, before_softmax=False)
 
         self.audio_emotional_GRU = nn.GRU(input_size=self.af_last_hidden_dim, hidden_size=self.af_emo_rnn_hidden_dim,
-                                          num_layers=1, batch_first=True, bidirectional=True)
+                                          num_layers=1, batch_first=True, bidirectional=False)
         self.calc_audio_weight = nn.Sequential(
             nn.Linear(self.af_emo_rnn_hidden_dim, 1), nn.Sigmoid())
 
         self.video_emotional_GRU = nn.GRU(input_size=self.vf_last_hidden_dim, hidden_size=self.vf_emo_rnn_hidden_dim,
-                                          num_layers=1, batch_first=True, bidirectional=True)
+                                          num_layers=1, batch_first=True, bidirectional=False)
         self.calc_video_weight = nn.Sequential(
             nn.Linear(self.vf_emo_rnn_hidden_dim, 1), nn.Sigmoid())
 
@@ -1515,11 +1515,11 @@ class MIFFNet_Conv2D_SV_Step(nn.Module):
             in_channels=3, num_class=self.vf_last_hidden_dim, base_model=self.vf_model_name, before_dropout=0, before_softmax=False)
 
         self.audio_emotional_GRU = nn.GRU(input_size=self.af_last_hidden_dim, hidden_size=self.af_emo_rnn_hidden_dim,
-                                          num_layers=1, batch_first=True, bidirectional=True)
+                                          num_layers=1, batch_first=True, bidirectional=False)
         self.calc_audio_weight = nn.Sequential(
             nn.Linear(self.af_emo_rnn_hidden_dim, 1), nn.Sigmoid())
         self.video_emotional_GRU = nn.GRU(input_size=self.vf_last_hidden_dim, hidden_size=self.vf_emo_rnn_hidden_dim,
-                                          num_layers=1, batch_first=True, bidirectional=True)
+                                          num_layers=1, batch_first=True, bidirectional=False)
         self.calc_video_weight = nn.Sequential(
             nn.Linear(self.vf_emo_rnn_hidden_dim, 1), nn.Sigmoid())
 
@@ -1657,12 +1657,12 @@ class MIFFNet_Conv2D_SV_InterFusion(nn.Module):
             in_channels=3, num_class=self.vf_last_hidden_dim, base_model=self.vf_model_name, before_dropout=0, before_softmax=False)
 
         self.audio_emotional_GRU = nn.GRU(input_size=self.af_last_hidden_dim, hidden_size=self.af_emo_rnn_hidden_dim,
-                                          num_layers=1, batch_first=True, bidirectional=True)
+                                          num_layers=1, batch_first=True, bidirectional=False)
         self.calc_audio_weight = nn.Sequential(
             nn.Linear(self.af_emo_rnn_hidden_dim, 1), nn.Sigmoid())
 
         self.video_emotional_GRU = nn.GRU(input_size=self.vf_last_hidden_dim, hidden_size=self.vf_emo_rnn_hidden_dim,
-                                          num_layers=1, batch_first=True, bidirectional=True)
+                                          num_layers=1, batch_first=True, bidirectional=False)
         self.calc_video_weight = nn.Sequential(
             nn.Linear(self.vf_emo_rnn_hidden_dim, 1), nn.Sigmoid())
 
@@ -1817,12 +1817,12 @@ class MIFFNet_Conv2D_SV_InterFusion_Step(nn.Module):
             in_channels=3, num_class=self.vf_last_hidden_dim, base_model=self.vf_model_name, before_dropout=0, before_softmax=False)
 
         self.audio_emotional_GRU = nn.GRU(input_size=self.af_last_hidden_dim, hidden_size=self.af_emo_rnn_hidden_dim,
-                                          num_layers=1, batch_first=True, bidirectional=True)
+                                          num_layers=1, batch_first=True, bidirectional=False)
         self.calc_audio_weight = nn.Sequential(
             nn.Linear(self.af_emo_rnn_hidden_dim, 1), nn.Sigmoid())
 
         self.video_emotional_GRU = nn.GRU(input_size=self.vf_last_hidden_dim, hidden_size=self.vf_emo_rnn_hidden_dim,
-                                          num_layers=1, batch_first=True, bidirectional=True)
+                                          num_layers=1, batch_first=True, bidirectional=False)
         self.calc_video_weight = nn.Sequential(
             nn.Linear(self.vf_emo_rnn_hidden_dim, 1), nn.Sigmoid())
 
@@ -1987,12 +1987,12 @@ class MIFFNet_Conv2D_SV_InterFusion_Step_OnlyAv(nn.Module):
             in_channels=3, num_class=self.vf_last_hidden_dim, base_model=self.vf_model_name, before_dropout=0, before_softmax=False)
 
         self.audio_emotional_GRU = nn.GRU(input_size=self.af_last_hidden_dim, hidden_size=self.af_emo_rnn_hidden_dim,
-                                          num_layers=1, batch_first=True, bidirectional=True)
+                                          num_layers=1, batch_first=True, bidirectional=False)
         self.calc_audio_weight = nn.Sequential(
             nn.Linear(self.af_emo_rnn_hidden_dim, 1), nn.Sigmoid())
 
         self.video_emotional_GRU = nn.GRU(input_size=self.vf_last_hidden_dim, hidden_size=self.vf_emo_rnn_hidden_dim,
-                                          num_layers=1, batch_first=True, bidirectional=True)
+                                          num_layers=1, batch_first=True, bidirectional=False)
         self.calc_video_weight = nn.Sequential(
             nn.Linear(self.vf_emo_rnn_hidden_dim, 1), nn.Sigmoid())
 
