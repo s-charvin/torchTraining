@@ -219,7 +219,8 @@ if __name__ == '__main__':
         redis_client = RedisClient(
             **config["train"]["gpu_queuer"]["para"])  # 初始化并连接到 Redis 服务端
         redis_client.check_data()
-        redis_client.join_wait_queue()  # 注册当前任务进程到等待任务列表
+        redis_client.join_wait_queue(
+            config["train"]["name"])  # 注册当前任务进程到等待任务列表
 
     while True:
         redis_client.check_data()

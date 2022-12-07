@@ -1,11 +1,11 @@
 train:
     # 训练基础设置
-    name: "AudioSVNet_Step_hanming_pc_none[3]s_CustomScheduler_step1s" # 本次运行模型名称
+    name: "AudioSVCNet_Dist_Step_hanming_pc_10[7]s_CustomScheduler_step1s" # 本次运行模型名称
     nodes: 1 # 本次训练总共要使用的节点数量, 如果需要多台计算机进行分布式计算才需要设置. 从 1 开始
     node_rank: 0 # 当前节点在所有节点中的排名, 从 0 开始
     master_addr: '127.0.0.1' # 声明主进程 0 的 IP 地址和通信端口, 以便所有进程可以同步更新参数.
     master_port: '8917' # 每个任务都需要不同的端口
-    USE_GPU: "0,1" # 设置当前节点(计算机)可用的 GPU 数量和顺序, 如果含有多个 GPU 将自动使用多 GPU 分布计算模式
+    USE_GPU: "" # 设置当前节点(计算机)可用的 GPU 数量和顺序, 如果含有多个 GPU 将自动使用多 GPU 分布计算模式
     num_workers: 0 # 数据加载进程数
     seed: 42 # 设置随机数种子, 当设置了固定的随机数种子,之后依次生成的随机数序列也会被固定下来。
     train_rate: 0.8
@@ -23,13 +23,13 @@ train:
         para:
             host: '127.0.0.1'
             port: 6379
-            min_free_memory: "20GiB" # gpu 内存触发阈值
+            min_free_memory: "5GiB" # gpu 内存触发阈值
             password: Sudadenglu
             username: trainer
 
 
 sorlver:
-    name: "Audio_Classification2MultiObject_MGDA_UB" # Audio_Classification, Video_Classification, Audio_Video_Classification, Audio_Video_Fusion_Classification,Audio_Classification2MultiObject_MGDA_UB
+    name: "Audio_Classification" # Audio_Classification, Video_Classification, Audio_Video_Classification, Audio_Video_Fusion_Classification,Audio_Classification2MultiObject_MGDA_UB
     optimizer: 
         name: "AdamW"
         lr: 0.0001 # 学习率

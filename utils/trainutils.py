@@ -35,7 +35,7 @@ class RedisClient:
                             charset='UTF-8',
                             encoding='UTF-8')
 
-    def join_wait_queue(self):
+    def join_wait_queue(self, task_name):
         """加入当前进程执行的任务到等待队列
         Returns:
             str: task_id, 返回任务特有的 ID
@@ -46,6 +46,7 @@ class RedisClient:
         self.task_id = str(os.getpid()) + '*' + str(
             int(time.mktime(time.strptime(creat_time, "%Y-%m-%d %H:%M:%S"))))  # 计算当前创建任务 ID
         content = {
+            "task_name": task_name,
             "task_id": self.task_id,
             "system_pid": os.getpid(),
             "use_gpus": "",
@@ -157,8 +158,8 @@ class RedisClient:
             task = json.loads(task_)
             pid = int(task['system_pid'])
             if not psutil.pid_exists(pid):
-                print(f"发现等待队列有残余数据, 任务进程为{pid}, 本地并无此任务!")
                 self.client.lrem("wait_queue", 0, json.dumps(task))
+                print(f"发现等待队列有残余数据, 任务进程为{pid}, 本地并无此任务!")
 
 
 class HiddenPrints:
