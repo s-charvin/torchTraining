@@ -1,15 +1,15 @@
 train:
     # 训练基础设置
-    name: "AudioSVCNet_Dist_Step_hanming_pc_10[7]s_CustomScheduler_step1s" # 本次运行模型名称
+    name: "GLAM_hanming_pc_3s_CustomScheduler_step1s" # 本次运行模型名称
     nodes: 1 # 本次训练总共要使用的节点数量, 如果需要多台计算机进行分布式计算才需要设置. 从 1 开始
     node_rank: 0 # 当前节点在所有节点中的排名, 从 0 开始
     master_addr: '127.0.0.1' # 声明主进程 0 的 IP 地址和通信端口, 以便所有进程可以同步更新参数.
     master_port: '8917' # 每个任务都需要不同的端口
-    USE_GPU: "" # 设置当前节点(计算机)可用的 GPU 数量和顺序, 如果含有多个 GPU 将自动使用多 GPU 分布计算模式
+    USE_GPU: "0" # 设置当前节点(计算机)可用的 GPU 数量和顺序, 如果含有多个 GPU 将自动使用多 GPU 分布计算模式
     num_workers: 0 # 数据加载进程数
     seed: 42 # 设置随机数种子, 当设置了固定的随机数种子,之后依次生成的随机数序列也会被固定下来。
     train_rate: 0.8
-    batch_size: 64 # 数据块大小
+    batch_size: 32 # 数据块大小
     n_epochs: 889 # 训练迭代次数, 我一般设为 3200000/训练数据总量(3592)
     Kfold: 1 # 大于 1 时, 进行 K 折交叉实验
     # 预训练设置
@@ -52,8 +52,8 @@ sorlver:
         name: "CustomScheduler"
         mode: "step" # "epoch", "step"
         para: 
-            num_iter_step : 50000 # 一般设置为 3200000/batch_size
-            num_decay_step: 49900 # 任意设置
+            num_iter_step : 100000 # 一般设置为 3200000/batch_size
+            num_decay_step: 99900 # 任意设置
     batch_delay: 1
 
 logs: # 记录参数

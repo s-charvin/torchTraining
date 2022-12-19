@@ -6,7 +6,7 @@ data:
     # IEMOCAP-10s-audio_Wave_pad_cut_MFCC_Permute_Channel-.npy
     # IEMOCAP-pad-audio_MFCC_Permute_Channel.npy
     # IEMOCAP-crop-3s-video_VideoSplit-video_KeyFrameGetterBasedIntervalSampling_Permute_Channel-.npy
-    root: "/sdb/user4/SCW/data/IEMOCAP/Feature/IEMOCAP-10s-audio_Wave_pad_cut_MFCC_Permute_Channel-.npy"
+    root: "/sdb/user4/SCW/data/IEMOCAP/Feature/IEMOCAP-3s-audio_Wave_pad_cut_MFCC_Permute_Channel-.npy"
     para:
         name: "" # 存储数据要添加的额外信息
         mode: "audio"

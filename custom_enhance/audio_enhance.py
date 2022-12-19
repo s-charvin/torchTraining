@@ -2,6 +2,7 @@
 from torch import Tensor
 import torch
 import torch.nn.functional as F
+import nlpaug.augmenter.audio as naa
 
 
 class AudioSplit(torch.nn.Module):
@@ -114,6 +115,55 @@ class AVSplit(torch.nn.Module):
         return newdatadict
 
 
+class VtlpAug(torch.nn.Module):
+    r"""输入字典格式存储的数据, 对其中 "auido" 中的每个语音进行处理, 语音单个数据格式为 [c, samples], 通过 VtlpAug 语音增强方法, 为每个语音生成增强后的副本数据
+
+    Args:
+        sample_rate (int, optional): Sample rate of audio signal. (Default: ``16000``)
+    """
+
+    def __init__(self,
+                 sample_rate,
+                 n=7,
+                 zone=(0.2, 0.8),
+                 coverage=0.1,
+                 fhi=4800,
+                 factor=(0.9, 1.1)
+                 ) -> None:
+        super(VtlpAug, self).__init__()
+        self.vtlp = naa.VtlpAug(sample_rate, zone=zone,
+                                coverage=coverage, fhi=fhi, factor=factor)
+        self.num = n
+
+    def forward(self, datadict: dict) -> Tensor:
+        r"""
+        Args:
+            datadict (dict): 字典格式存储的数据.
+        Returns:
+            dataframe: .
+        """
+        columns = datadict.keys()
+        index = range(len(datadict["audio"]))
+        newdatadict = {c: [] for c in columns}
+
+        for i in index:
+            waveform = datadict["audio"][i]  # 当前行的语音数据
+            waveform = waveform.numpy()
+            waveform = self.vtlp.augment(waveform[0], n=self.num)
+
+            for wav in waveform:
+                for col in columns:
+                    if col == "audio":
+                        newdatadict[col].append(
+                            torch.from_numpy(wav).unsqueeze(0))
+                    else:
+                        try:
+                            newdatadict[col].append(datadict[col][i])
+                        except:
+                            newdatadict[col].append(datadict[col])
+        return newdatadict
+
+
 if __name__ == '__main__':
     datadict = {
         "path": [1, 2, 3, 4, 5, 6],
@@ -126,6 +176,7 @@ if __name__ == '__main__':
         "val/act/dom": [(3.5, 2.5, 1.5), (3.5, 2.5, 1.5), (3.5, 2.5, 1.5), (3.5, 2.5, 1.5), (3.5, 2.5, 1.5), (3.5, 2.5, 1.5), ],
         "gender": ["F", "M", "F", "F", "M", "M", ],
         "label": [1, 2, 1, 3, 2, 2]}
-    audioSplit = AVSplit(sample_rate=16000, frame_rate=29.97, durations=7.0)
-    dataframe = audioSplit(datadict)
+    # audioSplit = VtlpAug(sample_rate=16000, frame_rate=29.97, durations=7.0)
+    audioAug = VtlpAug(sample_rate=16000)
+    dataframe = audioAug(datadict)
     print(dataframe)

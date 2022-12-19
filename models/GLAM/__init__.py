@@ -1,1 +1,1 @@
-from model import GLAM
+from .model import GLAM

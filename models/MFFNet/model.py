@@ -394,7 +394,7 @@ class AudioSVCNet_Step(nn.Module):
         # self.audio_classifier = nn.Linear(
         #     in_features=self.last_hidden_dim, out_features=num_classes)
         self.audio_classifier = nn.Parameter(
-            torch.Tensor(num_classes, self.last_hidden_dim))
+            torch.Tensor(self.last_hidden_dim, num_classes))
         nn.init.kaiming_uniform_(self.audio_classifier, a=math.sqrt(5))
 
     def forward(self, af: Tensor, af_len=None) -> Tensor:
@@ -419,8 +419,6 @@ class AudioSVCNet_Step(nn.Module):
         af_seg_len = len(af)
         af = torch.stack(af).permute(1, 0, 2, 3, 4).clone().contiguous()
         # [B, af_seg_len, C, af_seq_len, F]
-
-        # [B * af_seg_len, C, af_seq_len, F]
         af_fea = self.audio_feature_extractor(
             af.view((-1,)+af.size()[2:]))
         # [B * af_seg_len, F]
@@ -444,8 +442,8 @@ class AudioSVCNet_Step(nn.Module):
         af_fea = af_fea.mean(dim=1)
         # 分类
         # af_out = self.audio_classifier(af_fea)
-        af_out = F.pairwise_distance(
-            af_fea.unsqeeze(1), self.audio_classifier, p=2)
+        af_fea = af_fea.unsqueeze(-1)
+        af_out = F.pairwise_distance(af_fea, self.audio_classifier, p=2)
         return F.softmax(af_out, dim=1), None
 
 

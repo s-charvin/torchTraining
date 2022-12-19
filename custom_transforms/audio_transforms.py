@@ -1,4 +1,8 @@
 
+try:
+    import opensmile
+except:
+    Warning("opensmile 库加载失败, 这会导致无法提取 LLD 特征.")
 from typing import Optional
 from torch import Tensor
 import torch
@@ -100,43 +104,46 @@ class Wave_pad_cut(torch.nn.Module):
         return waveform
 
 
-# class ComParE_2016(torch.nn.Module):
-#     r"""
-#     """
+class EmoBase_2010(torch.nn.Module):
+    r"""
+    """
 
-#     def __init__(self, sampling_rate) -> None:
-#         super(Wave_pad_cut, self).__init__()
-#         self.sampling_rate = sampling_rate
+    def __init__(self, sampling_rate, feature_level) -> None:
+        super(EmoBase_2010, self).__init__()
+        self.sampling_rate = sampling_rate
+        self.feature_level = feature_level  # 'lld', 'lld_de', 'func'
 
-#     def forward(self, waveform: Tensor) -> Tensor:
-#         r"""
-#         Args:
-#             waveform (Tensor): Audio waveform of dimension of `([channels, samples])`.
-#         Returns:
-#             Tensor: features of dimension of `([channels, features])`.
-#         """
-#         smile = opensmile.Smile(
-#             feature_set=opensmile.FeatureSet.eGeMAPSv02,
-#             feature_level=opensmile.FeatureLevel.Functionals,)
-#         smile.process_signal(waveform.numpy(), self.sampling_rate)
-#         return torch.from_numpy(smile.to_numpy())
+    def forward(self, waveform: Tensor) -> Tensor:
+        r"""
+        Args:
+            waveform (Tensor): Audio waveform of dimension of `([channels, samples])`.
+        Returns:
+            Tensor: features of dimension of `([channels, features])`.
+        """
+        smile = opensmile.Smile(
+            feature_set="C:/Users/19115/Desktop/emobase2010.conf",
+            feature_level=opensmile.FeatureLevel.LowLevelDescriptors,)
+        frame = smile.process_signal(waveform.numpy(), self.sampling_rate)
+        # return: [hannels, features, time].
+        return torch.from_numpy(smile.to_numpy(frame))
 
 
 if __name__ == '__main__':
-    splitMFCC = MFCC(sample_rate=16000, n_mfcc=40, log_mels=True, melkwargs={
-        "n_fft": 1024,
-        "win_length": 1024,
-        "hop_length": 256,
-        "f_min": 80.,
-        "f_max": 7600.,
-        "pad": 0,
-        "n_mels": 128,
-        "power": 2.,
-        "normalized": True,
-        "center":  True,
-        "pad_mode": "reflect",
-                    "onesided": True})
+    # transformer_ = MFCC(sample_rate=16000, n_mfcc=40, log_mels=True, melkwargs={
+    #     "n_fft": 1024,
+    #     "win_length": 1024,
+    #     "hop_length": 256,
+    #     "f_min": 80.,
+    #     "f_max": 7600.,
+    #     "pad": 0,
+    #     "n_mels": 128,
+    #     "power": 2.,
+    #     "normalized": True,
+    #     "center":  True,
+    #     "pad_mode": "reflect",
+    #                 "onesided": True})
     wav = torch.randn((1, 16000))
     print(wav.shape)
-    wav = splitMFCC(wav)
+    transformer_ = EmoBase_2010(16000, 'lld')
+    wav = transformer_(wav)
     print(wav.shape)

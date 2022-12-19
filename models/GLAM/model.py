@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from g_mlp_pytorch import gMLP
 from g_mlp_pytorch import SpatialGatingUnit
-from components import *
+from .components import *
 
 
 class GLAM5(nn.Module):
@@ -70,7 +70,7 @@ class GLAM5(nn.Module):
 
         x = x.reshape(x.shape[0], -1)
         x = self.fc(x)
-        return x
+        return x, None
 
 
 class GLAM(nn.Module):
@@ -78,7 +78,7 @@ class GLAM(nn.Module):
     GLobal-Aware Multiscale block with 3x3 convolutional kernels in CNN architecture
     '''
 
-    def __init__(self, shape=(26, 63), **kwargs):
+    def __init__(self, shape=(40, 63), **kwargs):
         super(GLAM, self).__init__()
         self.conv1a = nn.Conv2d(kernel_size=(
             3, 1), in_channels=1, out_channels=16, padding=(1, 0))
@@ -129,9 +129,9 @@ class GLAM(nn.Module):
         x = self.gmlp(x)
         x = F.relu(x)
 
-        x = x.reshape(x.shape[0], -1)
+        x = x.reshape(x.shape[0], -1)  # (32, 128*12*15)
         x = self.fc(x)
-        return x
+        return x, None
 
 
 class gMLPResConv3(nn.Module):

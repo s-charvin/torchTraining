@@ -6,14 +6,29 @@
 #             model_name: "resnet50" # 'resnet50', "lightsernet"
 #             last_hidden_dim: 320
 
+# architecture:
+#     net: 
+#         name: "AudioSVCNet_Step" # AudioSVCNet_Step, AudioSVCNet, AudioSVCNet_Step_MultiObject, VideoSVCNet_Conv2D, VideoSVCNet_Step_Conv2D
+#         para:
+#             num_classes: 4
+#             model_name: "lightsernet"
+#             last_hidden_dim: 320
+#             seq_len: 441 # af_: 63*3=189|63*7=441 | vf_: 10*3
+
+
+# architecture:
+#     net: 
+#         name: "Audio_GloballyGatedMLP_SVC_BoxCox_Net" 
+#         para:
+#             num_classes: 4
+#             last_hidden_dim: 320
+#             seq_len: 189 # af_: 63*3=189|63*7=441 | vf_: 10*3
+
 architecture:
     net: 
-        name: "AudioSVCNet_Step" # AudioSVCNet_Step, AudioSVCNet, AudioSVCNet_Step_MultiObject, VideoSVCNet_Conv2D, VideoSVCNet_Step_Conv2D
+        name: "GLAM" 
         para:
-            num_classes: 4
-            model_name: "lightsernet"
-            last_hidden_dim: 320
-            seq_len: 441 # af_: 63*3=189|63*7=441 | vf_: 10*3
+            shape: [189, 40]
 
 
 # architecture:
