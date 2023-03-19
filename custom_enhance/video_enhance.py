@@ -11,10 +11,9 @@ class VideoSplit(torch.nn.Module):
     """
 
     def __init__(self,
-                 frame_rate,
-                 durations: float = 3.) -> None:
+                 video_sample) -> None:
         super(VideoSplit, self).__init__()
-        self.video_samples = int(frame_rate * durations)
+        self.video_samples = int(video_sample)
 
     def forward(self, datadict: dict) -> Tensor:
         r"""
@@ -24,13 +23,13 @@ class VideoSplit(torch.nn.Module):
             dataframe: .
         """
         columns = datadict.keys()
-        index = range(len(datadict["path"]))
+        index = range(len(datadict["video"]))
         newdatadict = {c: [] for c in columns}
 
         for i in index:
 
             video = datadict["video"][i]  # 当前行的视频数据 [seq,h,w,c] RGB
-
+            datadict["video"][i] = None
             if video.shape[0] > self.video_samples:
                 samples = int(  # 处理比指定时间段长的数据, 将多余的数据截取掉
                     (video.shape[0] // self.video_samples) * self.video_samples)

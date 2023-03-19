@@ -21,15 +21,7 @@ class Video_pad_cut(torch.nn.Module):
         if self.FramNum < -1:
             raise ValueError("采样点数量必须为正数或-1")
 
-    def forward(self, Video: torch.Tensor) -> torch.Tensor:
-        r"""
-
-        Args:[seq, h, w, 3]
-            Video (torch.Tensor): Video of dimension of `(N,H,W,3)`.
-
-        Returns:
-            torch.Tensor: Video of dimension of `(N,H,W,3)`.
-        """
+    def transform(self, Video: torch.Tensor):
 
         if self.FramNum == -1:
             return Video
@@ -55,8 +47,22 @@ class Video_pad_cut(torch.nn.Module):
             if self.mode == "biside":
                 left_cut = int((length-self.FramNum)/2.0)
                 right_cut = length-self.FramNum-left_cut
-                Video = Video[left_cut:-right_cut, :, :, :]
-        return Video.clone()
+                Video = Video[left_cut:-right_cut, :, :, :].clone()
+        return Video
+
+    def forward(self, datadict: dict):
+        r"""
+        Args:
+            datadict (dict): 字典格式存储的数据.
+
+        Returns:
+            datadict: .
+        """
+        index = range(len(datadict["video"]))
+        for i in index:
+            datadict["video"][i] = self.transform(
+                datadict["video"][i])  # 处理当前行的视频数据
+        return datadict
 
 
 class KeyFrameGetterBasedInterDifference(torch.nn.Module):
@@ -161,17 +167,30 @@ class KeyFrameGetterBasedInterDifference(torch.nn.Module):
         idx = self.pick_idx(diff)
         return video[idx].clone()
 
-    def forward(self, video: torch.Tensor) -> torch.Tensor:
+    def transform(self, video: torch.Tensor):
         # [seq, h, w, 3] RGB
         key_frame = video.numpy()
         key_frame = self.get_key_frame(key_frame)
 
         if key_frame.shape[0] > 5:
-            return torch.from_numpy(key_frame)
+            return torch.from_numpy(key_frame.copy())
         else:
             return video
 
         # return self.get_key_frame(video)
+    def forward(self, datadict: dict):
+        r"""
+        Args:
+            datadict (dict): 字典格式存储的数据.
+
+        Returns:
+            datadict: .
+        """
+        index = range(len(datadict["video"]))
+        for i in index:
+            datadict["video"][i] = self.transform(
+                datadict["video"][i])  # 处理当前行的视频数据
+        return datadict
 
 
 class KeyFrameGetterBasedIntervalSampling(torch.nn.Module):
@@ -188,13 +207,29 @@ class KeyFrameGetterBasedIntervalSampling(torch.nn.Module):
         super().__init__()
         self.interval = interval
 
-    def forward(self, video: torch.Tensor) -> torch.Tensor:
+    def transform(self, video: torch.Tensor):
         # [seq, h, w, 3] RGB
         indx = [0]
         for i in range(video.shape[0]):
             if (i+1) % self.interval == 0:
                 indx.append(i)
         return video[indx].clone()
+
+        # return self.get_key_frame(video)
+
+    def forward(self, datadict: dict):
+        r"""
+        Args:
+            datadict (dict): 字典格式存储的数据.
+
+        Returns:
+            datadict: .
+        """
+        index = range(len(datadict["video"]))
+        for i in index:
+            datadict["video"][i] = self.transform(
+                datadict["video"][i])  # 处理当前行的视频数据
+        return datadict
 
         # return self.get_key_frame(video)
 
@@ -221,7 +256,7 @@ class calcOpticalFlow(torch.nn.Module):
         self.type = type
         self.keeprgb = keepRGB
 
-    def forward(self, video: torch.Tensor) -> torch.Tensor:
+    def transform(self, video: torch.Tensor) -> torch.Tensor:
         # [seq, h, w, 3] RGB
         if isinstance(video, torch.Tensor):
             video = video.numpy()
@@ -260,6 +295,20 @@ class calcOpticalFlow(torch.nn.Module):
             flows = np.concatenate([video, flows], axis=-1)
         return torch.Tensor(flows.copy())
 
+    def forward(self, datadict: dict):
+        r"""
+        Args:
+            datadict (dict): 字典格式存储的数据.
+
+        Returns:
+            datadict: .
+        """
+        index = range(len(datadict["video"]))
+        for i in index:
+            datadict["video"][i] = self.transform(
+                datadict["video"][i])  # 处理当前行的视频数据
+        return datadict
+
 
 class calcRGBDifference(torch.nn.Module):
     r""" 根据提供的参数, 提取 Difference.
@@ -271,7 +320,7 @@ class calcRGBDifference(torch.nn.Module):
         super(calcRGBDifference, self).__init__()
         self.keeprgb = keepRGB
 
-    def forward(self, video: torch.Tensor) -> torch.Tensor:
+    def transform(self, video: torch.Tensor) -> torch.Tensor:
         # [seq, h, w, 3] RGB
         if isinstance(video, torch.Tensor):
             video = video.numpy()
@@ -284,6 +333,20 @@ class calcRGBDifference(torch.nn.Module):
         if self.keeprgb:
             differences = np.concatenate([video, differences], axis=-1)
         return torch.Tensor(differences.copy())
+
+    def forward(self, datadict: dict):
+        r"""
+        Args:
+            datadict (dict): 字典格式存储的数据.
+
+        Returns:
+            datadict: .
+        """
+        index = range(len(datadict["video"]))
+        for i in index:
+            datadict["video"][i] = self.transform(
+                datadict["video"][i])  # 处理当前行的视频数据
+        return datadict
 
 
 class calcOpticalFlowAndRGBDifference(torch.nn.Module):
@@ -299,7 +362,7 @@ class calcOpticalFlowAndRGBDifference(torch.nn.Module):
         self.opticalflow = calcOpticalFlow(type=type, keepRGB=False)
         self.difference = calcRGBDifference(keepRGB=False)
 
-    def forward(self, video: torch.Tensor) -> torch.Tensor:
+    def transform(self, video: torch.Tensor) -> torch.Tensor:
         # [seq, h, w, 3] RGB
         if isinstance(video, torch.Tensor):
             video = video.numpy()
@@ -308,6 +371,20 @@ class calcOpticalFlowAndRGBDifference(torch.nn.Module):
         if self.keeprgb:
             return torch.Tensor(np.concatenate([video, flows, differences], axis=-1).copy())
         return torch.Tensor(np.concatenate([flows, differences], axis=-1).copy())
+
+    def forward(self, datadict: dict):
+        r"""
+        Args:
+            datadict (dict): 字典格式存储的数据.
+
+        Returns:
+            datadict: .
+        """
+        index = range(len(datadict["video"]))
+        for i in index:
+            datadict["video"][i] = self.transform(
+                datadict["video"][i])  # 处理当前行的视频数据
+        return datadict
 
 
 if __name__ == '__main__':

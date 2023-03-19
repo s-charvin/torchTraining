@@ -34,7 +34,7 @@ class Video_Classification(object):
             self.net = globals()[
                 self.config["architecture"]["net"]["name"]]()
         # 多 GPU 并行计算
-        if self.config["train"]['USE_GPU']:
+        if self.config['self_auto']['gpu_nums']:
             self.net = self.net.to(device=self.device)
             self.net = torch.nn.parallel.DistributedDataParallel(
                 self.net, device_ids=[self.device])  # device_ids 默认选用本地显示的所有 GPU
@@ -141,7 +141,7 @@ class Video_Classification(object):
                 loss_ = loss.clone()
 
                 # 在所有进程运行到这一步之前，先完成此前代码的进程会在这里等待其他进程。
-                if self.config["train"]['USE_GPU']:
+                if self.config['self_auto']['gpu_nums']:
                     torch.distributed.barrier()
                     dist.all_reduce(loss_, op=dist.ReduceOp.SUM)
                     # 计算所有 GPU 的平均损失
@@ -230,7 +230,7 @@ class Video_Classification(object):
         eval_loss = total_loss.mean()
         eval_loss_ = eval_loss.clone()
         eval_accuracy_ = eval_accuracy.clone()
-        if self.config["train"]['USE_GPU']:
+        if self.config['self_auto']['gpu_nums']:
             torch.distributed.barrier()
             dist.all_reduce(eval_loss_, op=dist.ReduceOp.SUM)
             dist.all_reduce(eval_accuracy_, op=dist.ReduceOp.SUM)

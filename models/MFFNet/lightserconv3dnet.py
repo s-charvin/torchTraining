@@ -3,7 +3,7 @@ import torch
 from torch import Tensor, nn
 
 
-class LightSerConv3dNet(nn.Module):
+class LightSerConv3dNet_Encoder(nn.Module):
     """
     paper: Light-SERNet: A lightweight fully convolutional neural network for speech emotion recognition
     """

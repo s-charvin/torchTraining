@@ -70,7 +70,7 @@ if __name__ == '__main__':
     print(f"tensorflow_version: {tf.__version__}")  # 软件 torch 版本
 
     # 如果使用GPU加速
-    if config["train"]['USE_GPU'] and tf.config.list_physical_devices('GPU'):
+    if config["train"]['num_gpus'] and tf.config.list_physical_devices('GPU'):
         print(
             f"cuda: {tf.config.list_physical_devices('GPU')}, GPU_num: {len(device_lib.list_local_devices())}")
         devices = device_lib.list_local_devices()

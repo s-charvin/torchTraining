@@ -15,16 +15,25 @@ class Compose():
 
 class Permute_Channel(torch.nn.Module):
 
-    def __init__(self, dims) -> None:
+    def __init__(self, dims, names) -> None:
         super(Permute_Channel, self).__init__()
         self.dims = dims
+        self.names = names
 
-    def forward(self, feature: Tensor) -> Tensor:
+    def transform(self, feature: Tensor, dims):
+        return feature.permute(*dims)
+
+    def forward(self, datadict: dict) -> Tensor:
         r"""
         Args:
-            feature (Tensor): Tensor of feature of dimension (...).
+            datadict (dict): 字典格式存储的数据.
 
         Returns:
-            Tensor: Tensor of feature of dimension (dims).
+            datadict: .
         """
-        return feature.permute(*self.dims)
+        for i, name in enumerate(self.names):
+            index = range(len(datadict[name]))
+            for j in index:
+                datadict[name][j] = self.transform(
+                    datadict[name][j], self.dims[i])  # 处理当前行的语音数据
+        return datadict

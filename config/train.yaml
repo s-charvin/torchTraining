@@ -1,41 +1,47 @@
 train:
-    # 训练基础设置
-    name: "GLAM_hanming_pc_3s_CustomScheduler_step1s" # 本次运行模型名称
+    # 训练设备
+    name: "MIFFNet-step(1s)-window(7s)-inlength(7s)-model(lightsernet|rev_mvit_b_16x4_conv)-batch(8)-batchdelay(4)-epoch(889)-lr(0.00025)" # 本次运行模型名称
     nodes: 1 # 本次训练总共要使用的节点数量, 如果需要多台计算机进行分布式计算才需要设置. 从 1 开始
     node_rank: 0 # 当前节点在所有节点中的排名, 从 0 开始
-    master_addr: '127.0.0.1' # 声明主进程 0 的 IP 地址和通信端口, 以便所有进程可以同步更新参数.
-    master_port: '8917' # 每个任务都需要不同的端口
-    USE_GPU: "0" # 设置当前节点(计算机)可用的 GPU 数量和顺序, 如果含有多个 GPU 将自动使用多 GPU 分布计算模式
+    master_addr: "127.0.0.1" # 声明主进程 0 的 IP 地址和通信端口, 以便所有进程可以同步更新参数.
+    master_port: "7834" # 每个任务都需要不同的端口
+    available_gpus: "1" # 设置当前环境可用的 GPU
+
+    # 数据
     num_workers: 0 # 数据加载进程数
-    seed: 42 # 设置随机数种子, 当设置了固定的随机数种子,之后依次生成的随机数序列也会被固定下来。
+    seed: 42 # 设置随机数种子, 当设置了固定的随机数种子,之后依次生成的随机数序列也会被固定下来.
     train_rate: 0.8
-    batch_size: 32 # 数据块大小
-    n_epochs: 889 # 训练迭代次数, 我一般设为 3200000/训练数据总量(3592)
+    batch_size: 8 # 数据块大小
     Kfold: 1 # 大于 1 时, 进行 K 折交叉实验
-    # 预训练设置
+
+    # 训练
+    n_epochs: 889 # 训练迭代次数
+    loss_weight: True # 设置损失权重
+
+    # 恢复训练
+    checkpoint: ""
     last_epochs: -1 # 自定义恢复迭代的起始步, 也就是已经训练完的 epoch 次数
-    ## 这里实现方面还有问题, 因为输入数据是随机选取的, 导致接续训练的时候, 会将之前测试集的数据放到训练集中
-    checkpoint: "" 
-    # 分类
-    loss_weight: True # 设置损失加权系数
+
+    # 训练排队
     gpu_queuer:
         wait_gpus: True # 是否需要接受排队等待
+        task_maxnum: 1 # 最大运行任务数量, GPU 任务太多, 会导致利用率升高, 从而大幅度降低训练速度
         para:
-            host: '127.0.0.1'
+            host: "127.0.0.1"
             port: 6379
             min_free_memory: "5GiB" # gpu 内存触发阈值
+            gpu_maxutil: 100 # gpu 利用率出发阈值, 如果低于 100, 隐式的会默认最大运行任务数量为 1, 因为随便来个训练任务就很大可能超过 80
             password: Sudadenglu
             username: trainer
 
-
 sorlver:
-    name: "Audio_Classification" # Audio_Classification, Video_Classification, Audio_Video_Classification, Audio_Video_Fusion_Classification,Audio_Classification2MultiObject_MGDA_UB
-    optimizer: 
+    name: "Audio_Video_Fusion_Classification" # Audio_Classification, Video_Classification, Audio_Video_Classification, Audio_Video_Fusion_Classification,Audio_Classification2MultiObject_MGDA_UB
+    optimizer:
         name: "AdamW"
-        lr: 0.0001 # 学习率
+        lr: 0.00025 # 学习率
         para:
             betas: [0.9, 0.999]
-    lr_method: 
+    lr_method:
         # name: "CosineAnnealingWarmRestarts"
         # mode: "step"
         # para:
@@ -43,26 +49,35 @@ sorlver:
         #     T_mult: 1
         #     eta_min: 0
 
-        # name: "StepLR"
-        # mode: "epoch"
-        # para:
-        #     step_size : 10
-        #     gamma: 0.1
+        name: "CosineLearningRateWithWarmRestarts"
+        mode: "epoch" # "epoch", "step"
+        para:
+            warmup_epochs: 100
+            epochs: 889
+            cosine_end_lr: 0.000001
+            warmup_start_lr: 0.00000001
 
-        name: "CustomScheduler"
-        mode: "step" # "epoch", "step"
-        para: 
-            num_iter_step : 100000 # 一般设置为 3200000/batch_size
-            num_decay_step: 99900 # 任意设置
-    batch_delay: 1
+        # name: "StepLR"
+        # mode: "epoch" # "epoch", "step"
+        # para:
+        #     step_size: 20
+        #     gamma: 0.3
+
+        # name: "LinearStepDecay"
+        # mode: "step" # "epoch", "step"
+        # para:
+        #     # steps_per_epoch : 86 # 自动设置
+        #     epochs: 889 # 任意设置
+        #     num_decay_step: 99900
+
+    batch_delay: 4
 
 logs: # 记录参数
-
     use_tensorboard: True # 记录展示
-    log_dir: '/sdb/user4/SCW/logs/' # 记录存储文件夹
+    log_dir: "/sdb/visitors2/SCW/logs/" # 记录存储文件夹
     log_every: 1 # 每几次 step进行记录
-    model_save_dir: '/sdb/user4/SCW/checkpoint/' # 模型存放地址
-    test_every: 1 # 每几次 epoch 进行测试
+    model_save_dir: "/sdb/visitors2/SCW/checkpoint/" # 模型存放地址
+    test_every: 10 # 每几次 epoch 进行测试
     model_save_every: 1 # 每几次 epoch 进行模型保存
     test_accuracy_every: 20 # 计算多少 epoch 的平均测试准确率
     verbose:

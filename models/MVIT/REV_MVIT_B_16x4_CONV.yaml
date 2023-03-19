@@ -1,0 +1,39 @@
+# python tools/run_net.py \
+# --cfg configs/Kinetics/REV_MVIT_B_16x4_CONV.yaml \
+# DATA.PATH_TO_DATA_DIR path_to_your_dataset \
+# NUM_GPUS 1
+
+MODEL:
+  NUM_CLASSES: 400
+  ARCH: slow
+  MODEL_NAME: MViT
+  LOSS_FUNC: soft_cross_entropy
+  DROPOUT_RATE: 0.5
+
+MVIT:
+  ZERO_DECAY_POS_CLS: False # 在优化器的权重衰减过程中，是否将分类器层的参数权重衰减系数设为 0。
+  CLS_EMBED_ON: True # 表示是否在 MVIT 中使用分类嵌入。
+  SEP_POS_EMBED: True # 表示是否使用分离位置嵌入
+  USE_ABS_POS: True # 表示是否在位置编码中使用绝对位置编码
+  DEPTH: 16 # 网络的深度
+  NUM_HEADS: 1 # 注意力头的数量
+  EMBED_DIM: 96 # 输入特征维度
+  PATCH_KERNEL: (3, 7, 7) # 输入的局部块的大小
+  PATCH_STRIDE: (2, 4, 4) # 输入的局部块的步幅
+  PATCH_PADDING: (1, 3, 3) # 输入的局部块的填充大小
+  MLP_RATIO: 4.0 # 表示 MLP 层中隐藏层大小与输入大小的比例
+  QKV_BIAS: False # 是否在注意力层中使用偏置
+  DROPPATH_RATE: 0.05 # 残差路径中的Dropout概率
+  NORM: "layernorm" # 归一化方式，此处为LayerNorm
+  MODE: "conv" # 使用的卷积模式，此处为普通卷积
+  DIM_MUL: [[1, 2.0], [3, 2.0], [14, 2.0]] # 表示在哪些层倍增通道数
+  HEAD_MUL: [[1, 2.0], [3, 2.0], [14, 2.0]] # 表示在哪些层倍增注意力头的数量
+  POOL_KVQ_KERNEL: [3, 3, 3] # 表示 KVQ Pooling 的卷积核大小
+  POOL_KV_STRIDE_ADAPTIVE: [1, 8, 8] # 表示KV Pooling的步幅
+  POOL_Q_STRIDE: [[1, 1, 2, 2], [3, 1, 2, 2], [14, 1, 2, 2]] # 表示 Q Pooling 的步幅，在哪些层使用。
+
+  REV: #
+    ENABLE: True # 启用Reverse模式
+    RESPATH_FUSE: "concat" # 在残差路径中使用的融合方式
+    BUFFER_LAYERS: [1, 3, 14] # 哪些层使用缓冲器
+    RES_PATH: "conv" # 使用的残差路径类型

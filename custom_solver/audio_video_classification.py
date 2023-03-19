@@ -3,10 +3,13 @@ import os
 import torch
 import torch.nn as nn
 from logger import Logger
+import torch.distributed as dist
+import sklearn
+
+from models import *
 from .lr_scheduler import *
 from .optimizer import *
-from models import *
-import torch.distributed as dist
+from .report import classification_report
 
 
 class Audio_Video_Classification(object):
@@ -24,6 +27,7 @@ class Audio_Video_Classification(object):
         self.test_loader = test_loader  # 测试数据迭代器
         self.config = config  # 参数字典
         self.device = device  # 定义主设备
+        # 定义训练延迟, 当 batch 不太大时的一种训练优化方法, 设置延迟几个 epoch 后再优化参数.
         self.batch_delay = batch_delay
         # 设置要使用的模型
         if self.config['architecture']['net']['para']:
@@ -33,7 +37,7 @@ class Audio_Video_Classification(object):
             self.net = globals()[
                 self.config["architecture"]["net"]["name"]]()
         # 多 GPU 并行计算
-        if self.config["train"]['USE_GPU']:
+        if self.config['self_auto']['gpu_nums']:
             self.net = self.net.to(device=self.device)
             self.net = torch.nn.parallel.DistributedDataParallel(
                 self.net, device_ids=[self.device])  # device_ids 默认选用本地显示的所有 GPU
@@ -82,13 +86,19 @@ class Audio_Video_Classification(object):
                 self.logger = Logger(
                     self.config['logs']['log_dir'], self.logname)
 
+    def label2id(self, label_list):
+        label_encoder = sklearn.preprocessing.LabelEncoder()
+        label_encoder.fit(y=label_list)
+        # id2label = {f"{id}": label for id, label in enumerate()}
+        return label_encoder.transform(label_list), label_encoder.classes_
+
     def train(self):
         """训练主函数"""
-
+        assert self.train_loader, "未提供训练数据"
         #############################################################
         #                            训练                           #
         #############################################################
-        start_iter = self.last_epochs+1  # 训练的新模型则从 0 开始，恢复的模型则从接续的迭代次数开始
+        start_iter = self.last_epochs+1  # 训练的新模型则从 0 开始, 恢复的模型则从接续的迭代次数开始
         step = 0  # 每次迭代的步数, 也就是所有数据总共分的 batch 数量
         # 更新学习率的方法
         if self.config["sorlver"]["lr_method"]["mode"] == "epoch":
@@ -103,18 +113,33 @@ class Audio_Video_Classification(object):
         if (self.config['self_auto']['local_rank'] in [0, None]):
             print(f'# 训练开始时间: {start_time}')  # 读取开始运行时间
 
-        # 设置损失函数
+        # 处理标签数据
+
+        self.train_loader.dataset.dataset.datadict["label"], self.categories = self.label2id(
+            self.train_loader.dataset.dataset.datadict["label"])
+
+       # 设置损失函数
         loss_weights = None
-        if self.config["self_auto"]["loss_weights"]:
-            loss_weights = torch.Tensor(
-                self.config["self_auto"]["loss_weights"]).to(device=self.device)
+        if self.config["train"]["loss_weight"]:
+            total = len(self.train_loader.dataset.indices)
+            labels = [self.train_loader.dataset.dataset[i]["label"]
+                      for i in self.train_loader.dataset.indices]
+            loss_weights = torch.Tensor([
+                total/labels.count(i) for i in range(len(self.categories))]).to(device=self.device)
+        else:
+            self.config["self_auto"]["loss_weights"] = None
+
         loss_func = nn.CrossEntropyLoss(
             reduction='mean', weight=loss_weights).to(device=self.device)
+
+        # 保存最好的结果
+        self.maxACC = self.WA_ = self.UA_ = self.macro_f1_ = self.w_f1_ = 0
+        est_endtime = 0
 
         for epoch in range(start_iter, self.n_epochs):  # epoch 迭代循环 [0, epoch)
             # [0, num_batch)
             for batch_i, data in enumerate(self.train_loader):
-                step = step + 1
+
                 # 设置训练模式和设备
                 self.to_device(device=self.device)
                 self.set_train_mode()
@@ -131,7 +156,7 @@ class Audio_Video_Classification(object):
                 elif isinstance(data["video"], torch.Tensor):
                     video_features, video_feature_lens = data["video"], None
                 # 获取标签
-                labels = data["labelid"]
+                labels = data["label"]
                 # 将数据迁移到训练设备
                 video_features = video_features.to(
                     device=self.device, dtype=torch.float32)
@@ -149,22 +174,17 @@ class Audio_Video_Classification(object):
 
                 # 清空梯度数据
                 self.reset_grad()
-                out, _ = self.net(audio_features.permute(
-                    0, 3, 1, 2), video_features.permute(
-                    0, 4, 1, 2, 3), audio_feature_lens, video_feature_lens)
+                out, _ = self.net(audio_features, video_features,
+                                  audio_feature_lens, video_feature_lens)
                 loss = loss_func(out, labels)
                 loss_ = loss.clone()
-
+                loss.backward()
                 # 在所有进程运行到这一步之前，先完成此前代码的进程会在这里等待其他进程。
-                if self.config["train"]['USE_GPU']:
+                if self.config['self_auto']['gpu_nums']:
                     torch.distributed.barrier()
                     dist.all_reduce(loss_, op=dist.ReduceOp.SUM)
                     # 计算所有 GPU 的平均损失
                     loss_ /= self.config['self_auto']['world_size']
-
-                loss.backward()
-                if ((batch_i+1) % self.batch_delay) == 0:
-                    self.optimizer.step()  # 根据反向传播的梯度，更新网络参数
 
             #############################################################
             #                            记录                           #
@@ -176,25 +196,28 @@ class Audio_Video_Classification(object):
                         log_loss['train/train_loss'] = loss_.item()
                         for tag, value in log_loss.items():
                             self.logger.scalar_summary(tag, value, step)
-                    elapsed = datetime.now() - start_time
+                    runningtime = datetime.now() - start_time
+
                     print(
-                        f"# <trained>: [Epoch {epoch+1}/{self.n_epochs}] [Batch {batch_i+1}/{len(self.train_loader)}] [lr: {self.optimizer.param_groups[0]['lr']}] [train_loss: {loss_.item()}] [time: {elapsed}]")
+                        f"# <trained>: [Epoch {epoch}/{self.n_epochs-1}] [Batch {batch_i}/{len(self.train_loader)-1}] [lr: {self.optimizer.param_groups[0]['lr']}] [train_loss: {loss_.item():.4f}] [runtime: {runningtime}] [est_endtime: {est_endtime:.2f}h]")
+
+                # 反向更新
+                if ((batch_i+1) % self.batch_delay) == 0:
+                    self.optimizer.step()  # 根据反向传播的梯度，更新网络参数
 
                 # 更新学习率
                 if self.config["sorlver"]["lr_method"]["mode"] == "step":
-                    self.lr_method.step(
-                        epoch + (batch_i+1) / len(self.train_loader))  # 当更新函数需要的是总 step 数量时, 输入小数
-                else:
-                    self.lr_method.step(epoch)  # 当更新函数需要的是总 epoch 数量时, 输入整数
+                    self.lr_method.step()  # 当更新函数需要的是总 step 数量时, 输入小数
+                step = step + 1
+            if self.config["sorlver"]["lr_method"]["mode"] == "epoch":
+                self.lr_method.step()  # 当更新函数需要的是总 epoch 数量时, 输入整数
 
-            # 保存模型
+            est_endtime = (self.n_epochs *
+                           runningtime.seconds/(epoch+1))/3600
             self.last_epochs = epoch  # 记录当前已经训练完的迭代次数
-            # 每 epoch 次保存一次模型
-            if (self.config['self_auto']['local_rank'] in [0, None]) and ((epoch+1) % self.model_save_every) == 0:
-                self.save(save_dir=self.model_save_dir,
-                          it=self.last_epochs)
+
             # 每 epoch 次测试下模型
-            if((epoch+1) % self.test_every == 0):
+            if((epoch + 1) % self.test_every == 0):
                 self.test()
 
         # 保存最终的模型
@@ -213,6 +236,8 @@ class Audio_Video_Classification(object):
             device=self.device, dtype=torch.float)  # 损失值列表
         loss_func = nn.CrossEntropyLoss(
             reduction='mean').to(device=self.device)
+
+        maxACC = 0
 
         for data in self.test_loader:
             self.to_device(device=self.device)
@@ -245,13 +270,12 @@ class Audio_Video_Classification(object):
                     device=self.device)
 
             # 获取标签
-            true_labels = data["labelid"]
+            true_labels = data["label"]
             true_labels = true_labels.long().to(device=self.device)
 
             with torch.no_grad():
-                out, _ = self.net(audio_features.permute(
-                    0, 3, 1, 2), video_features.permute(
-                    0, 4, 1, 2, 3), audio_feature_lens, video_feature_lens)  # 计算模型输出分类值
+                out, _ = self.net(audio_features, video_features,
+                                  audio_feature_lens, video_feature_lens)  # 计算模型输出分类值
                 label_pre = torch.max(out, dim=1)[1]  # 获取概率最大值位置
                 label_preds = torch.cat(
                     (label_preds, label_pre), dim=0)  # 保存所有预测结果
@@ -262,27 +286,46 @@ class Audio_Video_Classification(object):
                 total_loss = torch.cat((total_loss, label_loss), dim=0)
         # 计算准确率
 
-        eval_accuracy = (total_labels == label_preds).sum() / len(label_preds)
-        eval_loss = total_loss.mean()
-        eval_loss_ = eval_loss.clone()
-        eval_accuracy_ = eval_accuracy.clone()
-        if self.config["train"]['USE_GPU']:
+        if self.config['self_auto']['gpu_nums']:
+            world_size = self.config['self_auto']['world_size']
+            total_loss_l = [torch.zeros_like(total_loss)
+                            for i in range(world_size)]
+            label_preds_l = [torch.zeros_like(
+                label_preds) for i in range(world_size)]
+            total_labels_l = [torch.zeros_like(
+                total_labels) for i in range(world_size)]
+
             torch.distributed.barrier()
-            dist.all_reduce(eval_loss_, op=dist.ReduceOp.SUM)
-            dist.all_reduce(eval_accuracy_, op=dist.ReduceOp.SUM)
-            eval_loss_ /= self.config['self_auto']['world_size']
-            eval_accuracy_ /= self.config['self_auto']['world_size']
-        eval_loss_ = eval_loss_.item()
-        eval_accuracy_ = eval_accuracy_.item()
+            dist.all_gather(total_loss_l, total_loss, )
+            dist.all_gather(label_preds_l, label_preds, )
+            dist.all_gather(total_labels_l, total_labels, )
+            total_labels = torch.cat(total_labels_l)
+            label_preds = torch.cat(label_preds_l)
+            total_loss = torch.cat(total_loss_l)
 
         if (self.config['self_auto']['local_rank'] in [0, None]):
+            WA, UA, ACC, macro_f1, w_f1, report, matrix = classification_report(
+                y_true=total_labels.cpu(), y_pred=label_preds.cpu(), target_names=self.categories)
             print(
-                f"# <test>: [eval_loss: {eval_loss_}] [eval_accuracy: {eval_accuracy_}]")
+                f"# <tested>: [WA: {WA}] [UA: {UA}] [ACC: {ACC}] [macro_f1: {macro_f1}] [w_f1: {w_f1}]")
             if self.use_tensorboard:
                 self.logger.scalar_summary(
-                    "Val/Loss_Eval", eval_loss_, self.last_epochs)
+                    "Val/Loss_Eval", total_loss.mean().clone(), self.last_epochs)
                 self.logger.scalar_summary(
-                    "Val/Accuracy_Eval", eval_accuracy_, self.last_epochs)
+                    "Val/Accuracy_Eval", ACC, self.last_epochs)
+
+            # 记录最好的一次模型数据
+            if self.maxACC < ACC:
+                self.maxACC, self.WA_, self.UA_ = ACC, WA, UA
+                self.macro_f1_, self.w_f1_ = macro_f1, w_f1
+                best_re, best_ma = report, matrix
+
+                # 每次遇到更好的就保存一次模型
+                if self.config['logs']['model_save_every']:
+                    self.save(save_dir=self.model_save_dir,
+                              it=self.last_epochs)
+            print(
+                f"# <best>: [WA: {self.WA_}] [UA: {self.UA_}] [ACC: {self.maxACC}] [macro_f1: {self.macro_f1_}] [w_f1: {self.w_f1_}]")
 
     def calculate(self, inputs: list):
         self.to_device(device=self.device)
@@ -291,10 +334,11 @@ class Audio_Video_Classification(object):
         for i, inp in enumerate(inputs):
             with torch.no_grad():
                 out, _ = self.net(
-                    inputs[i][0].to(device=self.device).permute(0, 3, 1, 2),
-                    inputs[i][1].to(device=self.device).permute(0, 4, 1, 2, 3)
-                )
-            label_pres.append(torch.max(out, dim=1)[1].item())
+                    inputs[i][0].to(device=self.device),
+                    inputs[i][1].to(device=self.device))
+            label_id = torch.max(out, dim=1)[1].item()
+            label = self.categories[label_id]
+            label_pres.append((label_id, label))
         return label_pres
 
     def set_train_mode(self):
@@ -356,14 +400,24 @@ class Audio_Video_Classification(object):
         load_dir: 要加载模型的完整地址
         """
         print(f"# 模型加载地址: {load_dir}。")
-        self_auto_config = self.config["self_auto"]  # 保存每个训练进程自己生成的信息
+
+        # 保存每个训练进程专属的信息
+        self_auto_config = self.config["self_auto"]
+        self.last_epochs = self.config['train']["last_epochs"]
+
+        # 加载模型, 参数配置, 和数据索引信息
         dictionary = torch.load(load_dir, map_location=self.device)
         self.config = dictionary['config']
+
         self.config["self_auto"] = self_auto_config
         self.net.load_state_dict(dictionary['net'])
         self.optimizer.load_state_dict(dictionary['optimizer'])
-        self.set_configuration()  # 设置加载的检查点的参数设置
-        print("# Models 和 optimizers 加载成功")
+
+        # 设置已经训练完成的 epoch, 如果是初次为 -1, epoch 从 0 开始
+        if self.last_epochs > -1:
+            self.config['train']["last_epochs"] = self.last_epochs
+        else:
+            self.last_epochs = self.config['train']["last_epochs"]
 
         # 保证当前的训练数据与之前的训练数据一致(这里是为了防止迁移训练环境后导致训练数据的随机分布发生变化)
         if self.train_loader:
@@ -403,7 +457,7 @@ class Audio_Video_Fusion_Classification(object):
                 self.config["architecture"]["net"]["name"]]()
 
         # 多 GPU 并行计算
-        if self.config["train"]['USE_GPU']:
+        if self.config['self_auto']['gpu_nums']:
             self.net = self.net.to(device=self.device)
             self.net = torch.nn.parallel.DistributedDataParallel(
                 self.net, device_ids=[self.device])  # device_ids 默认选用本地显示的所有 GPU
@@ -452,6 +506,12 @@ class Audio_Video_Fusion_Classification(object):
                 self.logger = Logger(
                     self.config['logs']['log_dir'], self.logname)
 
+    def label2id(self, label_list):
+        label_encoder = sklearn.preprocessing.LabelEncoder()
+        label_encoder.fit(y=label_list)
+        # id2label = {f"{id}": label for id, label in enumerate()}
+        return label_encoder.transform(label_list), label_encoder.classes_
+
     def train(self):
         """训练主函数"""
         assert self.train_loader, "未提供训练数据"
@@ -473,18 +533,32 @@ class Audio_Video_Fusion_Classification(object):
         if (self.config['self_auto']['local_rank'] in [0, None]):
             print(f'# 训练开始时间: {start_time}')  # 读取开始运行时间
 
+        # 处理标签数据
+
+        self.train_loader.dataset.dataset.datadict["label"], self.categories = self.label2id(
+            self.train_loader.dataset.dataset.datadict["label"])
+
         # 设置损失函数
         loss_weights = None
-        if self.config["self_auto"]["loss_weights"]:
-            loss_weights = torch.Tensor(
-                self.config["self_auto"]["loss_weights"]).to(device=self.device)
+        if self.config["train"]["loss_weight"]:
+            total = len(self.train_loader.dataset.indices)
+            labels = [self.train_loader.dataset.dataset[i]["label"]
+                      for i in self.train_loader.dataset.indices]
+            loss_weights = torch.Tensor([
+                total/labels.count(i) for i in range(len(self.categories))]).to(device=self.device)
+        else:
+            self.config["self_auto"]["loss_weights"] = None
+
         loss_func = nn.CrossEntropyLoss(
             reduction='mean', weight=loss_weights).to(device=self.device)
+
+        # 保存最好的结果
+        self.maxACC = self.WA_ = self.UA_ = self.macro_f1_ = self.w_f1_ = 0
+        est_endtime = 0
 
         for epoch in range(start_iter, self.n_epochs):  # epoch 迭代循环 [0, epoch)
             # [0, num_batch)
             for batch_i, data in enumerate(self.train_loader):
-                step = step + 1
                 # 设置训练模式和设备
                 self.to_device(device=self.device)
                 self.set_train_mode()
@@ -501,7 +575,7 @@ class Audio_Video_Fusion_Classification(object):
                 elif isinstance(data["video"], torch.Tensor):
                     video_features, video_feature_lens = data["video"], None
                 # 获取标签
-                labels = data["labelid"]
+                labels = data["label"]
                 # 将数据迁移到训练设备
                 video_features = video_features.to(
                     device=self.device, dtype=torch.float32)
@@ -519,9 +593,8 @@ class Audio_Video_Fusion_Classification(object):
 
                 # 清空梯度数据
                 self.reset_grad()
-                audio_out, video_out, fusion_out, _ = self.net(audio_features.permute(
-                    0, 3, 1, 2), video_features.permute(
-                    0, 4, 1, 2, 3), audio_feature_lens, video_feature_lens)
+                audio_out, video_out, fusion_out, _ = self.net(
+                    audio_features, video_features, audio_feature_lens, video_feature_lens)
                 audio_loss = loss_func(audio_out, labels)
                 video_loss = loss_func(video_out, labels)
                 fusion_loss = loss_func(fusion_out, labels)
@@ -531,9 +604,9 @@ class Audio_Video_Fusion_Classification(object):
                 audio_loss_ = audio_loss.clone()
                 fusion_loss_ = fusion_loss.clone()
                 avg_loss_ = avg_loss.clone()
-
+                avg_loss.backward()
                 # 在所有进程运行到这一步之前，先完成此前代码的进程会在这里等待其他进程。
-                if self.config["train"]['USE_GPU']:
+                if self.config['self_auto']['gpu_nums']:
                     torch.distributed.barrier()
                     dist.all_reduce(video_loss_, op=dist.ReduceOp.SUM)
                     dist.all_reduce(audio_loss_, op=dist.ReduceOp.SUM)
@@ -544,11 +617,6 @@ class Audio_Video_Fusion_Classification(object):
                     audio_loss_ /= self.config['self_auto']['world_size']
                     fusion_loss_ /= self.config['self_auto']['world_size']
                     avg_loss_ /= self.config['self_auto']['world_size']
-
-                avg_loss.backward()
-
-                if ((batch_i+1) % self.batch_delay) == 0:
-                    self.optimizer.step()  # 根据反向传播的梯度，更新网络参数
 
             #############################################################
             #                            记录                           #
@@ -563,25 +631,28 @@ class Audio_Video_Fusion_Classification(object):
                         log_loss['train/train_avg_loss'] = avg_loss_.item()
                         for tag, value in log_loss.items():
                             self.logger.scalar_summary(tag, value, step)
-                    elapsed = datetime.now() - start_time
+                    runningtime = datetime.now() - start_time
+
                     print(
-                        f"# <train>: [Epoch {epoch}/{self.n_epochs}] [Batch {batch_i+1}/{len(self.train_loader)}] [lr: {self.optimizer.param_groups[0]['lr']}] [train_audio_loss: {audio_loss_.item()}] [train_video_loss: {video_loss_.item()}] [train_fusion_loss: {fusion_loss_.item()}] [train_avg_loss: {avg_loss_.item()}] [time: {elapsed}]")
+                        f"# <train>: [Epoch {epoch}/{self.n_epochs-1}] [Batch {batch_i}/{len(self.train_loader)-1}] [lr: {self.optimizer.param_groups[0]['lr']}] [train_audio_loss: {audio_loss_.item():.4f}] [train_video_loss: {video_loss_.item():.4f}] [train_fusion_loss: {fusion_loss_.item():.4f}] [train_avg_loss: {avg_loss_.item():.4f}] [time: {runningtime}] [est_endtime: {est_endtime:.2f}h]")
+
+                # 反向更新
+                if ((batch_i+1) % self.batch_delay) == 0:
+                    self.optimizer.step()  # 根据反向传播的梯度，更新网络参数
 
                 # 更新学习率
                 if self.config["sorlver"]["lr_method"]["mode"] == "step":
-                    self.lr_method.step(
-                        epoch + (batch_i+1) / len(self.train_loader))  # 当更新函数需要的是总 step 数量时, 输入小数
-                else:
-                    self.lr_method.step(epoch)  # 当更新函数需要的是总 epoch 数量时, 输入整数
+                    self.lr_method.step()  # 当更新函数需要的是总 step 数量时, 输入小数
+                step = step + 1
+            if self.config["sorlver"]["lr_method"]["mode"] == "epoch":
+                self.lr_method.step()  # 当更新函数需要的是总 epoch 数量时, 输入整数
 
-            # 保存模型
+            est_endtime = (self.n_epochs *
+                           runningtime.seconds/(epoch+1))/3600
             self.last_epochs = epoch  # 记录当前已经训练完的迭代次数
-            # 每 epoch 次保存一次模型
-            if (self.config['self_auto']['local_rank'] in [0, None]) and ((epoch+1) % self.model_save_every) == 0:
-                self.save(save_dir=self.model_save_dir,
-                          it=self.last_epochs)
+
             # 每 epoch 次测试下模型
-            if((epoch+1) % self.test_every == 0):
+            if((epoch + 1) % self.test_every == 0):
                 self.test()
 
         # 保存最终的模型
@@ -590,7 +661,7 @@ class Audio_Video_Fusion_Classification(object):
         return True
 
     def test(self):
-
+        assert self.test_loader, "未提供测试数据"
         # 测试模型准确率。
         audio_label_preds = torch.rand(0).to(
             device=self.device, dtype=torch.long)  # 预测标签列表
@@ -615,6 +686,8 @@ class Audio_Video_Fusion_Classification(object):
 
         loss_func = nn.CrossEntropyLoss(
             reduction='mean').to(device=self.device)
+
+        maxACC = 0
 
         for data in self.test_loader:
             self.to_device(device=self.device)
@@ -647,13 +720,12 @@ class Audio_Video_Fusion_Classification(object):
                     device=self.device)
 
             # 获取标签
-            true_labels = data["labelid"]
+            true_labels = data["label"]
             true_labels = true_labels.long().to(device=self.device)
 
             with torch.no_grad():
-                audio_out, video_out, fusion_out, _ = self.net(audio_features.permute(
-                    0, 3, 1, 2), video_features.permute(
-                    0, 4, 1, 2, 3), audio_feature_lens, video_feature_lens)  # 计算模型输出分类值
+                audio_out, video_out, fusion_out, _ = self.net(
+                    audio_features, video_features, audio_feature_lens, video_feature_lens)  # 计算模型输出分类值
                 audio_label_pre = torch.max(audio_out, dim=1)[1]  # 获取概率最大值位置
                 video_label_pre = torch.max(video_out, dim=1)[1]  # 获取概率最大值位置
                 fusion_label_pre = torch.max(fusion_out, dim=1)[1]  # 获取概率最大值位置
@@ -686,55 +758,79 @@ class Audio_Video_Fusion_Classification(object):
                     (fusion_total_loss, fusion_label_loss), dim=0)
          # 计算准确率
 
-        audio_eval_accuracy = (
-            audio_total_labels == audio_label_preds).sum() / len(audio_label_preds)
-        audio_eval_loss = audio_total_loss.mean()
+        if self.config['self_auto']['gpu_nums'] > 0:
 
-        video_eval_accuracy = (
-            video_total_labels == video_label_preds).sum() / len(video_label_preds)
-        video_eval_loss = video_total_loss.mean()
+            world_size = self.config['self_auto']['world_size']
 
-        fusion_eval_accuracy = (
-            fusion_total_labels == fusion_label_preds).sum() / len(fusion_label_preds)
-        fusion_eval_loss = fusion_total_loss.mean()
+            audio_total_loss_l = [torch.zeros_like(audio_total_loss)
+                                  for i in range(world_size)]
+            audio_label_preds_l = [torch.zeros_like(
+                audio_label_preds) for i in range(world_size)]
+            audio_total_labels_l = [torch.zeros_like(
+                audio_total_labels) for i in range(world_size)]
 
-        audio_eval_loss_ = audio_eval_loss.clone()
-        audio_eval_accuracy_ = audio_eval_accuracy.clone()
+            video_total_loss_l = [torch.zeros_like(video_total_loss)
+                                  for i in range(world_size)]
+            video_label_preds_l = [torch.zeros_like(
+                video_label_preds) for i in range(world_size)]
+            video_total_labels_l = [torch.zeros_like(
+                video_total_labels) for i in range(world_size)]
 
-        video_eval_loss_ = video_eval_loss.clone()
-        video_eval_accuracy_ = video_eval_accuracy.clone()
+            fusion_total_loss_l = [torch.zeros_like(fusion_total_loss)
+                                   for i in range(world_size)]
+            fusion_label_preds_l = [torch.zeros_like(
+                fusion_label_preds) for i in range(world_size)]
+            fusion_total_labels_l = [torch.zeros_like(
+                fusion_total_labels) for i in range(world_size)]
 
-        fusion_eval_accuracy_ = fusion_eval_accuracy.clone()
-        fusion_eval_loss_ = fusion_eval_loss.clone()
-
-        if self.config["train"]['USE_GPU']:
             torch.distributed.barrier()
-            dist.all_reduce(audio_eval_loss_, op=dist.ReduceOp.SUM)
-            dist.all_reduce(audio_eval_accuracy_, op=dist.ReduceOp.SUM)
-            dist.all_reduce(video_eval_loss_, op=dist.ReduceOp.SUM)
-            dist.all_reduce(video_eval_accuracy_, op=dist.ReduceOp.SUM)
-            dist.all_reduce(fusion_eval_loss_, op=dist.ReduceOp.SUM)
-            dist.all_reduce(fusion_eval_accuracy_, op=dist.ReduceOp.SUM)
 
-        audio_eval_loss_ = audio_eval_loss_.item()
-        audio_eval_accuracy_ = audio_eval_accuracy_.item()
-        video_eval_loss_ = video_eval_loss_.item()
-        video_eval_accuracy_ = video_eval_accuracy_.item()
-        fusion_eval_loss_ = fusion_eval_loss_.item()
-        fusion_eval_accuracy_ = fusion_eval_accuracy_.item()
+            dist.all_gather(audio_total_loss_l, audio_total_loss, )
+            dist.all_gather(audio_label_preds_l, audio_label_preds, )
+            dist.all_gather(audio_total_labels_l, audio_total_labels, )
 
-        avg_eval_loss = (audio_eval_loss_+video_eval_loss_+fusion_eval_loss_)/3
-        avg_eval_accuracy_ = (audio_eval_accuracy_ +
-                              video_eval_accuracy_+fusion_eval_accuracy_)/3
+            dist.all_gather(video_total_loss_l, video_total_loss, )
+            dist.all_gather(video_label_preds_l, video_label_preds, )
+            dist.all_gather(video_total_labels_l, video_total_labels, )
+
+            dist.all_gather(fusion_total_loss_l, fusion_total_loss, )
+            dist.all_gather(fusion_label_preds_l, fusion_label_preds, )
+            dist.all_gather(fusion_total_labels_l, fusion_total_labels, )
+
+            video_total_labels = torch.cat(video_total_labels_l)
+            video_label_preds = torch.cat(video_label_preds_l)
+            video_total_loss = torch.cat(video_total_loss_l)
+
+            audio_total_labels = torch.cat(audio_total_labels_l)
+            audio_label_preds = torch.cat(audio_label_preds_l)
+            audio_total_loss = torch.cat(audio_total_loss_l)
+
+            fusion_total_labels = torch.cat(fusion_total_labels_l)
+            fusion_label_preds = torch.cat(fusion_label_preds_l)
+            fusion_total_loss = torch.cat(fusion_total_loss_l)
+
         if (self.config['self_auto']['local_rank'] in [0, None]):
+
+            audio_WA, audio_UA, audio_ACC, audio_macro_f1, audio_w_f1, audio_report, audio_matrix = classification_report(
+                y_true=audio_total_labels.cpu(), y_pred=audio_label_preds.cpu(), target_names=self.categories)
+            video_WA, video_UA, video_ACC, video_macro_f1, video_w_f1, video_report, video_matrix = classification_report(
+                y_true=video_total_labels.cpu(), y_pred=video_label_preds.cpu(), target_names=self.categories)
+            fusion_WA, fusion_UA, fusion_ACC, fusion_macro_f1, fusion_w_f1, fusion_report, fusion_matrix = classification_report(
+                y_true=fusion_total_labels.cpu(), y_pred=fusion_label_preds.cpu(), target_names=self.categories)
+
             print(
-                f"# <test>: [audio_eval_loss: {audio_eval_loss_}] [audio_eval_accuracy: {audio_eval_accuracy_}]")
-            print(
-                f"# <test>: [video_eval_loss: {video_eval_loss_}] [video_eval_accuracy: {video_eval_accuracy_}]")
-            print(
-                f"# <test>: [fusion_eval_loss: {fusion_eval_loss_}] [fusion_eval_accuracy: {fusion_eval_accuracy_}]")
-            print(
-                f"# <test>: [Avg_eval_loss: {avg_eval_loss}] [Avg_eval_accuracy: {avg_eval_accuracy_}]")
+                f"# <tested>: [WA: {audio_WA, video_WA, fusion_WA}] [UA: {audio_UA, video_UA, fusion_UA}] [ACC: {audio_ACC, video_ACC, fusion_ACC}] [macro_f1: {audio_macro_f1, video_macro_f1, fusion_macro_f1}] [w_f1: {audio_w_f1, video_w_f1, fusion_w_f1}]")
+
+            audio_eval_accuracy_ = audio_ACC
+            audio_eval_loss_ = audio_total_loss.mean().clone()
+            video_eval_accuracy_ = video_ACC
+            video_eval_loss_ = video_total_loss.mean()
+            fusion_eval_accuracy_ = fusion_ACC
+            fusion_eval_loss_ = fusion_total_loss.mean()
+            avg_eval_loss = (audio_eval_loss_ +
+                             video_eval_loss_+fusion_eval_loss_)/3
+            avg_eval_accuracy_ = (audio_eval_accuracy_ +
+                                  video_eval_accuracy_+fusion_eval_accuracy_)/3
 
             if self.use_tensorboard:
                 self.logger.scalar_summary(
@@ -748,11 +844,27 @@ class Audio_Video_Fusion_Classification(object):
                 self.logger.scalar_summary(
                     "Val/Fusion_Loss_Eval", fusion_eval_loss_, self.last_epochs)
                 self.logger.scalar_summary(
-                    "Val/Fusion_Accuracy_Eval", fusion_eval_accuracy, self.last_epochs)
+                    "Val/Fusion_Accuracy_Eval", fusion_eval_accuracy_, self.last_epochs)
                 self.logger.scalar_summary(
                     "Val/Avg_Loss_Eval", avg_eval_loss, self.last_epochs)
                 self.logger.scalar_summary(
                     "Val/Avg_Accuracy_Eval", avg_eval_accuracy_, self.last_epochs)
+
+            # 记录最好的一次模型数据
+            if self.maxACC < avg_eval_accuracy_:
+                self.maxACC, self.WA_, self.UA_ = avg_eval_accuracy_, [
+                    audio_WA, video_WA, fusion_WA], [audio_UA, video_UA, fusion_UA]
+                self.macro_f1_, self.w_f1_ = [audio_macro_f1, video_macro_f1, fusion_macro_f1], [
+                    audio_w_f1, video_w_f1, fusion_w_f1]
+                best_re, best_ma = [audio_report, video_report, fusion_report], [
+                    audio_matrix, video_matrix, fusion_matrix]
+
+                # 每次遇到更好的就保存一次模型
+                if self.config['logs']['model_save_every']:
+                    self.save(save_dir=self.model_save_dir,
+                              it=self.last_epochs)
+            print(
+                f"# <best>: [WA: {self.WA_}] [UA: {self.UA_}] [ACC: {self.maxACC}] [macro_f1: {self.macro_f1_}] [w_f1: {self.w_f1_}]")
 
     def calculate(self, inputs: list):
         self.to_device(device=self.device)
@@ -761,8 +873,8 @@ class Audio_Video_Fusion_Classification(object):
         for i, inp in enumerate(inputs):
             with torch.no_grad():
                 audio_out, video_out, fusion_out, _ = self.net(
-                    inputs[i][0].to(device=self.device).permute(0, 3, 1, 2),
-                    inputs[i][1].to(device=self.device).permute(0, 4, 1, 2, 3)
+                    inputs[i][0].to(device=self.device),
+                    inputs[i][1].to(device=self.device)
                 )
 
             label_pres.append((torch.max(audio_out, dim=1)[1].item(), torch.max(
@@ -828,14 +940,24 @@ class Audio_Video_Fusion_Classification(object):
         load_dir: 要加载模型的完整地址
         """
         print(f"# 模型加载地址: {load_dir}。")
-        self_auto_config = self.config["self_auto"]  # 保存每个训练进程自己生成的信息
+
+        # 保存每个训练进程专属的信息
+        self_auto_config = self.config["self_auto"]
+        self.last_epochs = self.config['train']["last_epochs"]
+
+        # 加载模型, 参数配置, 和数据索引信息
         dictionary = torch.load(load_dir, map_location=self.device)
         self.config = dictionary['config']
         self.config["self_auto"] = self_auto_config
+
         self.net.load_state_dict(dictionary['net'])
         self.optimizer.load_state_dict(dictionary['optimizer'])
-        self.set_configuration()  # 设置加载的检查点的参数设置
-        print("# Models 和 optimizers 加载成功")
+
+        # 设置已经训练完成的 epoch, 如果是初次为 -1, epoch 从 0 开始
+        if self.last_epochs > -1:
+            self.config['train']["last_epochs"] = self.last_epochs
+        else:
+            self.last_epochs = self.config['train']["last_epochs"]
 
         # 保证当前的训练数据与之前的训练数据一致(这里是为了防止迁移训练环境后导致训练数据的随机分布发生变化)
         if self.train_loader:

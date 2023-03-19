@@ -3,11 +3,12 @@ import argparse
 import os
 import sys
 if sys.platform.startswith('linux'):
-    os.chdir("/home/user4/SCW/torchTraining")
+    os.chdir("/home/visitors2/SCW/torchTraining")
 elif sys.platform.startswith('win'):
     pass
 import yaml  # yaml文件解析模块
 import random  # 随机数生成模块
+import time
 # 第三方库
 import numpy as np  # 矩阵运算模块
 import torch
@@ -17,19 +18,21 @@ import torch.utils.data.distributed
 import torch.multiprocessing as mp
 import torch.backends.cudnn as cudnn
 # 自定库
+from custom_datasets.subset import Subset, random_split_index_K, collate_fn
 from custom_datasets import *
 from custom_solver import *
-from utils import *
-
+from utils.trainutils import collate_fn_pad, RedisClient
+import json
+torch.multiprocessing.set_sharing_strategy('file_system')
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--config',
                     metavar='DIR',
-                    default='/home/user4/SCW/torchTraining/config/',
+                    default='/home/visitors2/SCW/torchTraining/config/',
                     help='path to congigs')
 
 
-def train_worker(local_rank, config, train_data_index, test_data_index):
+def train_worker(local_rank, config, train_data_index, test_data_index, data):
     config['self_auto']['local_rank'] = local_rank
     rank = 0
     if (local_rank is not None):
@@ -73,15 +76,15 @@ def train_worker(local_rank, config, train_data_index, test_data_index):
     train_data = Subset(data, train_data_index)
     test_data = Subset(data, test_data_index)
 
-    if config["train"]["loss_weight"] == True:
-        labels = [train_data[i]["label"]
-                  for i in range(len(train_data))]
-        categories = data.datadict["categories"]
-        total = len(labels)
-        config["self_auto"]["loss_weights"] = [
-            total/labels.count(emo) for emo in categories]
-    else:
-        config["self_auto"]["loss_weights"] = None
+    # if config["train"]["loss_weight"] == True:
+    #     labels = [train_data[i]["label"]
+    #               for i in range(len(train_data))]
+    #     categories = data.datadict["categories"]
+    #     total = len(labels)
+    #     config["self_auto"]["loss_weights"] = [
+    #         total/labels.count(emo) for emo in categories]
+    # else:
+    #     config["self_auto"]["loss_weights"] = None
 
     train_sampler = None
     val_sampler = None
@@ -114,25 +117,26 @@ def train_worker(local_rank, config, train_data_index, test_data_index):
 
 def main(config):
 
-    print('################ 程序运行环境 ################')
-    print(f"# torch_version: {torch.__version__}")  # 软件 torch 版本
-    if config["train"]['USE_GPU'] and torch.cuda.is_available():  # 如果使用 GPU 加速
+    print('\n################ 程序运行环境 ################')
+    print(f"torch_version: {torch.__version__}")  # 软件 torch 版本
+
+    if config['train']['available_gpus'] != "" and torch.cuda.is_available():  # 如果使用 GPU 加速
         print(
-            f"# Cuda: {torch.cuda.is_available()}, Use_Gpu: {config['train']['USE_GPU']}")
+            f"Cuda: {torch.cuda.is_available()}, Use_Gpu: {config['train']['available_gpus']}")
         if torch.cuda.device_count() >= 1:
             for i in range(torch.cuda.device_count()):
                 # 打印所有可用 GPU
-                print(f"# GPU: {i}, {torch.cuda.get_device_name(i)}")
-        # 计算当前节点(计算机)要使用的 GPU 数量
-        config['self_auto']['gpu_nums'] = len(
-            config["train"]["USE_GPU"].split(","))
+                print(f"GPU: {i}, {torch.cuda.get_device_name(i)}")
+
         # 基于节点数和每个节点使用的 gpu 数目计算出单进程单 GPU 条件下需要的 world_size (要运行的进程总数).
+        config['self_auto']['gpu_nums'] = len(
+            config['train']['available_gpus'].split(","))
         config['self_auto']['world_size'] = config['self_auto']['gpu_nums'] * \
             config['train']['nodes']
-
     else:
-        print(f"# CUDA: {torch.cuda.is_available()}, Use_CPU")
+        print(f"CUDA: {torch.cuda.is_available()}, Use_CPU")
         config['self_auto']['gpu_nums'] = 0
+        config['self_auto']['world_size'] = 1
 
     if config['train']['seed']:
         SEED = config['train']['seed']
@@ -148,15 +152,20 @@ def main(config):
         # deterministic设置 True 保证使用固定的卷积算法
         cudnn.deterministic = True
         # 二者配合起来，才能保证卷积操作的一致性
-    with HiddenPrints():
-        dataset_name = config["data"]["name"]  # 数据库名称
-        dataset_root = config["data"]["root"]
-        data = globals()[dataset_name](
-            root=dataset_root,
-            filter=config["data"]["filters"], transform=config["data"]["transforms"], enhance=config["data"]["enhances"], **config["data"]["para"])
-        data_len = len(data)
-        # 删除临时的 data. 这里使用临时 data, 虽然浪费了数据加载时间, 但是是为了实现多折训练所必需的问题解决方法(无法将 data 作为参数传入子进程)
-        del data
+
+    # with HiddenPrints():
+    dataset_name = config["data"]["name"]  # 数据库名称
+    dataset_root = config["data"]["root"]
+    data = globals()[dataset_name](
+        root=dataset_root,
+        filter=config["data"]["filters"], transform=config["data"]["transforms"], enhance=config["data"]["enhances"], **config["data"]["para"])
+    data_len = len(data)
+
+    # 删除临时的 data. 这里使用临时 data, 虽然浪费了数据加载时间, 但是是为了实现多折训练所必需的问题解决方法(无法将 data 作为参数传入子进程)
+    config["data"]["root"] = data.root
+    print(f"训练使用数据集: {dataset_name}")
+    print(f"所用数据数量: {data_len}")
+    # del data
 
     last_epochs_ = config["train"]["last_epochs"]  # 记录初次运行的 epoch 数目
     k = 0  # 记录训练折数
@@ -165,36 +174,35 @@ def main(config):
         for train_data_index, test_data_index in random_split_index_K(n_samples=data_len, K=config['train']['Kfold'], shuffle=True):
             k = k+1
             config["train"]["last_epochs"] = last_epochs_
-            print(f'################ 开始训练第 {k} 次模型 ################')
-            print(f"# 训练使用数据集: {dataset_name}")
-            print(f"# 所用数据数量: {data_len}")
-            print(f"# 训练集数据数量: {len(train_data_index)}")
-            print(f"# 测试集数据数量: {len(test_data_index)}")
-
+            print(f'\n################ 开始训练第 {k} 次模型 ################')
             if config['self_auto']['gpu_nums'] > 0:
-                mp.spawn(train_worker,
-                         nprocs=config['self_auto']['gpu_nums'], args=(config, train_data_index, test_data_index))
+                context = mp.spawn(train_worker,
+                                   nprocs=config['self_auto']['gpu_nums'], args=(config, train_data_index, test_data_index), join=False)
+                # Loop on join until it returns True or raises an exception.
+                try:
+                    while not context.join():
+                        pass
+                except Exception as e:
+                    raise e
             elif config['self_auto']['gpu_nums'] == 0:
                 train_worker(None, config, train_data_index,
                              test_data_index)
-
     else:
         indices = np.random.permutation(data_len)
         train_data_index, test_data_index = indices[:int(
             config['train']['train_rate']*data_len)], indices[int(config['train']['train_rate']*data_len):]
-
-        print(f'################ 开始训练模型 ################')
-        print(f"# 训练使用数据集: {dataset_name}")
-        print(f"# 所用数据数量: {data_len}")
-        print(f"# 训练集数据数量: {len(train_data_index)}")
-        print(f"# 测试集数据数量: {len(test_data_index)}")
-
+        print(f'\n################ 开始训练模型 ################')
         if config['self_auto']['gpu_nums'] > 0:
-            mp.spawn(train_worker,
-                     nprocs=config['self_auto']['gpu_nums'], args=(config, train_data_index, test_data_index))
-        elif config['self_auto']['gpu_nums'] == 0:
-            train_worker(
-                None, config, train_data_index, test_data_index)
+            context = mp.spawn(train_worker,
+                               nprocs=config['self_auto']['gpu_nums'], args=(config, train_data_index, test_data_index, data), join=False)
+            # Loop on join until it returns True or raises an exception.
+            try:
+                while not context.join():
+                    pass
+            except Exception as e:
+                raise e
+        else:
+            train_worker(None, config, train_data_index, test_data_index)
 
 
 if __name__ == '__main__':
@@ -203,41 +211,49 @@ if __name__ == '__main__':
     config = {"args": vars(args)}
     [config.update(yaml.safe_load(open(os.path.join(config["args"]["config"], i),
                    'r', encoding='utf-8').read())) for i in os.listdir(config["args"]["config"])]
-    if config['logs']['verbose']["config"]:
-        print(config)
     config['self_auto'] = {}
 
-    # 设置CPU/GPU
+    # 设置 CPU/GPU
 
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"] = config['train']['USE_GPU']
+    os.environ["CUDA_VISIBLE_DEVICES"] = config['train']['available_gpus']
     os.environ['MASTER_ADDR'] = config['train']["master_addr"]
     os.environ['MASTER_PORT'] = config['train']["master_port"]
 
     redis_client = None
-    if config["train"]["gpu_queuer"]["wait_gpus"]:
+    if config["train"]["gpu_queuer"]["wait_gpus"] and config["train"]["available_gpus"] != "":
         redis_client = RedisClient(
             **config["train"]["gpu_queuer"]["para"])  # 初始化并连接到 Redis 服务端
         redis_client.check_data()
-        redis_client.join_wait_queue(
-            config["train"]["name"])  # 注册当前任务进程到等待任务列表
-
-    while True:
-        redis_client.check_data()
-        if not redis_client.pop_wait_queue():
-            time.sleep(60)  # 休息一下, 再重新尝试
-            continue
-        if not redis_client.is_can_run():
-            time.sleep(60)  # 休息一下, 再重新尝试
-            continue
-        try:
-            # 定义训练主程序
-            main(config)
-            redis_client.pop_run_queue(success=True)
-            break
-        except RuntimeError as e:
-            if "CUDA out of memory" in e.args[0]:
+        task_id = redis_client.join_wait_queue(
+            config["train"]["name"], task_config=config)  # 注册当前任务进程到等待任务列表
+        while redis_client.is_need_wait():
+            redis_client.check_data()
+            config_ = redis_client.pop_wait_queue()
+            if not config_:
+                time.sleep(60)  # 休息一下, 再重新尝试
+                continue
+            if not redis_client.is_can_run():
+                time.sleep(60)  # 休息一下, 再重新尝试
                 redis_client.pop_run_queue(success=False)
-                time.sleep(60)
-            else:
-                raise e
+                continue
+            try:
+                # 定义训练主程序
+                config = config_
+                if config['logs']['verbose']["config"]:
+                    print(yaml.dump(config, indent=4))
+                main(config)
+                redis_client.pop_run_queue(success=True)
+                break
+            except Exception as e:
+                if "CUDA out of memory" in e.args[0]:
+                    redis_client.pop_run_queue(success=False)
+                    time.sleep(60)
+                else:
+                    # # redis_client.pop_run_queue(success=False)
+                    # redis_client.delete_running_task()
+                    # print(e.args[0])
+                    raise e
+        redis_client.delete_waitting_task()
+    else:
+        main(config)

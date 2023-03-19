@@ -13,17 +13,17 @@ class AudioSplit(torch.nn.Module):
     """
 
     def __init__(self,
-                 sample_rate,
-                 durations: float = 3.) -> None:
+                 sampleNum) -> None:
         super(AudioSplit, self).__init__()
-        self.samples = int(sample_rate * durations)
+
+        self.sampleNum = int(sampleNum)
 
     def forward(self, datadict: dict) -> Tensor:
         r"""
         Args:
             datadict (dict): 字典格式存储的数据.
         Returns:
-            dataframe: .
+            datadict: .
         """
         columns = datadict.keys()
         index = range(len(datadict["audio"]))
@@ -31,17 +31,12 @@ class AudioSplit(torch.nn.Module):
 
         for i in index:
             waveform = datadict["audio"][i]  # 当前行的语音数据
-            if waveform.shape[-1] > self.samples:
+            datadict["audio"][i] = None
+            if waveform.shape[-1] > self.sampleNum:
                 samples = int(
-                    (waveform.shape[-1] // self.samples) * self.samples)
+                    (waveform.shape[-1] // self.sampleNum) * self.sampleNum)
                 waveform = waveform[:, :samples]
-            else:
-                waveform = F.pad(
-                    waveform, (0, self.samples-waveform.shape[-1]))
-            # waveform = F.pad( # 将语音数据 pad
-            #     waveform, (0, int(((waveform.shape[-1] // self.samples) + 1) * self.samples)-waveform.shape[-1]))
-            waveform = torch.split(waveform, self.samples, dim=1)
-
+            waveform = torch.split(waveform, self.sampleNum, dim=1)
             for wav in waveform:
                 for col in columns:
                     if col == "audio":
@@ -62,12 +57,11 @@ class AVSplit(torch.nn.Module):
     """
 
     def __init__(self,
-                 sample_rate,
-                 frame_rate,
-                 durations: float = 3.) -> None:
+                 sampleNum,
+                 video_sample) -> None:
         super(AVSplit, self).__init__()
-        self.audio_samples = int(sample_rate * durations)
-        self.video_samples = int(frame_rate * durations)
+        self.audio_samples = int(sampleNum)
+        self.video_samples = int(video_sample)
 
     def forward(self, datadict: dict) -> Tensor:
         r"""
@@ -83,6 +77,9 @@ class AVSplit(torch.nn.Module):
         for i in index:
             waveform = datadict["audio"][i]  # 当前行的语音数据 [c,seq]
             video = datadict["video"][i]  # 当前行的视频数据 [seq,h,w,c] RGB
+            datadict["video"][i] = None
+            datadict["audio"][i] = None
+
             if waveform.shape[-1] > self.audio_samples:
                 samples = int(  # 处理比指定时间段长的数据, 将多余的数据截取掉
                     (waveform.shape[-1] // self.audio_samples) * self.audio_samples)
@@ -115,55 +112,6 @@ class AVSplit(torch.nn.Module):
         return newdatadict
 
 
-class VtlpAug(torch.nn.Module):
-    r"""输入字典格式存储的数据, 对其中 "auido" 中的每个语音进行处理, 语音单个数据格式为 [c, samples], 通过 VtlpAug 语音增强方法, 为每个语音生成增强后的副本数据
-
-    Args:
-        sample_rate (int, optional): Sample rate of audio signal. (Default: ``16000``)
-    """
-
-    def __init__(self,
-                 sample_rate,
-                 n=7,
-                 zone=(0.2, 0.8),
-                 coverage=0.1,
-                 fhi=4800,
-                 factor=(0.9, 1.1)
-                 ) -> None:
-        super(VtlpAug, self).__init__()
-        self.vtlp = naa.VtlpAug(sample_rate, zone=zone,
-                                coverage=coverage, fhi=fhi, factor=factor)
-        self.num = n
-
-    def forward(self, datadict: dict) -> Tensor:
-        r"""
-        Args:
-            datadict (dict): 字典格式存储的数据.
-        Returns:
-            dataframe: .
-        """
-        columns = datadict.keys()
-        index = range(len(datadict["audio"]))
-        newdatadict = {c: [] for c in columns}
-
-        for i in index:
-            waveform = datadict["audio"][i]  # 当前行的语音数据
-            waveform = waveform.numpy()
-            waveform = self.vtlp.augment(waveform[0], n=self.num)
-
-            for wav in waveform:
-                for col in columns:
-                    if col == "audio":
-                        newdatadict[col].append(
-                            torch.from_numpy(wav).unsqueeze(0))
-                    else:
-                        try:
-                            newdatadict[col].append(datadict[col][i])
-                        except:
-                            newdatadict[col].append(datadict[col])
-        return newdatadict
-
-
 if __name__ == '__main__':
     datadict = {
         "path": [1, 2, 3, 4, 5, 6],
@@ -177,6 +125,7 @@ if __name__ == '__main__':
         "gender": ["F", "M", "F", "F", "M", "M", ],
         "label": [1, 2, 1, 3, 2, 2]}
     # audioSplit = VtlpAug(sample_rate=16000, frame_rate=29.97, durations=7.0)
-    audioAug = VtlpAug(sample_rate=16000)
+
+    audioAug = globals()['VtlpAug'](**{'sample_rate': 16000, 'n': 7})
     dataframe = audioAug(datadict)
     print(dataframe)

@@ -1,54 +1,64 @@
+# 'resnet50', "lightsernet", 'densenet121',
+# "vgg13", "aacnn", "glamnet", "macnn"
+
 # architecture:
-#     net: 
-#         name: "VideoNet_Conv2D" # VideoNet_Conv2D, AudioNet
-#         para: 
+#     net:
+#         name: "AudioNet" # VideoNet_Conv2D, AudioNet
+#         para:
 #             num_classes: 4
-#             model_name: "resnet50" # 'resnet50', "lightsernet"
+#             model_name: "resnet50" # 'resnet50', "lightsernet", 'densenet121', "vgg13"
 #             last_hidden_dim: 320
 
 # architecture:
-#     net: 
+#     net:
+#         name: "MViT" #
+#         para:
+
+# architecture:
+#     net:
 #         name: "AudioSVCNet_Step" # AudioSVCNet_Step, AudioSVCNet, AudioSVCNet_Step_MultiObject, VideoSVCNet_Conv2D, VideoSVCNet_Step_Conv2D
 #         para:
 #             num_classes: 4
-#             model_name: "lightsernet"
+#             model_name: "lightsernet" # 'resnet50', "lightsernet", 'densenet121',
 #             last_hidden_dim: 320
-#             seq_len: 441 # af_: 63*3=189|63*7=441 | vf_: 10*3
-
+#             seq_len: 189 # af_: 63*3=189|63*7=441 | vf_: 10*3
+#             seq_step: 63
 
 # architecture:
-#     net: 
-#         name: "Audio_GloballyGatedMLP_SVC_BoxCox_Net" 
+#     net:
+#         name: "Audio_GloballyGatedMLP_SVC_BoxCox_Net"
 #         para:
 #             num_classes: 4
 #             last_hidden_dim: 320
 #             seq_len: 189 # af_: 63*3=189|63*7=441 | vf_: 10*3
-
-architecture:
-    net: 
-        name: "GLAM" 
-        para:
-            shape: [189, 40]
-
+#             seq_step: 63
 
 # architecture:
-#     net: 
+#     net:
+#         name: "GLAM"
+#         para:
+#             shape: [189, 40]
+
+# architecture:
+#     net:
 #         name: "AudioSVNet_Step" # AudioSVNet_Step, AudioSVNet, AudioSVNet_Step_MultiObject, VideoSVNet_Conv2D, VideoSVNet_Step_Conv2D
-#         para: 
+#         para:
 #             num_classes: 4
 #             model_name: "lightsernet"
 #             last_hidden_dim: 320
 #             seq_len: 189 # af_: 63*3=189|63*7=441 | vf_: 10*3
 #             emo_rnn_hidden_dim: 64
 
-
-
+architecture:
+    net:
+        name: "MIFFNet_Conv2D_SVC_InterFusion"
+        para:
+            num_classes: 4
+            model_name: ["lightsernet", "rev_mvit_b_16x4_conv"] # "resnet50"
+            last_hidden_dim: [320, 320]
+            seq_len: [189, 30] # af_: 63*3=189, 63*7=441 | vf_: 10*3, 10*3
+            # emo_rnn_hidden_dim: [64, 64]
 # architecture:
-#     net: 
-#         name: "MIFFNet_Conv2D"
-#         para: 
-#             num_classes: 4
-#             model_name: ["lightsernet","resnet50"]
-#             last_hidden_dim: [320,320]
-#             seq_len: [189,30] # af_: 63*3 | vf_: 10*3
-#             emo_rnn_hidden_dim: [64,64]
+#     net:
+#         name: "LightSerNet"
+#         para:

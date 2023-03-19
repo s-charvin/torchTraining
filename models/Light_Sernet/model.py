@@ -47,17 +47,18 @@ class LightSerNet(nn.Module):
         self.classifier = nn.Linear(in_features=320, out_features=4)
 
     def forward(self, x: Tensor, feature_lens=None) -> Tensor:
+        x = x.permute(0, 3, 1, 2).contiguous()
         out1 = self.path1(x)
         out2 = self.path2(x)
         out3 = self.path3(x)
 
-        x = torch.cat([out1, out2, out3], dim=1)
+        x = torch.cat([out1, out2, out3], dim=1).contiguous()
 
         x = self.conv_extractor(x)
         x = self.dropout(x.squeeze(2).squeeze(2))
         x = self.classifier(x)
 
-        return F.softmax(x, dim=1)
+        return F.softmax(x, dim=1), None
 
 
 class LightSerNet_Change(nn.Module):

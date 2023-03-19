@@ -122,7 +122,7 @@ if __name__ == '__main__':
 
     print(f"torch_version: {torch.__version__}")  # 软件 torch 版本
 
-    if config["train"]['USE_GPU'] and torch.cuda.is_available():  # 如果使用GPU加速
+    if config["train"]['num_gpus'] and torch.cuda.is_available():  # 如果使用GPU加速
         print(
             f"cuda: {torch.cuda.is_available()}, GPU_num: {torch.cuda.device_count()}")
         device = torch.device(f'cuda:{0}')  # 定义主GPU

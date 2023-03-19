@@ -4,6 +4,7 @@
 # Date: 2022-03-07
 # E-mail: zhuwenjing02@duxiaoman.com
 
+from scipy.stats import yeojohnson_normmax
 import torch
 from torch import Tensor, nn
 import torch.nn.functional as F
@@ -166,6 +167,36 @@ class gMLP(nn.Module):
         return self.layers(x)
 
 
+class JohnsonTransformation(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def forward(self, x: Tensor) -> Tensor:
+        # [B, S, F]
+        b_size = x.shape[0]
+        array = x.mean(dim=-1)
+        lmbdas = []
+        for i in range(b_size):
+            lmbdas.append(yeojohnson_normmax(array[i].detach().cpu().numpy()))
+
+        # when x >= 0
+        for i in range(b_size):
+            pos = x[i] >= 0  # binary mask
+            if abs(lmbdas[i]) < torch.finfo(torch.float32).eps:
+                x[i][pos] = torch.log1p(x[i][pos])
+            else:  # lmbda != 0
+                x[i][pos] = (
+                    torch.pow(x[i][pos] + 1, lmbdas[i]) - 1) / lmbdas[i]
+            # when x < 0
+            if abs(lmbdas[i] - 2) > torch.finfo(torch.float32).eps:
+                x[i][~pos] = -(torch.pow(-x[i][~pos] + 1, 2 -
+                               lmbdas[i]) - 1) / (2 - lmbdas[i])
+            else:  # lmbda == 2
+                x[i][~pos] = -torch.log1p(-x[i][~pos])
+            # x[i, :, j] = out
+        return x
+
+
 class Audio_GloballyGatedMLP_SVC_BoxCox_Net(nn.Module):
     '''
     Globally GatedMLP 通过全局门控单元, 判断哪些信息重要
@@ -173,16 +204,22 @@ class Audio_GloballyGatedMLP_SVC_BoxCox_Net(nn.Module):
     Segment-level Vectors Correction 对得到的段级向量进行修正, 得到整段语音的表征向量
     '''
 
-    def __init__(self, num_classes=4, seq_len=63*3, last_hidden_dim=320) -> None:
+    def __init__(self, num_classes=4, seq_len=63*3, last_hidden_dim=320, seq_step=31) -> None:
         super().__init__()
         self.af_seq_len = seq_len
+        self.seq_step = seq_step
         self.num_classes = num_classes
         self.last_hidden_dim = last_hidden_dim
+
         self.audio_feature_extractor = MSNet(
             in_channels=1, seq_len=seq_len, last_hidden_dim=last_hidden_dim)
         # self.gmlp = gMLP(dim=self.last_hidden_dim, depth=1, act_gate=nn.Tanh())
         self.audio_classifier = nn.Linear(
             in_features=self.last_hidden_dim, out_features=num_classes)
+        # self.audio_classifier = nn.Parameter(
+        #     torch.Tensor(self.last_hidden_dim, num_classes))
+        # nn.init.kaiming_uniform_(self.audio_classifier, a=math.sqrt(5))
+        # self.yeojohnson = JohnsonTransformation()
 
     def forward(self, af: Tensor, af_len=None) -> Tensor:
         """
@@ -195,8 +232,8 @@ class Audio_GloballyGatedMLP_SVC_BoxCox_Net(nn.Module):
         # 处理语音数据
         # [B, C, Seq, F]
         if af.shape[2] > self.af_seq_len:
-            af = [af[:, :, 63*i:63*i+self.af_seq_len, :]
-                  for i in range(int(((af.shape[2]-self.af_seq_len) / 63)+1))]
+            af = [af[:, :, self.seq_step*i:self.seq_step*i+self.af_seq_len, :]
+                  for i in range(int(((af.shape[2]-self.af_seq_len) / self.seq_step)+1))]
         else:
             af = [af]
         # af_seg_len * [B, C, af_seq_len, F]
@@ -219,7 +256,8 @@ class Audio_GloballyGatedMLP_SVC_BoxCox_Net(nn.Module):
             af_len_ = []
             for l in af_len:
                 if l.item() > self.af_seq_len:
-                    af_len_.append(int((l.item()-self.af_seq_len)/63+1))
+                    af_len_.append(
+                        int((l.item()-self.af_seq_len)/self.af_seq_len+1))
                 else:
                     af_len_.append(l.item())
             af_len = torch.Tensor(af_len_).to(device=af_len.device)
@@ -230,11 +268,12 @@ class Audio_GloballyGatedMLP_SVC_BoxCox_Net(nn.Module):
         # 全局感知, 过滤非情感向量
         # [B, af_seg_len, F]
         # af_fea = self.gmlp(af_fea)  # [B, af_seg_len, F]
+        # af_fea = self.yeojohnson(af_fea)
         af_fea = af_fea.mean(dim=1)  # [B, F]
-
         # 分类
         af_out = self.audio_classifier(af_fea)  # [B, num_classes]
-        # 向量聚类
+
+        # # 向量聚类
         # af_fea = af_fea.unsqueeze(-1)
         # af_out = F.pairwise_distance(af_fea, self.audio_classifier, p=2)
         return af_out, None

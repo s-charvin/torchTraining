@@ -1,20 +1,138 @@
 import collections
-import numpy as np
-import torch  # 矩阵运算模块
+import numpy as np  # 矩阵运算模块
+import torch
+import torch.nn as nn
 from torch.utils.data.dataset import Dataset
 from typing import List, Union
 from pathlib import Path
+import os
+from abc import ABC, abstractmethod
+import pandas as pd
+from custom_enhance import *
+from custom_transforms import *
+from collections import OrderedDict
+from utils.filefolderTool import create_folder
 
 
-class CustomDataset(Dataset):
+class BaseDataset(Dataset):
     def __init__(self,
-                 root: Union[str, Path],
-                 name,
+                 root: Union[str, Path],  # 原始数据集路径
+                 info: str,  # 使用数据集的额外信息
+                 transform: dict,  # 数据后期处理及其参数
+                 enhance: dict,  # 数据前期处理函数及其参数
+                 # 过滤数据的条件
                  filter: dict,
-                 transform: dict,
-                 enhance: dict,
+                 savePath: str,
+                 split: tuple = ([0.8, 0.2, ], 1),  # 要分割的数据比例和分割折数
                  ):
         super(Dataset, self).__init__()
+        self.dataset_name = "BaseDataset"
+        self.root = os.fspath(root)
+        self.info = info
+        self.datadict = []
+        self.enhance = enhance
+        self.transform = transform
+        self.filter = filter
+        self.savePath = savePath
+        self.split = split
+
+    @abstractmethod
+    def build_datadict(self, **args):
+        pass
+
+    def build_enhance(self):
+        pl = []
+        if self.enhance:
+            for processor, param in self.enhance.items():
+                if param:
+                    pl.append((processor, globals()[processor](**param)))
+                else:
+                    pl.append((processor, globals()[processor]()))
+        processors = nn.Sequential(OrderedDict(pl))
+        print("# 数据增强...")
+        self.datadict = processors(self.datadict)
+
+    def build_transform(self):
+        pl = []
+        if self.transform:
+            for processor, param in self.transform.items():
+                if param:
+                    pl.append((processor, globals()[processor](**param)))
+                else:
+                    pl.append((processor, globals()[processor]()))
+        processors = nn.Sequential(OrderedDict(pl))
+        print("# 数据转换...")
+        self.datadict = processors(self.datadict)
+
+    def save_data(self):
+        namelist = []
+        if self.savePath:
+            torch.save(self.datadict, self.savePath)
+            return True
+        if self.enhance:
+            for k, v in self.enhance.items():
+                namelist.append(k)
+        if self.transform:
+            for k, v in self.transform.items():
+                namelist.append(k)
+
+        path = os.path.join(self.root, "Feature", )
+        create_folder(path)
+        path = os.path.join(
+            path, "-".join([self.dataset_name, self.info, *namelist, ".npy"]))
+        torch.save(self.datadict, path)
+        self.root = path
+        self.savePath = path
+        print(f"存储数据: {path}")
+        return True
+
+    def build_filter(self):
+        print("数据筛选...")
+        # 根据提供的字典替换值, key 决定要替换的列, value 是 字符串字典, 决定被替换的值
+        self.datadict = pd.DataFrame(self.datadict)
+        if "replace" in self.filter:
+            self.datadict.replace(
+                None if self.filter["replace"] else self.filter["replace"], inplace=True)
+            # 根据提供的字典删除指定值所在行, key 决定要替换的列, value 是被替换的值列表
+        if "dropna" in self.filter:
+            for k, v in self.filter["dropna"].items():
+                self.datadict = self.datadict[~self.datadict[k].isin(v)]
+            self.datadict.dropna(axis=0, how='any', thresh=None,
+                                 subset=None, inplace=True)
+        if "contains" in self.filter:
+            # 根据提供的字典删除包含指定值的所在行, key 决定要替换的列, value 是被替换的值列表
+            for k, v in self.filter["contains"].items():
+                self.datadict = self.datadict[~self.datadict[k].str.contains(
+                    v, case=True)]
+        if "query" in self.filter:
+            if self.filter["query"]:
+                self.datadict.query(self.filter["query"], inplace=True)
+        if "sort_values" in self.filter:
+            self.datadict.sort_values(
+                by=self.filter["sort_values"], inplace=True, ascending=False)
+
+        self.datadict.reset_index(drop=True, inplace=True)
+        self.datadict = self.datadict.to_dict(orient="list")
+
+    @abstractmethod
+    def __getitem__(self, n: int):
+        pass
+
+    def load_data(self):
+        print("加载数据...")
+        self.datadict = torch.load(self.root)
+
+
+class MediaDataset(BaseDataset):
+    def __init__(self,
+                 mode: str,  # 设置数据集要包含的数据模态(文本,视频,音频)
+                 root: Union[str, Path],
+                 **kwargs
+                 ):
+        super(MediaDataset, self).__init__(root=root, **kwargs)
+        assert (mode in ["v", "a", "t", "av", "at", "vt", "avt"])
+        self.dataset_name = "MediaDataset"
+        self.mode = mode
 
 
 class Subset():
@@ -47,7 +165,7 @@ def random_split_index_K(n_samples: int, K: int = 5, shuffle=True):
         shuffle (seed): 是否打乱数据.
     """
     if shuffle:
-        indices = np.random.permutation(n_samples)  # 打乱数据index
+        indices = np.random.permutation(n_samples)  # 打乱数据 index
     else:
         indices = np.arange(0, n_samples)
     test_indices = np.array_split(indices, K)

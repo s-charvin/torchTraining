@@ -157,7 +157,7 @@ class Conv2dSame(torch.nn.Conv2d):
             x = F.pad(
                 x, [pad_w // 2, pad_w - pad_w // 2,
                     pad_h // 2, pad_h - pad_h // 2]
-            )
+            ).contiguous()
         return F.conv2d(
             x,
             self.weight,
@@ -166,7 +166,7 @@ class Conv2dSame(torch.nn.Conv2d):
             self.padding,
             self.dilation,
             self.groups,
-        )
+        ).contiguous()
 
 
 class BiLSTM_Attention(nn.Module):
