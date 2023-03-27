@@ -1,4 +1,5 @@
 # 官方库
+import gc
 from custom_datasets.subset import *
 
 from utils.filefolderTool import create_folder
@@ -57,8 +58,10 @@ class IEMOCAP(MediaDataset):
         self.dataset_name = "IEMOCAP"
         self.threads = threads
         self.cascPATH = cascPATH
-        assert (self.mode in ["v", "av",  "vt",
-                              "avt"] and cascPATH), ("# 使用视频数据需要提供 cascPATH ")
+
+        if self.mode in ["v", "av",  "vt", "avt"] and cascPATH == "":
+            raise("# 使用视频数据需要提供 cascPATH ")
+
         self.videomode = videomode
 
         if os.path.isfile(root):
@@ -273,7 +276,7 @@ class IEMOCAP(MediaDataset):
             self.root, f"Session{sess}/sentences/video/")) for sess in range(1, 6)]))
         if len(fileExists) != 1 or fileExists[0]:
             print("检测视频文件是否损坏...")
-            self.check_videoFile()
+            # self.check_videoFile()
         elif not fileExists[0]:
             self._creat_video_process(
                 self._pathList)
@@ -532,8 +535,10 @@ class IEMOCAP(MediaDataset):
             video = _av_reader.get_batch(frame_idxs)
         except Exception as e:
             raise(f"Failed to decode video with Decord: {video_path}. {e}")
-        out = video.asnumpy()[:, 20:150, 90:280, :].copy()  # NxHxWx3
+        out = video.asnumpy()[:, 10:160, 110:260, :].copy()  # NxHxWx3
+        # out = video.asnumpy()[:, 20:150, 90:280, :].copy()  # NxHxWx3
         del video
+        gc.collect()
         return out
 
     def __getitem__(self, n: int):

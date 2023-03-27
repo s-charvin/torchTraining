@@ -20,7 +20,7 @@ elif sys.platform.startswith('win'):
 # from models.AFC_ALSTM_ACNN import CLFC
 # from models.SAE import STLSER
 # from models.MAADA import AACNN
-from models.SlowFast import slowfast101
+from custom_models.SlowFast import slowfast101
 from models.Testmodel import *
 from torchinfo import summary
 import yaml  # yaml文件解析模块
@@ -29,7 +29,7 @@ import soundfile as sf
 from transformers import get_linear_schedule_with_warmup
 if __name__ == '__main__':
 
- # 模型输出测试
+ # 模型输出测试s
     config = yaml.safe_load(
         open("./config.yaml", 'r', encoding='utf-8').read())
     # a = IEMOCAPDataset(config)

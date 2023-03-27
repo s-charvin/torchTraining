@@ -8,8 +8,8 @@ import torch.nn.functional as F
 from tqdm import tqdm
 from torch.autograd import Variable
 
-from models import SequenceClassifier, SequenceClassifier_CoTeaching
-from logger import Logger
+from custom_models import SequenceClassifier, SequenceClassifier_CoTeaching
+from SCW.torchTraining.utils.logger import Logger
 from transformers import BertTokenizer,  Wav2Vec2Processor
 
 from sklearn.metrics import accuracy_score

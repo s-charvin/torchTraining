@@ -2,10 +2,10 @@ from datetime import datetime
 import os
 import torch
 import torch.nn as nn
-from logger import Logger
+from utils.logger import Logger
 from .lr_scheduler import *
 from .optimizer import *
-from models import *
+from custom_models import *
 import torch.distributed as dist
 
 

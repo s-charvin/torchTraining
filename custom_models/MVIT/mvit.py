@@ -1,12 +1,15 @@
+# -*- coding: utf-8 -*-
+
+
+import types
+import re
 from functools import partial
-import torch
-
-
 import math
-from functools import partial
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.utils.model_zoo as model_zoo
 from torch.nn.init import trunc_normal_
 
 from .common import TwoStreamFusion
@@ -135,9 +138,9 @@ class MViT(nn.Module):
         if self.use_2d_patch:
             self.patch_stride = [1] + self.patch_stride
 
-        self.T = temporal_size // self.patch_stride[0]
-        self.H = spatial_size // self.patch_stride[1]
-        self.W = spatial_size // self.patch_stride[2]
+        self.T = temporal_size / self.patch_stride[0]
+        self.H = math.ceil(spatial_size / self.patch_stride[1])
+        self.W = math.ceil(spatial_size / self.patch_stride[2])
 
         # Prepare output.
         num_classes = num_classes
@@ -180,7 +183,7 @@ class MViT(nn.Module):
         self.input_dims = [temporal_size, spatial_size, spatial_size]
         assert self.input_dims[1] == self.input_dims[2]
         self.patch_dims = [
-            self.input_dims[i] // self.patch_stride[i]
+            math.ceil(self.input_dims[i] / self.patch_stride[i])
             for i in range(len(self.input_dims))
         ]
         num_patches = math.prod(self.patch_dims)
@@ -524,6 +527,7 @@ class MViT(nn.Module):
         return x
 
     def forward(self, x, bboxes=None, return_attn=False):
+        # [B * vf_seg_len,C,  vf_seq_len, W, H]
         x, bcthw = self.patch_embed(x)
         bcthw = list(bcthw)
         if len(bcthw) == 4:  # Fix bcthw in case of 4D tensor
@@ -637,15 +641,260 @@ REV_MVIT_B_16x4_CONV = partial(
     rev_res_path="conv",
 )
 
-if __name__ == '__main__':
-    data = torch.rand((1, 8, 3, 30, 240, 240))
+
+REV_MVIT_B = partial(
+    MViT,
+    # crop_size=224,
+    # input_channel_num=[3, 3],
+    # num_classes=4,
+
+    num_frames=1,
+    use_2d_patch=True,
+    has_cls_embed=False,
+    embed_dim=96,
+    patch_kernel=[7, 7],
+    patch_stride=[4, 4],
+    patch_padding=[3, 3],
+    num_heads=1,
+    mlp_ratio=4.0,
+    qkv_bias=True,
+    droppath_rate=0.1,
+    depth=16,
+    norm="layernorm",
+    mode="conv",
+    dim_mul=[[1, 2.0], [3, 2.0], [14, 2.0]],
+    head_mul=[[1, 2.0], [3, 2.0], [14, 2.0]],
+    pool_kvq_kernel=[1, 3, 3],
+    pool_kv_stride_adaptive=[1, 4, 4],
+    pool_q_stride=[[1, 1, 2, 2], [3, 1, 2, 2], [14, 1, 2, 2]],
+    separate_qkv=True,
+    enable_rev=True,
+    rev_respath_fuse="concat",
+    rev_buffer_layers=[1, 3, 14],
+    rev_res_path="conv",
+    rev_pre_q_fusion="concat_linear_2",
+    model_dropout_rate=0.0,
+    zero_decay_pos_cls=False,
+)
+
+model_urls = {
+    'REV_MVIT_B': 'https://dl.fbaipublicfiles.com/pyslowfast/rev/REV_MVIT_B.pyth',
+    "REV_MVIT_B_16x4_CONV": "https://dl.fbaipublicfiles.com/pyslowfast/rev/REV_MVIT_B_16x4.pyth"
+}
+
+
+def update_state_dict(state_dict):
+    # '.'s are no longer allowed in module names, but pervious _DenseLayer
+    # has keys 'norm.1', 'relu.1', 'conv.1', 'norm.2', 'relu.2', 'conv.2'.
+    # They are also in the checkpoints in model_urls. This pattern is used
+    # to find such keys.
+    pattern = re.compile(
+        r'^(.*denselayer\d+\.(?:norm|relu|conv))\.((?:[12])\.(?:weight|bias|running_mean|running_var))$')
+    for key in list(state_dict.keys()):
+        res = pattern.match(key)
+        if res:
+            new_key = res.group(1) + res.group(2)
+            state_dict[new_key] = state_dict[key]
+            del state_dict[key]
+    return state_dict
+
+
+class EmptyModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        return x
+
+
+def modify_mvit(model):
+    # Modify attributs
+
+    if model.head.projection._get_name() == "Linear":
+        model.last_linear = model.head.projection
+        model.head.projection = EmptyModel()
+    elif model.head.projection._get_name() == "MLPHead":
+        model.last_linear = model.head.projection.projection[-1]
+        model.head.projection.projection[-1] = EmptyModel()
+
+    def _forward_reversible(self, x):
+        """
+        Reversible specific code for forward computation.
+        """
+        # rev does not support cls token or detection
+        assert not self.has_cls_embed
+        assert not self.enable_detection
+
+        x = self.rev_backbone(x)
+
+        if self.use_mean_pooling:
+            x = self.fuse(x)
+            x = x.mean(1)
+            x = self.norm(x)
+        else:
+            x = self.norm(x)
+            x = self.fuse(x)
+            x = x.mean(1)
+
+        x = self.head(x)
+        x = self.last_linear(x)
+
+        return x
+
+    def forward(self, x, bboxes=None, return_attn=False):
+        # [B * vf_seg_len,C,  vf_seq_len, W, H]
+        x, bcthw = self.patch_embed(x)
+        bcthw = list(bcthw)
+        if len(bcthw) == 4:  # Fix bcthw in case of 4D tensor
+            bcthw.insert(2, self.T)
+        T, H, W = bcthw[-3], bcthw[-2], bcthw[-1]
+        assert len(bcthw) == 5 and (T, H, W) == (self.T, self.H, self.W), bcthw
+        B, N, C = x.shape
+
+        s = 1 if self.has_cls_embed else 0
+        if self.use_fixed_sincos_pos:
+            x += self.pos_embed[:, s:, :]  # s: on/off cls token
+
+        if self.has_cls_embed:
+            cls_tokens = self.cls_token.expand(
+                B, -1, -1
+            )  # stole cls_tokens impl from Phil Wang, thanks
+            if self.use_fixed_sincos_pos:
+                cls_tokens = cls_tokens + self.pos_embed[:, :s, :]
+            x = torch.cat((cls_tokens, x), dim=1)
+
+        if self.use_abs_pos:
+            if self.sep_pos_embed:
+                pos_embed = self.pos_embed_spatial.repeat(
+                    1, self.patch_dims[0], 1
+                ) + torch.repeat_interleave(
+                    self.pos_embed_temporal,
+                    self.patch_dims[1] * self.patch_dims[2],
+                    dim=1,
+                )
+                if self.has_cls_embed:
+                    pos_embed = torch.cat([self.pos_embed_class, pos_embed], 1)
+                x += self._get_pos_embed(pos_embed, bcthw)
+            else:
+                x += self._get_pos_embed(self.pos_embed, bcthw)
+
+        if self.dropout_rate:
+            x = self.pos_drop(x)
+
+        if self.norm_stem:
+            x = self.norm_stem(x)
+
+        thw = [T, H, W]
+
+        if self.enable_rev:
+            x = self._forward_reversible(x)
+
+        else:
+            for blk in self.blocks:
+                x, thw = blk(x, thw)
+
+            if self.enable_detection:
+                assert not self.enable_rev
+
+                x = self.norm(x)
+                if self.has_cls_embed:
+                    x = x[:, 1:]
+
+                B, _, C = x.shape
+                x = x.transpose(1, 2).reshape(B, C, thw[0], thw[1], thw[2])
+
+                x = self.head([x], bboxes)
+                x = self.last_linear(x)
+            else:
+                if self.use_mean_pooling:
+                    if self.has_cls_embed:
+                        x = x[:, 1:]
+                    x = x.mean(1)
+                    x = self.norm(x)
+                elif self.has_cls_embed:
+                    x = self.norm(x)
+                    x = x[:, 0]
+                else:  # this is default, [norm->mean]
+                    x = self.norm(x)
+                    x = x.mean(1)
+                x = self.head(x)
+                x = self.last_linear(x)
+        return x
+
+    model.forward = types.MethodType(forward, model)
+    model._forward_reversible = types.MethodType(_forward_reversible, model)
+    return model
+
+
+def rev_mvit_b_16x4_conv3d(num_classes=400, pretrained=False, crop_size=[224, 224], input_channel_num=[3, 3], num_frames=30,):
     model = REV_MVIT_B_16x4_CONV(
-        crop_size=240,
-        input_channel_num=[3, 3],
-        num_frames=30,
-        num_classes=4,
+        crop_size=crop_size,
+        input_channel_num=input_channel_num,
+        num_classes=num_classes,
+        num_frames=num_frames
     )
-    print(model)
-    print("")
-    out = model(data)
-    print(out.shape)
+    if pretrained:
+        model = REV_MVIT_B_16x4_CONV(
+            crop_size=crop_size,
+            input_channel_num=input_channel_num,
+            num_classes=400,
+            num_frames=num_frames
+        )
+        state_dict = model_zoo.load_url(model_urls["REV_MVIT_B_16x4_CONV"])
+        state_dict = update_state_dict(state_dict)
+        del state_dict["model_state"]["cls_token"]
+        del state_dict["model_state"]["pos_embed_class"]
+
+        pos_num = min(state_dict["model_state"]["pos_embed_spatial"].shape[1], model.state_dict()[
+                      "pos_embed_spatial"].shape[1])
+        if pos_num < state_dict["model_state"]["pos_embed_spatial"].shape[1]:
+            state_dict["model_state"]["pos_embed_spatial"] = state_dict["model_state"]["pos_embed_spatial"][:, :pos_num, :]
+        else:
+            state_dict["model_state"]["pos_embed_spatial"] = model.state_dict()[
+                "pos_embed_spatial"]
+
+        pos_num = min(state_dict["model_state"]["pos_embed_temporal"].shape[1], model.state_dict()[
+                      "pos_embed_temporal"].shape[1])
+        if pos_num < state_dict["model_state"]["pos_embed_temporal"].shape[1]:
+            state_dict["model_state"]["pos_embed_temporal"] = state_dict["model_state"]["pos_embed_temporal"][:, :pos_num, :]
+        else:
+            state_dict["model_state"]["pos_embed_temporal"] = model.state_dict()[
+                "pos_embed_temporal"]
+
+        model.load_state_dict(state_dict["model_state"])
+    else:
+        model = REV_MVIT_B_16x4_CONV(
+            crop_size=crop_size,
+            input_channel_num=input_channel_num,
+            num_classes=num_classes,
+            num_frames=num_frames
+        )
+
+    model = modify_mvit(model)
+    return model
+
+
+def rev_mvit_b_conv2d(num_classes=1000, pretrained=False, crop_size=[224, 224], input_channel_num=[3, 3]):
+
+    if pretrained:
+        model = REV_MVIT_B(
+            crop_size=crop_size,
+            input_channel_num=input_channel_num,
+            num_classes=1000,
+        )
+        state_dict = model_zoo.load_url(model_urls["REV_MVIT_B"])
+        state_dict = update_state_dict(state_dict)
+        pos_num = min(state_dict["model_state"]["pos_embed"].shape[1], model.state_dict()[
+                      "pos_embed"].shape[1])
+        if pos_num < state_dict["model_state"]["pos_embed"].shape[1]:
+            state_dict["model_state"]["pos_embed"] = state_dict["model_state"]["pos_embed"][:, :pos_num, :]
+
+        model.load_state_dict(state_dict["model_state"])
+    else:
+        model = REV_MVIT_B(
+            crop_size=crop_size,
+            input_channel_num=input_channel_num,
+            num_classes=num_classes,
+        )
+    model = modify_mvit(model)
+    return model

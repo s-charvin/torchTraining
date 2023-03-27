@@ -25,7 +25,7 @@ import argparse  # 命令行解析模块
 import yaml  # yaml文件解析模块
 import random  # 随机数生成模块
 import numpy as np  # 矩阵运算模块
-from logger import sendmail
+from utils.logger import sendmail
 import torch
 from torch.utils.data import DataLoader
 # 自定库

@@ -6,9 +6,8 @@
 #         name: "AudioNet" # VideoNet_Conv2D, AudioNet
 #         para:
 #             num_classes: 4
-#             model_name: "resnet50" # 'resnet50', "lightsernet", 'densenet121', "vgg13"
+#             model_name: "lightsernet" # 'resnet50', "lightsernet", 'densenet121', "vgg13"
 #             last_hidden_dim: 320
-
 # architecture:
 #     net:
 #         name: "MViT" #
@@ -54,7 +53,8 @@ architecture:
         name: "MIFFNet_Conv2D_SVC_InterFusion"
         para:
             num_classes: 4
-            model_name: ["lightsernet", "rev_mvit_b_16x4_conv"] # "resnet50"
+            input_size: [[126, 40], [150, 150]]
+            model_name: ["lightsernet", "rev_mvit_b_conv2d"] # "resnet50"
             last_hidden_dim: [320, 320]
             seq_len: [189, 30] # af_: 63*3=189, 63*7=441 | vf_: 10*3, 10*3
             # emo_rnn_hidden_dim: [64, 64]
@@ -62,3 +62,13 @@ architecture:
 #     net:
 #         name: "LightSerNet"
 #         para:
+# architecture:
+#     net:
+#         name: "CooperationSVCNet"
+#         para:
+#             num_classes: [4, 4]
+#             model_names: ["lightsernet", "resnet50"]
+#             seq_len: [189, 189]
+#             input_size: [[189, 40], [189, 40]]
+#             last_hidden_dim: [320, 320]
+#             seq_step: [189, 189]

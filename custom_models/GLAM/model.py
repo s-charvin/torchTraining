@@ -78,7 +78,7 @@ class GLAM(nn.Module):
     GLobal-Aware Multiscale block with 3x3 convolutional kernels in CNN architecture
     '''
 
-    def __init__(self, shape=(40, 63), **kwargs):
+    def __init__(self, shape=(40, 63), out_features=4):
         super(GLAM, self).__init__()
         self.conv1a = nn.Conv2d(kernel_size=(
             3, 1), in_channels=1, out_channels=16, padding=(1, 0))
@@ -95,7 +95,7 @@ class GLAM(nn.Module):
         self.bn5 = nn.BatchNorm2d(128)
         dim = (shape[0]//2) * (shape[1]//4)
         i = 128 * dim
-        self.fc = nn.Linear(in_features=i, out_features=4)
+        self.last_linear = nn.Linear(in_features=i, out_features=out_features)
         self.dropout = nn.Dropout(0.5)
 
         self.gmlp = gMLP(dim=dim, depth=1, seq_len=128, act=nn.Tanh())
@@ -130,8 +130,8 @@ class GLAM(nn.Module):
         x = F.relu(x)
 
         x = x.reshape(x.shape[0], -1)  # (32, 128*12*15)
-        x = self.fc(x)
-        return x, None
+        x = self.last_linear(x)
+        return x
 
 
 class gMLPResConv3(nn.Module):

@@ -14,7 +14,7 @@ d_threshold = 100000
 y1, y2, y3, y4, x1, x2, x3, x4 = (
     130, 230, 140, 240, 120, 240, 500, 630)  # w,h
 # Final size of cropped image
-width, height = (240, 240)
+width, height = (350, 240)
 ###################### FUNCTIONS #####################
 
 

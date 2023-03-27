@@ -72,7 +72,8 @@ class GLAM_Encoder(nn.Module):
     GLobal-Aware Multiscale block with 3x3 convolutional kernels in CNN architecture
     '''
 
-    def __init__(self, shape=(26, 63), **kwargs):
+    def __init__(self, shape=[63, 26], **kwargs):
+        shape[1] = 26
         super(GLAM_Encoder, self).__init__()
         self.conv1a = nn.Conv2d(kernel_size=(
             3, 1), in_channels=1, out_channels=16, padding=(1, 0))
@@ -90,16 +91,17 @@ class GLAM_Encoder(nn.Module):
         dim = (shape[0]//2) * (shape[1]//4)
         self.gmlp = gMLP(dim=dim, depth=1, seq_len=128, act=nn.Tanh())
 
-    def forward(self, *input):
+    def forward(self, x: Tensor, feature_lens=None):
         # input[0]: torch.Size([32, 1, 26, 63])
-        xa = self.conv1a(input[0])  # (32, 16, 25, 62)
+        x = x[:, :, :, :26]
+        xa = self.conv1a(x)  # (32, 16, 25, 62)
         xa = self.bn1a(xa)  # (32, 16, 25, 62)
-
         xa = F.relu(xa)
-        xb = self.conv1b(input[0])
-        xb = self.bn1b(xb)
 
+        xb = self.conv1b(x)
+        xb = self.bn1b(xb)
         xb = F.relu(xb)
+
         x = torch.cat((xa, xb), 2)  # (32, 16, 50, 62)
 
         x = self.conv2(x)  # (32, 32, 50, 62)
@@ -124,7 +126,7 @@ class GLAM_Encoder(nn.Module):
 
 
 if __name__ == '__main__':
-    test = np.random.random((4, 1, 126, 40)).astype(np.float32)
+    test = np.random.random((4, 1, 114, 40)).astype(np.float32)
     test = torch.Tensor(test)
-    macnn = GLAM_Encoder(shape=(126, 40), out_features=320)
+    macnn = GLAM_Encoder(shape=[114, 40], out_features=320)
     print(macnn(test).shape)

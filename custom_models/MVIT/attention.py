@@ -9,7 +9,6 @@ from torch.nn.init import trunc_normal_
 from .common import DropPath, Mlp
 
 
-
 def attention_pool(tensor, pool, thw_shape, has_cls_embed=True, norm=None):
     """
     将输入张量的空间维度进行池化, 并返回池化后的张量以及更新后的空间维度.

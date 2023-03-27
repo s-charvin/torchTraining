@@ -1,4 +1,5 @@
 import collections
+import gc
 import numpy as np  # 矩阵运算模块
 import torch
 import torch.nn as nn
@@ -51,6 +52,7 @@ class BaseDataset(Dataset):
         processors = nn.Sequential(OrderedDict(pl))
         print("# 数据增强...")
         self.datadict = processors(self.datadict)
+        gc.collect()
 
     def build_transform(self):
         pl = []
@@ -63,6 +65,7 @@ class BaseDataset(Dataset):
         processors = nn.Sequential(OrderedDict(pl))
         print("# 数据转换...")
         self.datadict = processors(self.datadict)
+        gc.collect()
 
     def save_data(self):
         namelist = []

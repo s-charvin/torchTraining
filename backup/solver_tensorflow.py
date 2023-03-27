@@ -3,8 +3,8 @@ from datetime import datetime
 
 from tqdm import tqdm
 
-from models import SequenceClassifier, SequenceClassifier_CoTeaching
-from logger import Logger
+from custom_models import SequenceClassifier, SequenceClassifier_CoTeaching
+from utils.logger import Logger
 
 from sklearn.metrics import accuracy_score
 

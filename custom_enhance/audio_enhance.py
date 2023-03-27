@@ -109,6 +109,7 @@ class AVSplit(torch.nn.Module):
                             newdatadict[col].append(datadict[col][i])
                         except:
                             newdatadict[col].append(datadict[col])
+        del datadict
         return newdatadict
 
 

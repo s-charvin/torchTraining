@@ -7,7 +7,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from components import *
+from .components import *
 
 
 class AACNN(nn.Module):
@@ -15,10 +15,10 @@ class AACNN(nn.Module):
     Area Attention, ICASSP 2020
     '''
 
-    def __init__(self, height=3, width=3, out_size=4, shape=(26, 63), **kwargs):
+    def __init__(self, area_height=3, area_width=3, out_features=4, shape=(26, 63), **kwargs):
         super(AACNN, self).__init__()
-        self.height = height
-        self.width = width
+        self.height = area_height
+        self.width = area_width
         # self.conv1 = nn.Conv2D(32, (3,3), padding='same', data_format='channels_last',)
         self.conv1a = nn.Conv2d(kernel_size=(
             10, 2), in_channels=1, out_channels=16, padding=(4, 0))
@@ -43,20 +43,19 @@ class AACNN(nn.Module):
         # self.gap = nn.AdaptiveAvgPool2d(1)
 
         i = 80 * ((shape[0] - 1)//2) * ((shape[1] - 1)//4)
-        self.fc = nn.Linear(in_features=i, out_features=4)
+        self.last_linear = nn.Linear(in_features=i, out_features=out_features)
         # self.dropout = nn.Dropout(0.5)
 
         self.area_attention = AreaAttention(
             key_query_size=80,
             area_key_mode='mean',
             area_value_mode='sum',
-            max_area_height=height,
-            max_area_width=width,
+            max_area_height=area_height,
+            max_area_width=area_width,
             dropout_rate=0.5,
         )
 
-    def forward(self, *input):
-        x = input[0]
+    def forward(self, x, x_lens=None):
         xa = self.conv1a(x)
         xa = self.bn1a(xa)
         xa = F.relu(xa)
@@ -89,7 +88,7 @@ class AACNN(nn.Module):
 
         x = x.reshape(x.shape[0], -1)
 
-        x = self.fc(x)
+        x = self.last_linear(x)
 
         return x
 

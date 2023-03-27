@@ -4,7 +4,7 @@ from typing import Type, Any, Callable, Union, List, Optional
 import torch
 from torch import Tensor, nn
 import torch.nn.functional as F
-import tensor2tensor.layers.area_attention as area_attention
+
 from area_attention import AreaAttention
 
 
