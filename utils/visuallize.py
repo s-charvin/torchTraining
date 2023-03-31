@@ -3,16 +3,19 @@ import sys
 from typing import Sequence
 from pathlib import Path
 from IPython import display
-from matplotlib import pyplot as plt
 import torch
 import numpy as np
 import librosa.display
 import torchaudio
 import decord
 from custom_transforms.video_transforms import *
+import matplotlib.pyplot as plt
+import numpy as np
+import sklearn
+from sklearn.manifold import TSNE
 
 
-def plot_spectrogram(input, outdir="./logs/Image/"):
+def plot_spectrogram(input, outdir="./output/image/"):
     try:
         outdir = Path(outdir)
         outdir.mkdir(parents=True)
@@ -49,7 +52,7 @@ def save_spectrogram(specgram, path, title, ylabel):
     plt.close()
 
 
-def plot_melspectrogram(input, outdir="./logs/Image/"):
+def plot_melspectrogram(input, outdir="./output/image/"):
     try:
         outdir = Path(outdir)
         outdir.mkdir(parents=True)
@@ -71,7 +74,7 @@ def plot_melspectrogram(input, outdir="./logs/Image/"):
                 outdir.resolve(), path.stem+".png"), title="MelSpectrogram (db)", ylabel="mel freq")
 
 
-def plot_RGBDifference(input, outdir="./logs/Video/"):
+def plot_RGBDifference(input, outdir="./output/Video/"):
     try:
         outdir = Path(outdir)
         outdir.mkdir(parents=True)
@@ -332,3 +335,81 @@ def unnormalize(tensor, mean, std, inplace=False):
         std = std.view(-1, 1, 1)
     tensor.mul_(std).add_(mean)
     return tensor
+
+
+def plot_tsne(model: torch.nn.Module, dataloader, outdir="./output/t-sne/"):
+    """
+    Visualizes the feature embeddings of a PyTorch model using t-SNE.
+
+    Args:
+        model (callable): A PyTorch model or any other callable that accepts a batch of data as input and returns feature embeddings.
+        dataloader (torch.utils.data.DataLoader): A PyTorch DataLoader object that provides the data to be visualized.
+    """
+    try:
+        outdir = Path(outdir)
+        outdir.mkdir(parents=True)
+    except FileExistsError:
+        pass
+
+    # Get feature embeddings for all data points
+    embeddings = [[], [], []]
+    labels = []
+    print("获取特征向量")
+    with torch.no_grad():
+        if model is not None:
+            model = model.cuda(1)
+            for data in dataloader:
+                audio_features = data["audio"]
+                video_features = data["video"]
+                labels = labels+data["label"]
+                video_features = video_features.cuda(1).float()
+                audio_features = audio_features.cuda(1).float()
+                audio_embeddings, video_embeddings, fusion_embeddings = model(
+                    audio_features, video_features)
+
+                embeddings[0].append(audio_embeddings.cpu().numpy())
+                embeddings[1].append(video_embeddings.cpu().numpy())
+                embeddings[2].append(fusion_embeddings.cpu().numpy())
+
+        else:
+            for data in dataloader:
+                audio_features = data["audio"].float()
+                video_features = data["video"].float()
+                labels = labels+data["label"]
+
+                embeddings[0].append(audio_features.view(
+                    audio_features.shape[0], -1).numpy())
+                embeddings[1].append(video_features.view(
+                    video_features.shape[0], -1).numpy())
+    del embeddings[2]
+
+    embeddings = [np.concatenate(embedding, axis=0)
+                  for embedding in embeddings]
+    # labels = np.concatenate(labels, axis=0)
+    label_encoder = sklearn.preprocessing.LabelEncoder()
+    label_encoder.fit(y=labels)
+    labels = label_encoder.transform(labels)
+    classes_ = label_encoder.classes_
+
+    print("t-SNE 降维")
+    # Use t-SNE to reduce dimensionality to 2D
+    tsne = TSNE(n_components=2, random_state=0, init='pca', perplexity=30)
+
+    embeddings_tsne = [tsne.fit_transform(
+        embedding) for embedding in embeddings]
+
+    print("展示图片")
+    for j, embedding_tsne in enumerate(embeddings_tsne):
+        plt.figure(figsize=(10, 10))
+        unique_labels = np.unique(labels)
+        for i in unique_labels:
+            mask = labels == i
+            plt.scatter(embedding_tsne[mask, 0],
+                        embedding_tsne[mask, 1], label=classes_[i])
+        plt.legend()
+        # Save the figure if an output path is specified
+        if outdir is not None:
+            plt.savefig(os.path.join(
+                outdir.resolve(), "t-sne"+f"{j}"+".png"))
+        else:
+            plt.show()

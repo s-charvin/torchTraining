@@ -27,6 +27,7 @@ data:
         videomode: "crop"
         cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
+
     enhances:
         # AudioSplit:
         #     sampleNum: 112000 # 16000 * duration

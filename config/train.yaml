@@ -1,26 +1,26 @@
 train:
     # 训练设备
-    name: "MIFFNet-step(1s)-window(3s)-inlength(7s)-model(lightsernet|rev_mvit_b_conv2d)-batch(10)-batch_delay(3)-epoch(889)-lr(0.0001)" # 本次运行模型名称
+    name: "MIFFNet-step(1s)-window(3s)-inlength(7s)-model(lightrmultisernet|resnet50)-batch(8)-batch_delay(4)-epoch(889)-lr(0.00025)" # 本次运行模型名称
     nodes: 1 # 本次训练总共要使用的节点数量, 如果需要多台计算机进行分布式计算才需要设置. 从 1 开始
     node_rank: 0 # 当前节点在所有节点中的排名, 从 0 开始
     master_addr: "127.0.0.1" # 声明主进程 0 的 IP 地址和通信端口, 以便所有进程可以同步更新参数.
-    master_port: "7839" # 每个任务都需要不同的端口
+    master_port: "7841" # 每个任务都需要不同的端口
     available_gpus: "0" # 设置当前环境可用的 GPU
 
     # 数据
     num_workers: 0 # 数据加载进程数
     seed: 42 # 设置随机数种子, 当设置了固定的随机数种子,之后依次生成的随机数序列也会被固定下来.
     train_rate: 0.8
-    batch_size: 10 # 数据块大小
+    batch_size: 8 # 数据块大小
     Kfold: 1 # 大于 1 时, 进行 K 折交叉实验
 
     # 训练
-    n_epochs: 200 # 训练迭代次数
-    loss_weight: True # 设置损失权重
+    n_epochs: 889 # 训练迭代次数
+    loss_weight: true # 设置损失权重
 
     # 恢复训练
     checkpoint: ""
-    last_epochs: -1 # 自定义恢复迭代的起始步, 也就是已经训练完的 epoch 次数
+    last_epochs: 0 # 自定义恢复迭代的起始步, 也就是已经训练完的 epoch 次数
 
     # 训练排队
     gpu_queuer:
@@ -38,12 +38,14 @@ sorlver:
     # Audio_Classification, Video_Classification, Audio_Video_Classification,
     # Audio_Video_Fusion_Classification,Audio_Classification2MultiObject_MGDA_UB
     # Audio_Classification_CoTeaching
+
     name: "Audio_Video_Fusion_Classification"
     optimizer:
         name: "AdamW"
-        lr: 0.0001 # 学习率
+        lr: 0.00025 # 学习率
         para:
             betas: [0.9, 0.999]
+
     lr_method:
         # name: "CosineAnnealingWarmRestarts"
         # mode: "step"
@@ -55,8 +57,8 @@ sorlver:
         name: "CosineLearningRateWithWarmRestarts"
         mode: "epoch" # "epoch", "step"
         para:
-            warmup_epochs: 40
-            epochs: 200
+            warmup_epochs: 100
+            epochs: 889
             cosine_end_lr: 0.000001
             warmup_start_lr: 0.00000001
 
@@ -73,7 +75,7 @@ sorlver:
         #     epochs: 889 # 任意设置
         #     num_decay_step: 99900
 
-    batch_delay: 3
+    batch_delay: 4
 
 logs: # 记录参数
     use_tensorboard: True # 记录展示

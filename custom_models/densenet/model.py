@@ -22,24 +22,20 @@ class DenseNet(nn.Module):
 
     def __init__(
         self,
-        config,
+        in_channels=3,
+        num_classes=1000,
+        growth_rate: int = 32,
+        block_config: List[int,] = [6, 12, 24, 16],
+        num_init_features: int = 64,
+        bn_size: int = 4,
+        drop_rate: float = 0,
     ) -> None:
 
         super().__init__()
-
-        growth_rate = config["densenet"]["growth_rate"]
-        block_config = config["densenet"]["block_config"]
-        num_init_features = config["densenet"]["num_init_features"]
-        bn_size = config["densenet"]["bn_size"]
-        drop_rate = config["densenet"]["drop_rate"]
-        aux_num = config["densenet"]["aux_num"]
-        if aux_num == "None":
-            self.num_outputs = config["model"]["num_outputs"]
-        else:
-            self.num_outputs = aux_num
+        self.num_outputs = num_classes
 
         # First convolution
-        self.conv0 = nn.Conv2d(config["densenet"]["input_channel"], num_init_features,
+        self.conv0 = nn.Conv2d(in_channels, num_init_features,
                                kernel_size=7, stride=2, padding=3, bias=False)
         self.norm0 = nn.BatchNorm2d(num_init_features)
         self.relu0 = nn.ReLU(inplace=True)
@@ -78,7 +74,7 @@ class DenseNet(nn.Module):
         self.denseblock.add_module("norm5", nn.BatchNorm2d(num_features))
 
         # Linear layer
-        self.classifier = nn.Linear(num_features, num_outputs)
+        self.last_linear = nn.Linear(num_features, num_outputs)
 
         # 初始化参数
         for m in self.modules():
@@ -103,7 +99,7 @@ class DenseNet(nn.Module):
         out = F.relu(out, inplace=True)
         out = F.adaptive_avg_pool2d(out, (1, 1))
         out = torch.flatten(out, 1)
-        out = self.classifier(out)
+        out = self.last_linear(out)
         return out
 
 

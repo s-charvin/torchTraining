@@ -117,7 +117,7 @@ class CooperationSVCNet(nn.Module):
             #     num_classes=num_classes[i], model_name=name, seq_len=seq_len[i], seq_step=seq_step[i], last_hidden_dim=last_hidden_dim[i], input_size=input_size[i]))
 
             setattr(self, f"coopnet{i}", AudioNet(
-                num_classes=num_classes[i], model_name=name,  last_hidden_dim=last_hidden_dim[i], input_size=input_size[i]))
+                num_classes=num_classes[i], model_name=name,  last_hidden_dim=last_hidden_dim[i], input_size=input_size[i], pretrained=False))
 
     def forward(self, x: Tensor, **args) -> Tensor:
         raise "CooperationNet 只是一个对多个模型的包装, 而非实际要训练的网络. 请使用内部的 coopnet{id} 进行训练"

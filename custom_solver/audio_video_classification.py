@@ -658,6 +658,7 @@ class Audio_Video_Fusion_Classification(object):
         # 保存最终的模型
         if (self.config['self_auto']['local_rank'] in [0, None]):
             self.save(save_dir=self.model_save_dir, it=self.last_epochs)
+
         return True
 
     def test(self):

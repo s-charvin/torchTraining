@@ -32,41 +32,42 @@ class ResNet(nn.Module):
 
     def __init__(
             self,
-            config,) -> None:
+            in_channels=3,
+            num_classes=1000,
+            blocktype="Bottleneck",  # "BasicBlock", "Bottleneck"
+            layers=[3, 4, 6, 3],
+            zero_init_residual: bool = False,
+            groups: int = 1,
+            width_per_group: int = 64,
+            replace_stride_with_dilation: Optional[List[bool]] = None,
+            norm_layer: Optional[Callable[..., nn.Module]] = nn.BatchNorm2d
+    ) -> None:
 
         super().__init__()
 
-        if config["resnet"]["block"] == "Bottleneck":
+        if blocktype == "Bottleneck":
             block = components.Bottleneck
-        elif config["resnet"]["block"] == "BasicBlock":
+        elif blocktype == "BasicBlock":
             block = components.BasicBlock
 
-        if config["resnet"]["norm_layer"] == "BN":
-            self.norm_layer = nn.BatchNorm2d
-        else:
-            raise ValueError("除了 BN 外,其他 Nomal 暂未定义")
+        self.norm_layer = norm_layer
+        self.inplanes = 64   # 初始特征通道数
+        self.dilation = 1
+        zero_init_residual = zero_init_residual
+        self.groups = groups
+        self.base_width = width_per_group
+        self.num_outputs = num_classes
 
-        self.inplanes = config["resnet"]["inplanes"]  # 初始特征通道数
-        layers = config["resnet"]["layers"]
-        self.groups = config["resnet"]["groups"]
-        self.base_width = config["resnet"]["width_per_group"]
-        aux_num = config["resnet"]["aux_num"]
-        if aux_num == "None":
-            self.num_outputs = config["model"]["num_outputs"]
-        else:
-            self.num_outputs = aux_num
-
-        replace_stride_with_dilation = config["resnet"]["replace_stride_with_dilation"]
+        if replace_stride_with_dilation is None:
+            # each element in the tuple indicates if we should replace
+            # the 2x2 stride with a dilated convolution instead
+            replace_stride_with_dilation = [False, False, False]
         if len(replace_stride_with_dilation) != 3:
-            raise ValueError(
-                "replace_stride_with_dilation should be None "
-                f"or a 3-element tuple, got {replace_stride_with_dilation}"
-            )
-        self.dilation = config["resnet"]["dilation"]
-        zero_init_residual = config["resnet"]["zero_init_residual"]
+            raise ValueError("replace_stride_with_dilation should be None "
+                             "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
 
-        self.conv1 = nn.Conv2d(
-            config["resnet"]["input_channel"], self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(in_channels, self.inplanes,
+                               kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = self.norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -81,7 +82,7 @@ class ResNet(nn.Module):
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
 
-        self.fc = nn.Linear(512 * block.expansion, self.num_outputs)
+        self.last_linear = nn.Linear(512 * block.expansion, self.num_outputs)
 
         self.init_parameters(zero_init_residual)
 
@@ -158,8 +159,6 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x: Tensor) -> Tensor:
-        if len(x.size()) == 3:
-            x = x.unsqueeze(1)  # x
         # 静态运算结构
         x = self.conv1(x)
         x = self.bn1(x)
@@ -175,5 +174,5 @@ class ResNet(nn.Module):
         # 输出结构
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
-        x = self.fc(x)
+        x = self.last_linear(x)
         return x

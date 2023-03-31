@@ -1,14 +1,17 @@
-from custom_models.MVIT import *
+
 import torch
 from torch import Tensor, nn
 import torch.nn.functional as F
 import numpy as np
+import torchvision
 
 from .components import *
-from custom_models.Light_Sernet import LightSerNet
+import custom_models
+from custom_models.Light_Sernet import LightSerNet, LightResMultiSerNet, LightMultiSerNet
 from custom_models.GLAM import GLAM
 from custom_models.AACNN import AACNN
 from custom_models.MACNN import MACNN
+from custom_models.MVIT import *
 
 
 class PretrainedBaseModel():
@@ -121,7 +124,7 @@ class PretrainedBaseModel():
         return self.base_model
 
 
-def getModel(model_name, out_features, in_channels=1, input_size=[126, 40], num_frames=1, pretrained=True):
+def getModel(model_name, out_features, in_channels=1, input_size=[126, 40], num_frames=1, pretrained=False):
     """"""
     if pretrained:
         try:
@@ -133,6 +136,10 @@ def getModel(model_name, out_features, in_channels=1, input_size=[126, 40], num_
 
     if model_name == "lightsernet":
         return LightSerNet()
+    elif model_name == "lightmultisernet":
+        return LightMultiSerNet()
+    elif model_name == "lightresmultisernet":
+        return LightResMultiSerNet()
     elif model_name == "glamnet":
         # 此网络需要提供输入图维度
         return GLAM(
@@ -148,12 +155,16 @@ def getModel(model_name, out_features, in_channels=1, input_size=[126, 40], num_
         return True
     elif model_name == "rev_mvit_b_16x4_conv3d":
         return rev_mvit_b_16x4_conv3d(num_classes=out_features, crop_size=input_size, input_channel_num=[in_channels, in_channels], num_frames=num_frames)
+    elif model_name == "resnet50":
+        return custom_models.ResNet(in_channels=1, num_classes=out_features)
+    elif model_name == "densenet121":
+        return custom_models.DenseNet(in_channels=1, num_classes=out_features)
     else:
         raise ValueError(f"不支持的基本模型: {model_name}")
 
 
-def getVideoModel(model_name, out_features, in_channels=1, num_frames=30, input_size=[126, 40]):
-    return getModel(model_name, out_features, in_channels=in_channels, input_size=input_size, num_frames=num_frames)
+def getVideoModel(model_name, out_features, in_channels=3, num_frames=30, input_size=[126, 40], pretrained=False):
+    return getModel(model_name, out_features, in_channels=in_channels, input_size=input_size, num_frames=num_frames, pretrained=pretrained)
 
 
 class MIFFNet_Conv3D(nn.Module):
@@ -329,13 +340,13 @@ class MIFFNet_Conv3D_GRU(nn.Module):
 
 
 class AudioNet(nn.Module):
-    def __init__(self, num_classes=4, model_name="lightsernet", last_hidden_dim=320, input_size=[126, 40]) -> None:
+    def __init__(self, num_classes=4, model_name="lightsernet", last_hidden_dim=320, input_size=[126, 40], pretrained=False) -> None:
         super().__init__()
         self.num_classes = num_classes
         self.model_name = model_name
         self.last_hidden_dim = last_hidden_dim
         self.audio_feature_extractor = getModel(
-            model_name, out_features=num_classes, in_channels=1, input_size=input_size)
+            model_name, out_features=num_classes, in_channels=1, input_size=input_size, pretrained=pretrained)
 
         self.audio_classifier = self.audio_feature_extractor.last_linear
         self.audio_feature_extractor.last_linear = EmptyModel()
@@ -1196,7 +1207,7 @@ class MIFFNet_Conv2D_SVC(nn.Module):
         self.audio_feature_extractor.last_linear = EmptyModel()
 
         self.video_feature_extractor = getVideoModel(
-            self.vf_model_name, out_features=num_classes, in_channels=3, num_frames=30, input_size=self.vf_input_size)
+            self.vf_model_name, out_features=num_classes, in_channels=3, num_frames=30, input_size=self.vf_input_size, pretrained=True)
         self.vf_last_hidden_dim = self.video_feature_extractor.last_linear.in_features
         self.video_classifier = self.video_feature_extractor.last_linear
         self.video_feature_extractor.last_linear = EmptyModel()
@@ -1291,7 +1302,7 @@ class MIFFNet_Conv2D_SVC_InterFusion(nn.Module):
     paper: MIFFNet: Multimodal interframe feature fusion network
     """
 
-    def __init__(self, num_classes=4, model_name=["lightsernet", "resnet50"], seq_len=[189, 30], last_hidden_dim=[320, 320], input_size=[[126, 40], [150, 150]]) -> None:
+    def __init__(self, num_classes=4, model_name=["lightsernet", "resnet50"], seq_len=[189, 30], last_hidden_dim=[320, 320], input_size=[[126, 40], [150, 150]],enable_classifier=True) -> None:
         super().__init__()
         self.af_seq_len = seq_len[0]
         self.vf_seq_len = seq_len[1]
@@ -1301,6 +1312,7 @@ class MIFFNet_Conv2D_SVC_InterFusion(nn.Module):
         self.vf_last_hidden_dim = last_hidden_dim[1]
         self.af_input_size = input_size[0]
         self.vf_input_size = input_size[1]
+        self.enable_classifier = enable_classifier
 
         if self.af_model_name == "lightsernet":
             assert self.af_last_hidden_dim == 320, "由原论文可知 情绪识别中的 LightSerNet 的隐藏层向量最好限定为 320"
@@ -1312,7 +1324,7 @@ class MIFFNet_Conv2D_SVC_InterFusion(nn.Module):
         self.audio_feature_extractor.last_linear = EmptyModel()
 
         self.video_feature_extractor = getVideoModel(
-            self.vf_model_name, out_features=num_classes, in_channels=3, num_frames=30, input_size=self.vf_input_size)
+            self.vf_model_name, out_features=num_classes, in_channels=3, num_frames=30, input_size=self.vf_input_size, pretrained=True)
         self.vf_last_hidden_dim = self.video_feature_extractor.last_linear.in_features
         self.video_feature_extractor.last_linear = EmptyModel()
 
@@ -1436,10 +1448,13 @@ class MIFFNet_Conv2D_SVC_InterFusion(nn.Module):
         # [B, 2*F]
 
         # 分类
-        af_out = self.audio_classifier(af_fea)
-        vf_out = self.video_classifier(vf_fea)
-        av_out = self.fusion_classifier(fusion_fea)
-        return F.softmax(af_out, dim=1), F.softmax(vf_out, dim=1), F.softmax(av_out, dim=1), [None, None]
+        if self.enable_classifier:
+            af_out = self.audio_classifier(af_fea)
+            vf_out = self.video_classifier(vf_fea)
+            av_out = self.fusion_classifier(fusion_fea)
+            return F.softmax(af_out, dim=1), F.softmax(vf_out, dim=1), F.softmax(av_out, dim=1), [None, None]
+        else:
+            return af_fea, vf_fea, fusion_fea
 
 
 class MIFFNet_Conv2D_SVC_Step(nn.Module):
@@ -1472,7 +1487,7 @@ class MIFFNet_Conv2D_SVC_Step(nn.Module):
         self.audio_feature_extractor.last_linear = EmptyModel()
 
         self.video_feature_extractor = getVideoModel(
-            self.vf_model_name, out_features=num_classes, in_channels=3, num_frames=30, input_size=self.vf_input_size)
+            self.vf_model_name, out_features=num_classes, in_channels=3, num_frames=30, input_size=self.vf_input_size, pretrained=True)
         self.vf_last_hidden_dim = self.video_feature_extractor.last_linear.in_features
         self.video_classifier = self.video_feature_extractor.last_linear
         self.video_feature_extractor.last_linear = EmptyModel()
@@ -1598,7 +1613,7 @@ class MIFFNet_Conv2D_SV(nn.Module):
         self.audio_feature_extractor.last_linear = EmptyModel()
 
         self.video_feature_extractor = getVideoModel(
-            self.vf_model_name, out_features=num_classes, in_channels=3, num_frames=30, input_size=self.vf_input_size)
+            self.vf_model_name, out_features=num_classes, in_channels=3, num_frames=30, input_size=self.vf_input_size, pretrained=True)
         self.vf_last_hidden_dim = self.video_feature_extractor.last_linear.in_features
         self.video_classifier = self.video_feature_extractor.last_linear
         self.video_feature_extractor.last_linear = EmptyModel()
