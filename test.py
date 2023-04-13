@@ -103,25 +103,26 @@ from custom_models.resnet import ResNet
 from custom_models.densenet import DenseNet
 from custom_models.MAADA import AACNN
 from custom_models.SlowFast import slowfast101
-from custom_models.MFFNet import getModel
+from custom_models.MFFNet import getModel, LightSerNet_Encoder, LightResMultiSerNet_Encoder
 
 from torchinfo import summary
 import yaml  # yaml文件解析模块
 
 
 if __name__ == '__main__':
-    data = torch.rand((8, 1, 30,  150, 150))
+    data = torch.rand((8, 1,  256, 40))
     # lightsernet, glamnet, aacnn, macnn, rev_mvit_b_conv2d
     # rev_mvit_b_16x4_conv3d, densenet121, resnet50
-    model = getModel(
-        model_name="rev_mvit_b_16x4_conv3d",
-        out_features=4,
-        in_channels=1,
-        input_size=[150, 150],
-        num_frames=30,
-        pretrained=True,
-    )
+    # model = getModel(
+    #     model_name="rev_mvit_b_16x4_conv3d",
+    #     out_features=4,
+    #     in_channels=1,
+    #     input_size=[150, 150],
+    #     num_frames=30,
+    #     pretrained=True,
+    # )
+    model = LightResMultiSerNet_Encoder()
     print(model)
     print("")
-    out, _ = model(data)
+    out = model(data)
     print(out.shape)

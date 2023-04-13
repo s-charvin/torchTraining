@@ -74,7 +74,7 @@ class Logger(object):
                 tag=tag, img_tensor=images, global_step=step, walltime=None, dataformats='NCHW')
         self.writer.flush()
 
-    def embedding_summary(self, mat, metadata=None, label_img=None, global_step=None, tag='default', metadata_header=None):
+    def embedding_summary(self, mat, step, metadata=None, label_img=None, tag='default', metadata_header=None):
         """在二维或三维空间可视化 embedding 向量。、
         para tag: 
         para mat: 一个矩阵，每行代表特征空间的一个数据点
@@ -84,11 +84,11 @@ class Logger(object):
         para metadata_header: 数据名称，不同名称的数据将分别展示
         """
         self.writer.add_embedding(mat=mat, metadata=metadata, label_img=label_img,
-                                  global_step=global_step, tag=tag, metadata_header=metadata_header)
+                                  global_step=step, tag=tag, metadata_header=metadata_header)
         self.writer.flush()
 
     def graph_summary(self, model, input_to_model, verbose=False, use_strict_trace=True):
-        """可视化神经网络
+        """ 可视化神经网络
         para model: 待可视化的网络模型
         para input_to_model: 待输入神经网络的变量或一组变量
         para verbose: 
@@ -98,65 +98,34 @@ class Logger(object):
                               verbose=verbose, use_strict_trace=use_strict_trace)
         self.writer.flush()
 
-    # def video_summary(self, tag, images, step):
-    #     """在独立图上画一条线或多条线
-    #     para tag: (可选section/)数据名称，用于区分训练过程不同类型数值的变化
-    #     para images: 单张图片或图片tensor、array
-    #     para step: 训练的 step
-    #     para walltime: 记录发生的时间，默认为 time.time()
-    #     """
-    #     self.writer.add_video(tag, vid_tensor, global_step=None, fps=4, walltime=None)
-    #
+    def video_summary(self, tag, vid_tensor, step):
+        """在独立图上画一条线或多条线
+        para tag: (可选section/)数据名称，用于区分训练过程不同类型数值的变化
+        para images: 单张图片或图片tensor、array
+        para step: 训练的 step
+        para walltime: 记录发生的时间，默认为 time.time()
+        """
+        self.writer.add_video(
+            tag, vid_tensor, global_step=step, fps=4, walltime=None)
 
-    # def audio_summary(self, tag, images, step):
-    #     """在独立图上画一条线或多条线
-    #     para tag: (可选section/)数据名称，用于区分训练过程不同类型数值的变化
-    #     para images: 单张图片或图片tensor、array
-    #     para step: 训练的 step
-    #     para walltime: 记录发生的时间，默认为 time.time()
-    #     """
-    #     self.writer.add_audio(tag, snd_tensor, global_step=None, sample_rate=44100, walltime=None)
-    #
+    def audio_summary(self, tag, snd_tensor, step):
+        self.writer.add_audio(tag, snd_tensor, global_step=step,
+                              sample_rate=44100, walltime=None)
 
-    # def text_summary(self, tag, images, step):
-    #     """在独立图上画一条线或多条线
-    #     para tag: (可选section/)数据名称，用于区分训练过程不同类型数值的变化
-    #     para images: 单张图片或图片tensor、array
-    #     para step: 训练的 step
-    #     para walltime: 记录发生的时间，默认为 time.time()
-    #     """
-    #     self.writer.add_text(tag, text_string, global_step=None, walltime=None)
-    #
+    def text_summary(self, tag, text_string, step):
+        self.writer.add_text(tag, text_string, global_step=step, walltime=None)
 
-    # def pr_curve_summary(self, tag, images, step):
-    #     """Add images summary. 在独立图上画一条线或多条线
-    #     para tag: (可选section/)数据名称，用于区分训练过程不同类型数值的变化
-    #     para images: 单张图片或图片tensor、array
-    #     para step: 训练的 step
-    #     para walltime: 记录发生的时间，默认为 time.time()
-    #     """
-    #     self.writer.add_pr_curve(tag, labels, predictions, global_step=None, num_thresholds=127, weights=None, walltime=None)
-    #
+    def pr_curve_summary(self, tag, labels, predictions, step):
+        self.writer.add_pr_curve(tag, labels, predictions, global_step=step,
+                                 num_thresholds=127, weights=None, walltime=None)
 
-    # def mesh_summary(self, tag, images, step):
-    #     """Add images summary. 在独立图上画一条线或多条线
-    #     para tag: (可选section/)数据名称，用于区分训练过程不同类型数值的变化
-    #     para images: 单张图片或图片tensor、array
-    #     para step: 训练的 step
-    #     para walltime: 记录发生的时间，默认为 time.time()
-    #     """
-    #     self.writer.add_mesh(tag, vertices, colors=None, faces=None, config_dict=None, global_step=None, walltime=None)
-    #
+    def mesh_summary(self, tag, vertices, step):
+        self.writer.add_mesh(tag, vertices, colors=None, faces=None,
+                             config_dict=None, global_step=step, walltime=None)
 
-    # def hparams_summary(self, tag, images, step):
-    #     """Add images summary. 在独立图上画一条线或多条线
-    #     para tag: (可选section/)数据名称，用于区分训练过程不同类型数值的变化
-    #     para images: 单张图片或图片tensor、array
-    #     para step: 训练的 step
-    #     para walltime: 记录发生的时间，默认为 time.time()
-    #     """
-    #     self.writer.add_hparams(hparam_dict, metric_dict, hparam_domain_discrete=None, run_name=None)
-    #
+    def hparams_summary(self, hparam_dict, metric_dict, step=None):
+        self.writer.add_hparams(hparam_dict, metric_dict,
+                                hparam_domain_discrete=None, run_name=None)
 
 
 def sendmail(Text, config):

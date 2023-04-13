@@ -100,6 +100,165 @@ def get_Conv2d_extractor(
     return Conv2dFeatureExtractor(nn.ModuleList(blocks))
 
 
+def _get_MultiConv2d_extractor(
+        in_channels,
+        out_channels,) -> Conv2dFeatureExtractor:
+
+    blocks = []
+    in_channels = in_channels  # 输入数据的通道
+
+    for out_channel in out_channels:
+        # 卷积块设置
+        blocks.append(
+            Conv2dMultiBlock(
+                in_channels=in_channels,
+                out_channels=out_channel,
+            )
+        )
+        in_channels = out_channel  # 修改输入通道为 Extractor 的输出通道
+    return Conv2dFeatureExtractor(nn.ModuleList(blocks))
+
+
+def _get_ResMultiConv2d_extractor(
+        in_channels,
+        shapes,
+        bias: bool,) -> Conv2dFeatureExtractor:
+    blocks = []
+    in_channels = in_channels  # 输入数据的通道
+
+    for i, (out_channels, stride, norm_mode, pool_mode, pool_kernel) in enumerate(shapes):
+
+        # Norm设置
+        assert norm_mode in ["gn", "ln", "bn", "None"]
+        assert pool_mode in ["mp", "ap", "gap", "None"]
+        if norm_mode == "gn":
+            normalization = nn.GroupNorm(
+                num_groups=out_channels,
+                num_channels=out_channels,
+                affine=True,
+            )
+        elif norm_mode == "ln":
+            normalization = nn.LayerNorm(
+                normalized_shape=out_channels,
+                elementwise_affine=True,
+            )
+        elif norm_mode == "bn":
+            normalization = nn.BatchNorm2d(out_channels)
+        else:
+            normalization = None
+
+        if pool_mode == "mp":
+            poolling = nn.MaxPool2d(pool_kernel)
+        elif pool_mode == "ap":
+            poolling = nn.AvgPool2d(pool_kernel)
+        elif pool_mode == "gap":  # GlobalAveragePooling2D
+            pool_kernel = 1
+            poolling = nn.AdaptiveAvgPool2d(1)
+        else:
+            poolling = None
+        # 卷积块设置
+        blocks.append(
+            Conv2dResMultiBlock(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                stride=stride,
+                bias=bias,
+                layer_norm=normalization,
+                layer_poolling=poolling,
+                activate_func=nn.functional.relu
+            )
+        )
+
+        in_channels = out_channels  # 修改输入通道为 Extractor 的输出通道
+
+    return Conv2dFeatureExtractor(nn.ModuleList(blocks))
+
+
+class Conv2dMultiBlock(nn.Module):
+    '''
+    Multi-scale block without short-cut connections
+    '''
+
+    def __init__(self,
+                 in_channels: int,
+                 out_channels: int,
+                 ):
+        super(Conv2dMultiBlock, self).__init__()
+        assert (out_channels % 2 == 0)
+        self.conv3 = nn.Conv2d(
+            in_channels=in_channels, out_channels=int(out_channels/2), kernel_size=[3, 3], padding=1)
+        self.conv5 = nn.Conv2d(
+            in_channels=in_channels, out_channels=int(out_channels/2), kernel_size=[5, 5], padding=2)
+        self.bn = nn.BatchNorm2d(out_channels)
+
+    def forward(self, x):
+        x3 = self.conv3(x)
+        x5 = self.conv5(x)
+        x = torch.cat((x3, x5), 1)
+        x = self.bn(x)
+        x = F.relu(x)
+        return x
+
+
+class Conv2dResMultiBlock(nn.Module):
+    '''
+    Multi-scale block with short-cut connections
+    '''
+
+    def __init__(self,
+                 in_channels: int,
+                 out_channels: int,
+                 stride: int,
+                 bias: bool,
+                 layer_norm: Optional[nn.Module],
+                 layer_poolling: Optional[nn.Module],
+                 activate_func=nn.functional.relu,):
+        super(Conv2dResMultiBlock, self).__init__()
+        assert (out_channels % 2 == 0)
+
+        self.layer_norm = layer_norm
+        self.activate_func = activate_func
+        self.leyer_poolling = layer_poolling
+
+        self.conv3 = Conv2dSame(
+            in_channels=in_channels,
+            out_channels=int(out_channels/2),
+            kernel_size=[3, 3],
+            stride=stride,  # 步长
+            bias=bias,  # 是否使用偏置数
+            padding_mode='zeros'
+        )
+        self.conv5 = Conv2dSame(
+            in_channels=in_channels,
+            out_channels=int(out_channels/2),
+            kernel_size=[5, 5],
+            stride=stride,  # 步长
+            bias=bias,  # 是否使用偏置数
+            padding_mode='zeros'
+        )
+        self.subconv = None
+        if in_channels != int(out_channels/2):
+            self.subconv = nn.Conv2d(
+                kernel_size=[1, 1], in_channels=in_channels, out_channels=int(out_channels/2))
+
+    def forward(self, x):
+
+        x3 = self.conv3(x)
+        x5 = self.conv5(x)
+        if self.subconv is not None:
+            x = self.subconv(x)
+        x3 = x3+x
+        x5 = x5+x
+        x = torch.cat((x3, x5), 1)
+        if self.layer_norm is not None:
+            x = self.layer_norm(x)
+        if self.activate_func is not None:
+            x = self.activate_func(x)
+        if self.leyer_poolling is not None:
+            x = self.leyer_poolling(x)
+        return x
+
+
 class Conv2dLayerBlock(nn.Module):
     """单个卷积块,内部含有 Conv2d_layer, Norm_layer(可选), Activation_layer(可选, 默认GELU)"""
 

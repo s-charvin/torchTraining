@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import torch
 import torch.nn as nn
@@ -136,7 +136,7 @@ class Audio_Classification(object):
 
         # 保存最好的结果
         self.maxACC = self.WA_ = self.UA_ = self.macro_f1_ = self.w_f1_ = 0
-        est_endtime = 0
+        est_endtime = "..."
         for epoch in range(start_iter, self.n_epochs):  # epoch 迭代循环 [0, epoch)
             # [0, num_batch)
             for batch_i, data in enumerate(self.train_loader):
@@ -183,7 +183,7 @@ class Audio_Classification(object):
                             self.logger.scalar_summary(tag, value, step)
                     runningtime = datetime.now() - start_time
                     print(
-                        f"# <trained>: [Epoch {epoch}/{self.n_epochs-1}] [Batch {batch_i}/{len(self.train_loader)-1}] [lr: {self.optimizer.param_groups[0]['lr']}] [train_loss: {loss_.item():.4f}] [runtime: {runningtime}] [est_endtime: {est_endtime:.2f}h]")
+                        f"# <trained>: [Epoch {epoch}/{self.n_epochs-1}] [Batch {batch_i}/{len(self.train_loader)-1}] [lr: {self.optimizer.param_groups[0]['lr']}] [train_loss: {loss_.item():.4f}] [runtime: {runningtime}] [est_endtime: {est_endtime}]")
 
                 # 反向更新
                 if ((batch_i+1) % self.batch_delay) == 0:
@@ -195,8 +195,8 @@ class Audio_Classification(object):
                 step = step + 1
             if self.config["sorlver"]["lr_method"]["mode"] == "epoch":
                 self.lr_method.step()  # 当更新函数需要的是总 epoch 数量时, 输入整数
-            est_endtime = (self.n_epochs *
-                           runningtime.seconds/(epoch+1))/3600
+            est_endtime = timedelta(
+                seconds=self.n_epochs * ((runningtime.days*86400+runningtime.seconds)/(epoch+1)))
             self.last_epochs = epoch  # 记录当前已经训练完的迭代次数
 
             # 每 epoch 次测试下模型
@@ -231,10 +231,13 @@ class Audio_Classification(object):
                     data["audio"], batch_first=True)
             elif isinstance(data["audio"], torch.Tensor):
                 features, feature_lens = data["audio"], None
+
             # 获取标签
             true_labels = data["label"]
+
             # 将数据迁移到训练设备
             features = features.to(device=self.device)
+
             if feature_lens is not None:
                 feature_lens = feature_lens.to(device=self.device)
             true_labels = true_labels.long().to(device=self.device)
@@ -532,7 +535,7 @@ class Audio_Classification_CoTeaching(object):
 
         # 保存最好的结果
         self.maxACC = self.WA_ = self.UA_ = self.macro_f1_ = self.w_f1_ = 0
-        est_endtime = 0
+        est_endtime = "..."
         for epoch in range(start_iter, self.n_epochs):  # epoch 迭代循环 [0, epoch)
             # [0, num_batch)
             for batch_i, data in enumerate(self.train_loader):
@@ -593,7 +596,7 @@ class Audio_Classification_CoTeaching(object):
                     runningtime = datetime.now() - start_time
 
                     print(
-                        f"# <trained>: [Epoch {epoch}/{self.n_epochs-1}] [Batch {batch_i}/{len(self.train_loader)-1}] [lr: {self.optimizer1.param_groups[0]['lr']}] [train_loss: {loss_1_+loss_2_.item():.4f}] [runtime: {runningtime}] [est_endtime: {est_endtime:.2f}h]")
+                        f"# <trained>: [Epoch {epoch}/{self.n_epochs-1}] [Batch {batch_i}/{len(self.train_loader)-1}] [lr: {self.optimizer1.param_groups[0]['lr']}] [train_loss: {loss_1_+loss_2_.item():.4f}] [runtime: {runningtime}] [est_endtime: {est_endtime}]")
 
                 # 反向更新
                 if ((batch_i+1) % self.batch_delay) == 0:
@@ -608,8 +611,8 @@ class Audio_Classification_CoTeaching(object):
             if self.config["sorlver"]["lr_method"]["mode"] == "epoch":
                 self.lr_method1.step()  # 当更新函数需要的是总 epoch 数量时, 输入整数
                 self.lr_method2.step()  # 当更新函数需要的是总 epoch 数量时, 输入整数
-            est_endtime = (self.n_epochs *
-                           runningtime.seconds/(epoch+1))/3600
+            est_endtime = timedelta(
+                seconds=self.n_epochs * ((runningtime.days*86400+runningtime.seconds)/(epoch+1)))
             self.last_epochs = epoch  # 记录当前已经训练完的迭代次数
 
             # 每 epoch 次测试下模型

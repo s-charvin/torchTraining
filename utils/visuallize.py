@@ -337,7 +337,7 @@ def unnormalize(tensor, mean, std, inplace=False):
     return tensor
 
 
-def plot_tsne(model: torch.nn.Module, dataloader, outdir="./output/t-sne/"):
+def plot_tsne(model: torch.nn.Module, dataloader, outdir="./output/t-sne/", info=""):
     """
     Visualizes the feature embeddings of a PyTorch model using t-SNE.
 
@@ -352,47 +352,46 @@ def plot_tsne(model: torch.nn.Module, dataloader, outdir="./output/t-sne/"):
         pass
 
     # Get feature embeddings for all data points
-    embeddings = [[], [], []]
+    # embeddings = [[], [], []]
+    embeddings = None
     labels = []
     print("获取特征向量")
     with torch.no_grad():
         if model is not None:
-            model = model.cuda(1)
+            model = model
             for data in dataloader:
-                audio_features = data["audio"]
-                video_features = data["video"]
-                labels = labels+data["label"]
-                video_features = video_features.cuda(1).float()
-                audio_features = audio_features.cuda(1).float()
-                audio_embeddings, video_embeddings, fusion_embeddings = model(
-                    audio_features, video_features)
-
-                embeddings[0].append(audio_embeddings.cpu().numpy())
-                embeddings[1].append(video_embeddings.cpu().numpy())
-                embeddings[2].append(fusion_embeddings.cpu().numpy())
-
-        else:
-            for data in dataloader:
-                audio_features = data["audio"].float()
-                video_features = data["video"].float()
+                if "audio" in data:
+                    audio_features = data["audio"]
+                    audio_features = audio_features.float()
+                if "video" in data:
+                    video_features = data["video"]
+                    video_features = video_features.float()
                 labels = labels+data["label"]
 
-                embeddings[0].append(audio_features.view(
-                    audio_features.shape[0], -1).numpy())
-                embeddings[1].append(video_features.view(
-                    video_features.shape[0], -1).numpy())
-    del embeddings[2]
+                # embed = model(audio_features)
+                # embed = model(audio_features,video_features)
+                embed = model(video_features)
+                if not isinstance(embed, tuple):
+                    embed = (embed,)
+                if embeddings is not None:
+                    embed = [i.cpu().numpy() for i in embed]
+                    for i in range(len(embeddings)):
+                        embeddings[i].append(embed[i])
+                else:
+                    embed = [i.cpu().numpy() for i in embed]
+                    embeddings = [[embed[i]] for i in range(len(embed))]
+
+                # embeddings = [i.cpu().numpy() for i in model(audio_features,video_features)]
+                # embeddings = [i.cpu().numpy() for i in model(video_features)]
 
     embeddings = [np.concatenate(embedding, axis=0)
                   for embedding in embeddings]
-    # labels = np.concatenate(labels, axis=0)
     label_encoder = sklearn.preprocessing.LabelEncoder()
     label_encoder.fit(y=labels)
     labels = label_encoder.transform(labels)
     classes_ = label_encoder.classes_
 
     print("t-SNE 降维")
-    # Use t-SNE to reduce dimensionality to 2D
     tsne = TSNE(n_components=2, random_state=0, init='pca', perplexity=30)
 
     embeddings_tsne = [tsne.fit_transform(
@@ -400,6 +399,8 @@ def plot_tsne(model: torch.nn.Module, dataloader, outdir="./output/t-sne/"):
 
     print("展示图片")
     for j, embedding_tsne in enumerate(embeddings_tsne):
+        plt.clf()
+        plt.cla()
         plt.figure(figsize=(10, 10))
         unique_labels = np.unique(labels)
         for i in unique_labels:
@@ -410,6 +411,6 @@ def plot_tsne(model: torch.nn.Module, dataloader, outdir="./output/t-sne/"):
         # Save the figure if an output path is specified
         if outdir is not None:
             plt.savefig(os.path.join(
-                outdir.resolve(), "t-sne"+f"{j}"+".png"))
+                outdir.resolve(), f"{info}_t-sne_{j}.png"))
         else:
             plt.show()

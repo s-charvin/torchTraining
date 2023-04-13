@@ -12,7 +12,7 @@ import time
 # 第三方库
 import numpy as np  # 矩阵运算模块
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 import torch.distributed as dist
 import torch.utils.data.distributed
 import torch.multiprocessing as mp
@@ -66,9 +66,9 @@ def train_worker(local_rank, config, train_data_index, test_data_index, data):
     dataset_name = config["data"]["name"]  # 数据库名称
     dataset_root = config["data"]["root"]
 
-    data = globals()[dataset_name](
-        root=dataset_root,
-        filter=config["data"]["filters"], transform=config["data"]["transforms"], enhance=config["data"]["enhances"], **config["data"]["para"])
+    # data = globals()[dataset_name](
+    #     root=dataset_root,
+    #     filter=config["data"]["filters"], transform=config["data"]["transforms"], enhance=config["data"]["enhances"], **config["data"]["para"])
 
     num_workers = config["train"]['num_workers']  # 数据处理进程
     batch_size = config["train"]['batch_size']  # 数据块大小
@@ -160,7 +160,6 @@ def main(config):
         root=dataset_root,
         filter=config["data"]["filters"], transform=config["data"]["transforms"], enhance=config["data"]["enhances"], **config["data"]["para"])
     data_len = len(data)
-
     # 删除临时的 data. 这里使用临时 data, 虽然浪费了数据加载时间, 但是是为了实现多折训练所必需的问题解决方法(无法将 data 作为参数传入子进程)
     config["data"]["root"] = data.root
     print(f"训练使用数据集: {dataset_name}")
@@ -177,7 +176,7 @@ def main(config):
             print(f'\n################ 开始训练第 {k} 次模型 ################')
             if config['self_auto']['gpu_nums'] > 0:
                 context = mp.spawn(train_worker,
-                                   nprocs=config['self_auto']['gpu_nums'], args=(config, train_data_index, test_data_index), join=False)
+                                   nprocs=config['self_auto']['gpu_nums'], args=(config, train_data_index, test_data_index, data), join=False)
                 # Loop on join until it returns True or raises an exception.
                 try:
                     while not context.join():
@@ -186,7 +185,7 @@ def main(config):
                     raise e
             elif config['self_auto']['gpu_nums'] == 0:
                 train_worker(None, config, train_data_index,
-                             test_data_index)
+                             test_data_index, data)
     else:
         indices = np.random.permutation(data_len)
         train_data_index, test_data_index = indices[:int(

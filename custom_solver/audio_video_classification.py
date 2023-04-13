@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import torch
 import torch.nn as nn
@@ -12,7 +12,7 @@ from .optimizer import *
 from .report import classification_report
 
 
-class Audio_Video_Classification(object):
+class Audio_Video_Joint_Classification(object):
 
     def __init__(self, train_loader=None, test_loader=None, config: dict = {}, device=None, batch_delay=1):
         """分类模型训练方法框架
@@ -29,6 +29,7 @@ class Audio_Video_Classification(object):
         self.device = device  # 定义主设备
         # 定义训练延迟, 当 batch 不太大时的一种训练优化方法, 设置延迟几个 epoch 后再优化参数.
         self.batch_delay = batch_delay
+
         # 设置要使用的模型
         if self.config['architecture']['net']['para']:
             self.net = globals()[self.config["architecture"]["net"]["name"]](
@@ -36,6 +37,7 @@ class Audio_Video_Classification(object):
         else:
             self.net = globals()[
                 self.config["architecture"]["net"]["name"]]()
+
         # 多 GPU 并行计算
         if self.config['self_auto']['gpu_nums']:
             self.net = self.net.to(device=self.device)
@@ -134,7 +136,7 @@ class Audio_Video_Classification(object):
 
         # 保存最好的结果
         self.maxACC = self.WA_ = self.UA_ = self.macro_f1_ = self.w_f1_ = 0
-        est_endtime = 0
+        est_endtime = "..."
 
         for epoch in range(start_iter, self.n_epochs):  # epoch 迭代循环 [0, epoch)
             # [0, num_batch)
@@ -199,7 +201,7 @@ class Audio_Video_Classification(object):
                     runningtime = datetime.now() - start_time
 
                     print(
-                        f"# <trained>: [Epoch {epoch}/{self.n_epochs-1}] [Batch {batch_i}/{len(self.train_loader)-1}] [lr: {self.optimizer.param_groups[0]['lr']}] [train_loss: {loss_.item():.4f}] [runtime: {runningtime}] [est_endtime: {est_endtime:.2f}h]")
+                        f"# <trained>: [Epoch {epoch}/{self.n_epochs-1}] [Batch {batch_i}/{len(self.train_loader)-1}] [lr: {self.optimizer.param_groups[0]['lr']}] [train_loss: {loss_.item():.4f}] [runtime: {runningtime}] [est_endtime: {est_endtime}]")
 
                 # 反向更新
                 if ((batch_i+1) % self.batch_delay) == 0:
@@ -212,8 +214,8 @@ class Audio_Video_Classification(object):
             if self.config["sorlver"]["lr_method"]["mode"] == "epoch":
                 self.lr_method.step()  # 当更新函数需要的是总 epoch 数量时, 输入整数
 
-            est_endtime = (self.n_epochs *
-                           runningtime.seconds/(epoch+1))/3600
+            est_endtime = timedelta(
+                seconds=self.n_epochs * ((runningtime.days*86400+runningtime.seconds)/(epoch+1)))
             self.last_epochs = epoch  # 记录当前已经训练完的迭代次数
 
             # 每 epoch 次测试下模型
@@ -256,6 +258,9 @@ class Audio_Video_Classification(object):
             elif isinstance(data["video"], torch.Tensor):
                 video_features, video_feature_lens = data["video"], None
 
+            # 获取标签
+            true_labels = data["label"]
+
             # 将数据迁移到训练设备
             video_features = video_features.to(
                 device=self.device, dtype=torch.float32)
@@ -268,9 +273,6 @@ class Audio_Video_Classification(object):
             if audio_feature_lens is not None:
                 audio_feature_lens = audio_feature_lens.to(
                     device=self.device)
-
-            # 获取标签
-            true_labels = data["label"]
             true_labels = true_labels.long().to(device=self.device)
 
             with torch.no_grad():
@@ -554,7 +556,7 @@ class Audio_Video_Fusion_Classification(object):
 
         # 保存最好的结果
         self.maxACC = self.WA_ = self.UA_ = self.macro_f1_ = self.w_f1_ = 0
-        est_endtime = 0
+        est_endtime = "..."
 
         for epoch in range(start_iter, self.n_epochs):  # epoch 迭代循环 [0, epoch)
             # [0, num_batch)
@@ -634,7 +636,7 @@ class Audio_Video_Fusion_Classification(object):
                     runningtime = datetime.now() - start_time
 
                     print(
-                        f"# <train>: [Epoch {epoch}/{self.n_epochs-1}] [Batch {batch_i}/{len(self.train_loader)-1}] [lr: {self.optimizer.param_groups[0]['lr']}] [train_audio_loss: {audio_loss_.item():.4f}] [train_video_loss: {video_loss_.item():.4f}] [train_fusion_loss: {fusion_loss_.item():.4f}] [train_avg_loss: {avg_loss_.item():.4f}] [time: {runningtime}] [est_endtime: {est_endtime:.2f}h]")
+                        f"# <train>: [Epoch {epoch}/{self.n_epochs-1}] [Batch {batch_i}/{len(self.train_loader)-1}] [lr: {self.optimizer.param_groups[0]['lr']}] [train_audio_loss: {audio_loss_.item():.4f}] [train_video_loss: {video_loss_.item():.4f}] [train_fusion_loss: {fusion_loss_.item():.4f}] [train_avg_loss: {avg_loss_.item():.4f}] [time: {runningtime}] [est_endtime: {est_endtime}]")
 
                 # 反向更新
                 if ((batch_i+1) % self.batch_delay) == 0:
@@ -647,8 +649,8 @@ class Audio_Video_Fusion_Classification(object):
             if self.config["sorlver"]["lr_method"]["mode"] == "epoch":
                 self.lr_method.step()  # 当更新函数需要的是总 epoch 数量时, 输入整数
 
-            est_endtime = (self.n_epochs *
-                           runningtime.seconds/(epoch+1))/3600
+            est_endtime = timedelta(
+                seconds=self.n_epochs * ((runningtime.days*86400+runningtime.seconds)/(epoch+1)))
             self.last_epochs = epoch  # 记录当前已经训练完的迭代次数
 
             # 每 epoch 次测试下模型
