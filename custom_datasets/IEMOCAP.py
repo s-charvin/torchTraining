@@ -136,6 +136,7 @@ class IEMOCAP(MediaDataset):
                     self._pathList.append(wav_file_name)
                     self._periodList.append(
                         (float(start_time), float(end_time)))
+
                     # 获取情感维度值 dominance (dom), activation (act) and valence (val)
                     _dimvalueList.append(
                         (float(val),
@@ -191,7 +192,7 @@ class IEMOCAP(MediaDataset):
                     audiolist[i] = self._load_audio(self.datadict["path"][i])
 
             self.datadict["audio"] = [torch.from_numpy(i) for i in audiolist]
-            self.datadict["audio_sampleNum"] = [a.shape[0]
+            self.datadict["audio_sampleNum"] = [a.shape[1]
                                                 for a in self.datadict["audio"]]
         if self.mode in ["v", "av",  "vt", "avt"]:
             print("构建视频数据")
@@ -211,9 +212,8 @@ class IEMOCAP(MediaDataset):
         dropna = self.filter["dropna"] if "dropna" in keys else {}
         contains = self.filter["contains"] if "contains" in keys else {}
         query = self.filter["query"] if "query" in keys else {}
-        sort_values = self.filter["sort_values"] if "sort_values" in keys else {
-        }
-
+        # sort_values = self.filter["sort_values"] if "sort_values" in keys else {
+        # }
         dropinds = []
         for ind in range(length):
             if (self.mode in ["v", "av",  "vt", "avt"]) and ("Ses05F_script02_2_M" in self.datadict["path"][ind]):
@@ -227,13 +227,19 @@ class IEMOCAP(MediaDataset):
 
             for k, v in contains.items():
                 for t in v:
-                    if self.datadict[k][ind] == t:
+                    if t not in self.datadict[k][ind]:
                         dropinds.append(ind)
 
             for k, v in replaces.items():
                 for s, t in v.items():
                     if self.datadict[k][ind] == s:
                         self.datadict[k][ind] = t
+
+        for k, v in query.items():
+            df = pd.DataFrame({k: self.datadict[k]})
+            inds = df.query(v).index.tolist()
+            inds = [i for i in df.index.tolist() if i not in inds]
+            dropinds = dropinds + inds
 
         for k, v in self.datadict.items():
             self.datadict[k] = [self.datadict[k][i]
@@ -276,7 +282,7 @@ class IEMOCAP(MediaDataset):
             self.root, f"Session{sess}/sentences/video/")) for sess in range(1, 6)]))
         if len(fileExists) != 1 or fileExists[0]:
             print("检测视频文件是否损坏...")
-            # self.check_videoFile()
+            self.check_videoFile()
         elif not fileExists[0]:
             self._creat_video_process(
                 self._pathList)
@@ -355,32 +361,34 @@ class IEMOCAP(MediaDataset):
 
     def _creat_video(self, filelist, pbar_queue=None):
         # 给定文件名列表, 处理视频文件函数
-        for ind, filename in enumerate(filelist):  # Ses01F_impro01_F000
-            # F(L:female;R:male),M(L:male;R:female)
-            mapRule = {"FF": "L", "FM": "R", "MM": "L", "MF": "R"}
-            filename_ = filename.split("_")
-            sess = int(filename_[0][3:-1])
-            speaker = mapRule[filename_[0][-1]+filename_[-1][0]]
-            # 建立当前 sess 存放视频的文件夹
-            videoPath = os.path.join(
-                self.root, f"Session{sess}/sentences/video/"+"_".join(filename_[:-1]))
-            if not os.path.exists(videoPath):
-                os.makedirs(videoPath)
-            if self.videomode == "crop":
-                video_clip_path = os.path.join(
-                    videoPath, filename+"_crop"+".avi")
-            else:
-                video_clip_path = os.path.join(videoPath, filename+".avi")
-            origin_video_path = os.path.join(
-                self.root, f'Session{sess}/dialog/avi/DivX/'+"_".join(filename_[:-1])+".avi")
-            if self.videomode == "crop":
-                capture_video(origin_video_path, video_clip_path,
-                              *self._periodList[ind], speaker)
-            else:
-                capture_face_video(self.cascPATH, origin_video_path,
-                                   video_clip_path, *self._periodList[ind], speaker)
-            if pbar_queue:
-                pbar_queue.put(1)
+        for ind, filename in enumerate(self._pathList):  # Ses01F_impro01_F000
+            if filename in filelist:
+                # F(L:female;R:male),M(L:male;R:female)
+                mapRule = {"FF": "L", "FM": "R", "MM": "L", "MF": "R"}
+                filename_ = filename.split("_")
+                sess = int(filename_[0][3:-1])
+                speaker = mapRule[filename_[0][-1]+filename_[-1][0]]
+                # 建立当前 sess 存放视频的文件夹
+                videoPath = os.path.join(
+                    self.root, f"Session{sess}/sentences/video/"+"_".join(filename_[:-1]))
+                if not os.path.exists(videoPath):
+                    os.makedirs(videoPath)
+                if self.videomode == "crop":
+                    video_clip_path = os.path.join(
+                        videoPath, filename+"_crop"+".avi")
+                else:
+                    video_clip_path = os.path.join(videoPath, filename+".avi")
+
+                origin_video_path = os.path.join(
+                    self.root, f'Session{sess}/dialog/avi/DivX/'+"_".join(filename_[:-1])+".avi")
+                if self.videomode == "crop":
+                    capture_video(origin_video_path,
+                                  video_clip_path, *self._periodList[ind], speaker)
+                else:
+                    capture_face_video(self.cascPATH, origin_video_path,
+                                       video_clip_path, *self._periodList[ind], speaker)
+                if pbar_queue:
+                    pbar_queue.put(1)
 
     def _get_speaker(self, filename) -> str:
         # 给定文件名获取此文件对应说话人性别

@@ -1,6 +1,6 @@
 train:
     # 训练设备
-    name: "MIFFNet_Joint-step(1s)-window(3s)-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)" # 本次运行模型名称
+    name: "VideoNet_Conv2D-inlength(7s)-model(resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)" # 本次运行模型名称
     nodes: 1 # 本次训练总共要使用的节点数量, 如果需要多台计算机进行分布式计算才需要设置. 从 1 开始
     node_rank: 0 # 当前节点在所有节点中的排名, 从 0 开始
     master_addr: "127.0.0.1" # 声明主进程 0 的 IP 地址和通信端口, 以便所有进程可以同步更新参数.
@@ -39,7 +39,7 @@ sorlver:
     # Audio_Video_Fusion_Classification,Audio_Classification2MultiObject_MGDA_UB
     # Audio_Classification_CoTeaching
 
-    name: "Audio_Video_Joint_Classification"
+    name: "Video_Classification"
     optimizer:
         name: "AdamW"
         lr: 0.00025 # 学习率

@@ -337,7 +337,7 @@ def unnormalize(tensor, mean, std, inplace=False):
     return tensor
 
 
-def plot_tsne(model: torch.nn.Module, dataloader, outdir="./output/t-sne/", info=""):
+def plot_tsne(model: torch.nn.Module, dataloader, outdir="./output/t-sne/", info="", device=torch.device('cpu')):
     """
     Visualizes the feature embeddings of a PyTorch model using t-SNE.
 
@@ -358,19 +358,19 @@ def plot_tsne(model: torch.nn.Module, dataloader, outdir="./output/t-sne/", info
     print("获取特征向量")
     with torch.no_grad():
         if model is not None:
-            model = model
+            model = model.to(device)
             for data in dataloader:
                 if "audio" in data:
                     audio_features = data["audio"]
-                    audio_features = audio_features.float()
+                    audio_features = audio_features.float().to(device)
                 if "video" in data:
                     video_features = data["video"]
-                    video_features = video_features.float()
+                    video_features = video_features.float().to(device)
                 labels = labels+data["label"]
 
                 # embed = model(audio_features)
-                # embed = model(audio_features,video_features)
-                embed = model(video_features)
+                embed = model(audio_features, video_features)
+                # embed = model(video_features)
                 if not isinstance(embed, tuple):
                     embed = (embed,)
                 if embeddings is not None:
@@ -380,9 +380,6 @@ def plot_tsne(model: torch.nn.Module, dataloader, outdir="./output/t-sne/", info
                 else:
                     embed = [i.cpu().numpy() for i in embed]
                     embeddings = [[embed[i]] for i in range(len(embed))]
-
-                # embeddings = [i.cpu().numpy() for i in model(audio_features,video_features)]
-                # embeddings = [i.cpu().numpy() for i in model(video_features)]
 
     embeddings = [np.concatenate(embedding, axis=0)
                   for embedding in embeddings]
@@ -414,3 +411,79 @@ def plot_tsne(model: torch.nn.Module, dataloader, outdir="./output/t-sne/", info
                 outdir.resolve(), f"{info}_t-sne_{j}.png"))
         else:
             plt.show()
+
+
+def plot_rt(model: torch.nn.Module, dataloader, outdir="./output/real-time/", info="", device=torch.device('cpu')):
+    """
+    Visualizes the real-time classification.
+
+    Args:
+        model (callable): A PyTorch model or any other callable that accepts a batch of data as input and returns feature embeddings.
+        dataloader (torch.utils.data.DataLoader): A PyTorch DataLoader object that provides the data to be visualized.
+    """
+    try:
+        outdir = Path(outdir)
+        outdir.mkdir(parents=True)
+    except FileExistsError:
+        pass
+
+    # Get preds for all data points
+    all_preds = []
+    classes_ = {"angry": 0, "happy": 1, "neutral": 2, "sad": 3}
+    print("获取预测值")
+    with torch.no_grad():
+
+        if model is not None:
+            model = model.to(device)
+            for data in dataloader:
+                if "audio" in data:
+                    audio_features = data["audio"]
+                    audio_features = audio_features.float().to(device)
+                    # audio_features = torch.split(audio_features, 441, dim=1)
+                    af_seq_len = 441
+                    af_seq_step = 63
+                    audio_features = [audio_features[:, af_seq_step*i:af_seq_step*i+af_seq_len, :, :]
+                                      for i in range(int(((audio_features.shape[1]-af_seq_len) / af_seq_step)+1))]
+
+                if "video" in data:
+                    video_features = data["video"]
+                    video_features = video_features.float().to(device)
+                    # video_features = torch.split(video_features, 70, dim=1)
+
+                    vf_seq_len = 70
+                    vf_seq_step = 10
+                    video_features = [video_features[:, vf_seq_step*i:vf_seq_step*i+vf_seq_len, :, :, :]
+                                      for i in range(int(((video_features.shape[1]-vf_seq_len) / vf_seq_step)+1))]
+
+                # out = [model(a, v)[2]
+                #        for a, v in zip(audio_features, video_features)]
+                # out = [model(a)[0] for a in audio_features]
+                out = [model(v)[0] for v in video_features]
+                if out:
+                    out = torch.stack(out).permute(1, 0, 2)
+                    pred_prob = F.softmax(out, dim=2).tolist()
+                    target = [classes_[t] for t in data["label"]]
+
+                    for i_b, b_pre in enumerate(pred_prob):
+                        t = target[i_b]
+                        for i_p, pre in enumerate(b_pre):
+                            pred_prob[i_b][i_p] = pred_prob[i_b][i_p][t]
+                    a = len(pred_prob)
+                    all_preds = all_preds+pred_prob
+
+    print("展示图片")
+    plt.clf()
+    plt.cla()
+    fig, ax = plt.subplots(figsize=(10, 10))
+    for pre in all_preds:
+        x = np.arange(len(pre))
+        pre = np.array(pre)
+        ax.plot(x, pre, linestyle='-', marker='.')  # , color='coral'
+
+    # Save the figure if an output path is specified
+    ax.legend()
+    if outdir is not None:
+        fig.savefig(os.path.join(
+            outdir.resolve(), f"{info}_rtPred_{0}.png"))
+    else:
+        fig.show()
