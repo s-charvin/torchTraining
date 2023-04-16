@@ -1473,6 +1473,93 @@ class MIFFNet_Conv2D_SVC_InterFusion(nn.Module):
             return af_fea, vf_fea, fusion_fea
 
 
+class MIFFNet_Conv2D_InterFusion_Joint(nn.Module):
+    """
+    paper: MIFFNet: Multimodal interframe feature fusion network
+    """
+
+    def __init__(self, num_classes=4, model_name=["lightsernet", "resnet50"], seq_len=[189, 30], last_hidden_dim=[320, 320], input_size=[[126, 40], [150, 150]], enable_classifier=True) -> None:
+        super().__init__()
+        self.af_seq_len = seq_len[0]
+        self.vf_seq_len = seq_len[1]
+        self.af_model_name = model_name[0]
+        self.vf_model_name = model_name[1]
+        self.af_last_hidden_dim = last_hidden_dim[0]
+        self.vf_last_hidden_dim = last_hidden_dim[1]
+        self.af_input_size = input_size[0]
+        self.vf_input_size = input_size[1]
+        self.enable_classifier = enable_classifier
+
+        if self.af_model_name == "lightsernet":
+            assert self.af_last_hidden_dim == 320, "由原论文可知 情绪识别中的 LightSerNet 的隐藏层向量最好限定为 320"
+
+        # self.audio_feature_extractor = getModel(
+        #     self.af_model_name, out_features=num_classes, in_channels=1, input_size=self.af_input_size)
+        # self.af_last_hidden_dim = self.audio_feature_extractor.last_linear.in_features
+
+        # self.audio_feature_extractor.last_linear = EmptyModel()
+
+        # self.video_feature_extractor = getVideoModel(
+        #     self.vf_model_name, out_features=num_classes, in_channels=3, num_frames=30, input_size=self.vf_input_size, pretrained=True)
+        # self.vf_last_hidden_dim = self.video_feature_extractor.last_linear.in_features
+        # self.video_feature_extractor.last_linear = EmptyModel()
+
+        self.audio_feature_extractor = LightResMultiSerNet_Encoder()
+        self.video_feature_extractor = getVideoModel(
+            self.vf_model_name, out_features=self.vf_last_hidden_dim, in_channels=3, num_frames=30, input_size=self.vf_input_size, pretrained=True)
+
+        mid_hidden_dim = int(
+            (self.af_last_hidden_dim+self.vf_last_hidden_dim)/2)
+
+        self.fusion_feature = nn.Linear(
+            in_features=self.af_last_hidden_dim+self.vf_last_hidden_dim, out_features=mid_hidden_dim)
+
+        self.classifier = nn.Linear(
+            in_features=self.af_last_hidden_dim+mid_hidden_dim+self.vf_last_hidden_dim, out_features=num_classes)
+
+    def forward(self, af: Tensor, vf: Tensor, af_len=None, vf_len=None) -> Tensor:
+        """
+        Args:
+            af (Tensor): size:[B, Seq, F, C]
+            vf (Tensor): size:[B, Seq, W, H, C]
+            af_len (Sequence, optional): size:[B]. Defaults to None.
+            vf_len (Sequence, optional): size:[B]. Defaults to None.
+
+        Returns:
+            Tensor: size:[batch, out]
+        """
+        af = af.permute(0, 3, 1, 2)
+        # [B, C, Seq, F]
+        af_fea = self.audio_feature_extractor(af)
+        # [B, F]
+
+        # 处理视频数据
+        # [B, Seq, W, H, C]
+        seq_length = vf.shape[1]
+        vf = vf.permute(0, 1, 4, 2, 3).contiguous()
+        # [B, Seq, C, W, H]
+        vf_fea = self.video_feature_extractor(
+            vf.view((-1, ) + vf.size()[-3:]))
+        # [B * Seq, F]
+        vf_fea = vf_fea.view((-1, seq_length) + vf_fea.size()[1:])
+        # [B, Seq, F]
+        vf_fea = vf_fea.mean(dim=1)
+        # [B, F]
+        # 中间融合
+        fusion_fea = torch.cat([vf_fea, af_fea], dim=-1)
+        # [B, 2*F]
+        common_feature = self.fusion_feature(fusion_fea.detach())
+
+        # [B, 2*F]
+        joint_fea = torch.cat([af_fea, common_feature, vf_fea], dim=1)
+        # 分类
+        if self.enable_classifier:
+            out = self.classifier(joint_fea)
+            return F.softmax(out, dim=1), None
+        else:
+            return joint_fea
+
+
 class MIFFNet_Conv2D_SVC_InterFusion_Joint(nn.Module):
     """
     paper: MIFFNet: Multimodal interframe feature fusion network

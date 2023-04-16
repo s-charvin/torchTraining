@@ -24,7 +24,7 @@ data:
     root: "/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy"
     para:
         info: "" # 存储数据要添加的额外信息
-        mode: "v" # ["v", "a", "t", "av", "at", "vt", "avt"]
+        mode: "av" # ["v", "a", "t", "av", "at", "vt", "avt"]
         videomode: "crop"
         cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
