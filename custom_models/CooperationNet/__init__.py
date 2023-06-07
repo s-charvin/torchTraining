@@ -1,1 +1,1 @@
-from .model import CooperationSVCNet
+from .model import CooperationNet

@@ -1,7 +1,7 @@
-from typing import Type, Any, Callable, Union, List, Optional
+from typing import Tuple,Type, Any, Callable, Union, List, Optional
 import torch
 from torch import Tensor, nn
-from typing import Tuple, Optional
+import torchvision
 import torch.nn.functional as F
 import math
 import numpy as np
@@ -1358,3 +1358,91 @@ class ResMultiConv5(nn.Module):
         x = x.reshape(x.shape[0], -1)
         x = self.fc(x)
         return x
+
+
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model, max_len=5000):
+        super().__init__()
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(
+            0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        a = self.pe[:, :x.size(1)]
+        x = x + self.pe[:, :x.size(1)]
+        return x
+
+
+class ESIAttention(nn.Module):
+    def __init__(self, d_model, n_heads, dropout=0.1, max_len=5000):
+        super().__init__()
+        self.positional_encoding = PositionalEncoding(d_model, max_len)
+        self.multihead_attention = nn.MultiheadAttention(d_model, n_heads)
+        # self.norm1 = nn.LayerNorm(d_model)
+        # self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x, s):
+        # Multi-head self-attention
+        x = self.positional_encoding(x)
+        s = self.positional_encoding(s)
+        attn_output, _ = self.multihead_attention(s, x, x)
+        x = x + attn_output
+        # x = self.norm1(x)
+        return x
+
+class ModulatedDeformConv2dPack(torchvision.ops.DeformConv2d):
+    def __init__(self, *args, **kwargs):
+        super(ModulatedDeformConv2dPack, self).__init__(*args, **kwargs)
+        self.conv_offset2d = nn.Conv2d(
+            self.in_channels, 
+            self.deformable_groups * 3 * self.kernel_size[0] * self.kernel_size[1],
+            kernel_size=self.kernel_size, 
+            stride=self.stride, 
+            padding=self.padding, 
+            dilation=self.dilation,
+            bias=True)
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        super().reset_parameters()
+        if hasattr(self, 'conv_offset2d'):
+            self.conv_offset2d.weight.data.zero_()
+            self.conv_offset2d.bias.data.zero_()
+        
+    def forward(self, x: torch.Tensor):
+        out = self.conv_offset2d(x)
+        o1, o2, mask = torch.chunk(out, 3, dim=1)
+        offset = torch.cat((o1, o2), dim=1)
+        mask = torch.sigmoid(mask)
+        return torchvision.ops.deform_conv2d(x, offset, self.weight, self.bias, stride=self.stride,
+                             padding=self.padding, dilation=self.dilation, mask=mask)
+
+
+class DeformConv2dPack(torchvision.ops.DeformConv2d):
+    def __init__(self, *args, **kwargs):
+        super(DeformConv2dPack, self).__init__(*args, **kwargs)
+        self.conv_offset2d = nn.Conv2d(
+            self.in_channels, 
+            self.deformable_groups * 2 * self.kernel_size[0] * self.kernel_size[1],
+            kernel_size=self.kernel_size, 
+            stride=self.stride, 
+            padding=self.padding, 
+            dilation=self.dilation,
+            bias=True)
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        super().reset_parameters()
+        if hasattr(self, 'conv_offset2d'):
+            self.conv_offset2d.weight.data.zero_()
+            self.conv_offset2d.bias.data.zero_()
+        
+    def forward(self, x: torch.Tensor):
+        offset = self.conv_offset2d(x)
+        return torchvision.ops.deform_conv2d(x, offset, self.weight, self.bias, stride=self.stride,
+                             padding=self.padding, dilation=self.dilation)

@@ -3,6 +3,7 @@ import sys
 from typing import Sequence
 from pathlib import Path
 from IPython import display
+from sklearn import preprocessing
 import torch
 import numpy as np
 import librosa.display
@@ -10,10 +11,11 @@ import torchaudio
 import decord
 from custom_transforms.video_transforms import *
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator
 import numpy as np
 import sklearn
 from sklearn.manifold import TSNE
-
+from sklearn.metrics import confusion_matrix
 
 def plot_spectrogram(input, outdir="./output/image/"):
     try:
@@ -360,6 +362,8 @@ def plot_tsne(model: torch.nn.Module, dataloader, outdir="./output/t-sne/", info
         if model is not None:
             model = model.to(device)
             for data in dataloader:
+                audio_features = None
+                video_features = None
                 if "audio" in data:
                     audio_features = data["audio"]
                     audio_features = audio_features.float().to(device)
@@ -368,11 +372,41 @@ def plot_tsne(model: torch.nn.Module, dataloader, outdir="./output/t-sne/", info
                     video_features = video_features.float().to(device)
                 labels = labels+data["label"]
 
-                # embed = model(audio_features)
-                embed = model(audio_features, video_features)
-                # embed = model(video_features)
+                if audio_features is not None and video_features is not None:
+                    embed = model(audio_features, video_features)
+                elif audio_features is not None:
+                    embed = model(audio_features)
+                elif video_features is not None:
+                    embed = model(video_features)
+
                 if not isinstance(embed, tuple):
                     embed = (embed,)
+                if embeddings is not None:
+                    embed = [i.cpu().numpy() for i in embed]
+                    for i in range(len(embeddings)):
+                        embeddings[i].append(embed[i])
+                else:
+                    embed = [i.cpu().numpy() for i in embed]
+                    embeddings = [[embed[i]] for i in range(len(embed))]
+        else:
+            for data in dataloader:
+                audio_features = None
+                video_features = None
+                if "audio" in data:
+                    audio_features = data["audio"]
+                    audio_features = audio_features.float()
+                if "video" in data:
+                    video_features = data["video"]
+                    video_features = video_features.float()
+                labels = labels+data["label"]
+                if audio_features is not None and video_features is not None:
+                    embed = (audio_features.view(audio_features.shape[0], -1),
+                             video_features.view(video_features.shape[0], -1))
+                elif audio_features is not None:
+                    embed = (audio_features.view(audio_features.shape[0], -1),)
+                elif video_features is not None:
+                    embed = (video_features.view(audio_features.shape[0], -1),)
+
                 if embeddings is not None:
                     embed = [i.cpu().numpy() for i in embed]
                     for i in range(len(embeddings)):
@@ -389,28 +423,46 @@ def plot_tsne(model: torch.nn.Module, dataloader, outdir="./output/t-sne/", info
     classes_ = label_encoder.classes_
 
     print("t-SNE 降维")
-    tsne = TSNE(n_components=2, random_state=0, init='pca', perplexity=30)
+    tsne = TSNE(n_components=2, perplexity=30, random_state=42, init='pca',  # random
+                early_exaggeration=12.0,
+                learning_rate=500,
+                n_iter=1000,
+                n_iter_without_progress=300,
+                min_grad_norm=1e-7,
+                metric="euclidean",
+                metric_params=None,
+                verbose=0,
+                method="barnes_hut",
+                angle=0.6,
+                n_jobs=-1)
 
-    embeddings_tsne = [tsne.fit_transform(
-        embedding) for embedding in embeddings]
+    embeddings_tsne = [preprocessing.MinMaxScaler(feature_range=(-1, 1)).fit_transform(tsne.fit_transform(
+        embedding)) for embedding in embeddings]
 
     print("展示图片")
     for j, embedding_tsne in enumerate(embeddings_tsne):
         plt.clf()
         plt.cla()
-        plt.figure(figsize=(10, 10))
+        fig, ax = plt.subplots(1, 1, sharex=True, figsize=(10, 10))
         unique_labels = np.unique(labels)
         for i in unique_labels:
             mask = labels == i
-            plt.scatter(embedding_tsne[mask, 0],
-                        embedding_tsne[mask, 1], label=classes_[i])
-        plt.legend()
+            ax.scatter(embedding_tsne[mask, 0],
+                       embedding_tsne[mask, 1], label=classes_[i])
+        # 设置图示字体属性
+        legend_font = {'family': 'serif',
+                       'size': 20, 'weight': 'bold'}  # 定义字体属性
+        ax.legend(prop=legend_font)
         # Save the figure if an output path is specified
+        ax.tick_params(axis='both', labelsize=20, which='both', width=5)
+        ax.yaxis.set_ticks([-1, -0.5, 0, 0.5, 1])
+        ax.xaxis.set_ticks([-1, -0.5, 0, 0.5, 1])
         if outdir is not None:
-            plt.savefig(os.path.join(
+            fig.tight_layout()
+            fig.savefig(os.path.join(
                 outdir.resolve(), f"{info}_t-sne_{j}.png"))
         else:
-            plt.show()
+            fig.show()
 
 
 def plot_rt(model: torch.nn.Module, dataloader, outdir="./output/real-time/", info="", device=torch.device('cpu')):
@@ -436,6 +488,8 @@ def plot_rt(model: torch.nn.Module, dataloader, outdir="./output/real-time/", in
         if model is not None:
             model = model.to(device)
             for data in dataloader:
+                audio_features = None
+                video_features = None
                 if "audio" in data:
                     audio_features = data["audio"]
                     audio_features = audio_features.float().to(device)
@@ -454,36 +508,135 @@ def plot_rt(model: torch.nn.Module, dataloader, outdir="./output/real-time/", in
                     vf_seq_step = 10
                     video_features = [video_features[:, vf_seq_step*i:vf_seq_step*i+vf_seq_len, :, :, :]
                                       for i in range(int(((video_features.shape[1]-vf_seq_len) / vf_seq_step)+1))]
-
-                # out = [model(a, v)[2]
-                #        for a, v in zip(audio_features, video_features)]
-                # out = [model(a)[0] for a in audio_features]
-                out = [model(v)[0] for v in video_features]
-                if out:
-                    out = torch.stack(out).permute(1, 0, 2)
-                    pred_prob = F.softmax(out, dim=2).tolist()
+                if audio_features is not None and video_features is not None:
+                    pred_prob = [F.softmax(model(a, v)[0], dim=1)
+                                 for a, v in zip(audio_features, video_features)]
+                elif audio_features is not None:
+                    pred_prob = [F.softmax(model(a)[0], dim=1) for a in audio_features]
+                elif video_features is not None:
+                    pred_prob = [F.softmax(model(v)[0], dim=1) for v in video_features]
+                # S * [B,C]
+                if pred_prob:
+                    pred_prob = torch.stack(
+                        pred_prob).permute(1, 0, 2).tolist()
+                    #  [B, S, C]
                     target = [classes_[t] for t in data["label"]]
-
+                    #  [B]
                     for i_b, b_pre in enumerate(pred_prob):
                         t = target[i_b]
                         for i_p, pre in enumerate(b_pre):
                             pred_prob[i_b][i_p] = pred_prob[i_b][i_p][t]
-                    a = len(pred_prob)
                     all_preds = all_preds+pred_prob
-
+    colors = ["#FFB6C1", "#66CDAA", "#FFD700", "#6A5ACD", "#FFA07A", "#98FB98", "#2E8B57", "#CD853F",
+              "#20B2AA", "#FF4500", "#DB7093", "#32CD32", "#8B008B", "#ADFF2F", "#4169E1", "#FF69B4",
+              "#7FFF00", "#0000FF", "#BA55D3", "#3CB371", "#1E90FF", "#8A2BE2", "#00FF7F", "#6B8E23",
+              "#9370DB", "#2F4F4F", "#FFD700", "#00BFFF", "#FF8C00", "#8B4513"]
     print("展示图片")
     plt.clf()
     plt.cla()
-    fig, ax = plt.subplots(figsize=(10, 10))
-    for pre in all_preds:
-        x = np.arange(len(pre))
-        pre = np.array(pre)
-        ax.plot(x, pre, linestyle='-', marker='.')  # , color='coral'
+    fig, ax = plt.subplots(len(all_preds), 1, sharex=True, figsize=(10, 13))
+    for i in range(len(all_preds)):
+        # if max(all_preds[i]) > 0.4:
+        x = np.arange(len(all_preds[i]))
+        pre = np.array(all_preds[i])
+        ax[i].plot(x, pre, linestyle='-', marker='.',
+                   color=colors[i % 30], label=f'{i}', linewidth=4)
+        # 设置图示字体属性
+        legend_font = {'family': 'serif',
+                       'size': 20, 'weight': 'bold'}  # 定义字体属性
+        ax[i].legend(prop=legend_font)
 
-    # Save the figure if an output path is specified
-    ax.legend()
+        ax[i].tick_params(axis='both', labelsize=20, which='both', width=5)
+        ax[i].yaxis.set_ticks([-0.1, 1.1])
+
+        # 设置 y 轴刻度显示整数位
+        y_major_locator = MultipleLocator(base=1.0)  # 设置刻度间隔为 1
+        ax[i].yaxis.set_major_locator(y_major_locator)
+    if outdir is not None:
+        fig.tight_layout()
+        fig.savefig(os.path.join(
+            outdir.resolve(), f"{info}_rtPred.png"))
+    else:
+        fig.show()
+
+
+def plot_confusionMatrix(model: torch.nn.Module, dataloader, outdir="./output/confusionMatrix/", info="", device=torch.device('cpu')):
+    """
+    绘制混淆矩阵
+    :param model: 已训练好的分类模型
+    :param dataloader: 数据集的dataloader
+    :param outdir: 保存混淆矩阵图像的输出目录
+    :param info: 给混淆矩阵图像添加的注释信息
+    :param device: 运行模型的设备, 默认为CPU
+    """
+    try:
+        outdir = Path(outdir)
+        outdir.mkdir(parents=True)
+    except FileExistsError:
+        pass
+    model.eval()
+    # Get preds for all data points
+    all_preds = []
+    all_labels = []
+
+    print("获取预测值")
+    with torch.no_grad():
+        if model is not None:
+            model = model.to(device)
+            for data in dataloader:
+                audio_features = None
+                video_features = None
+                if "audio" in data:
+                    audio_features = data["audio"]
+                    audio_features = audio_features.float().to(device)
+
+                if "video" in data:
+                    video_features = data["video"]
+                    video_features = video_features.float().to(device)
+
+                if audio_features is not None and video_features is not None:
+                    pred_prob = model(audio_features, video_features)[0]
+                elif audio_features is not None:
+                    pred_prob = model(audio_features)[0]
+                elif video_features is not None:
+                    pred_prob = model(video_features)[0]
+
+                _, preds = torch.max(pred_prob, 1)
+                all_preds.extend(preds.tolist())
+                all_labels.extend(data["label"])
+
+    label_encoder = sklearn.preprocessing.LabelEncoder()
+    label_encoder.fit(y=all_labels)
+    all_labels = label_encoder.transform(all_labels)
+    classes_ = label_encoder.classes_
+    # classes_ = {"angry": 0, "happy": 1, "neutral": 2, "sad": 3}
+    classes = {"angry", "happy", "neutral", "sad"}
+
+    cm = confusion_matrix(all_labels, all_preds)
+    # 绘制混淆矩阵
+    # classes = np.arange(len(cm))
+    fig, ax = plt.subplots()
+    im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+    ax.figure.colorbar(im, ax=ax)
+    ax.set(xticks=np.arange(cm.shape[1]),
+           yticks=np.arange(cm.shape[0]),
+           xticklabels=classes,
+           yticklabels=classes,
+           title="Confusion matrix" + info,
+           ylabel='True label',
+           xlabel='Predicted label')
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+    fmt = 'd'
+    thresh = cm.max() / 2.
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            ax.text(j, i, format(cm[i, j], fmt),
+                    ha="center", va="center",
+                    color="white" if cm[i, j] > thresh else "black")
+    fig.tight_layout()
+
     if outdir is not None:
         fig.savefig(os.path.join(
-            outdir.resolve(), f"{info}_rtPred_{0}.png"))
+            outdir.resolve(), f"{info}_confusionMatrix.png"))
     else:
         fig.show()

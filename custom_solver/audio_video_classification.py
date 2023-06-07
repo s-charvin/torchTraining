@@ -136,6 +136,7 @@ class Audio_Video_Joint_Classification(object):
 
         # 保存最好的结果
         self.maxACC = self.WA_ = self.UA_ = self.macro_f1_ = self.w_f1_ = 0
+        self.best_re = self.best_ma = None
         est_endtime = "..."
 
         for epoch in range(start_iter, self.n_epochs):  # epoch 迭代循环 [0, epoch)
@@ -225,6 +226,8 @@ class Audio_Video_Joint_Classification(object):
         # 保存最终的模型
         if (self.config['self_auto']['local_rank'] in [0, None]):
             self.save(save_dir=self.model_save_dir, it=self.last_epochs)
+            print(self.best_re)
+            print(self.best_ma)
         return True
 
     def test(self):
@@ -278,7 +281,7 @@ class Audio_Video_Joint_Classification(object):
             with torch.no_grad():
                 out, _ = self.net(audio_features, video_features,
                                   audio_feature_lens, video_feature_lens)  # 计算模型输出分类值
-                label_pre = torch.max(out, dim=1)[1]  # 获取概率最大值位置
+                label_pre = torch.max(F.softmax(out, dim=1), dim=1)[1]  # 获取概率最大值位置
                 label_preds = torch.cat(
                     (label_preds, label_pre), dim=0)  # 保存所有预测结果
                 total_labels = torch.cat(
@@ -320,7 +323,7 @@ class Audio_Video_Joint_Classification(object):
             if self.maxACC < ACC:
                 self.maxACC, self.WA_, self.UA_ = ACC, WA, UA
                 self.macro_f1_, self.w_f1_ = macro_f1, w_f1
-                best_re, best_ma = report, matrix
+                self.best_re, self.best_ma = report, matrix
 
                 # 每次遇到更好的就保存一次模型
                 if self.config['logs']['model_save_every']:
@@ -729,9 +732,10 @@ class Audio_Video_Fusion_Classification(object):
             with torch.no_grad():
                 audio_out, video_out, fusion_out, _ = self.net(
                     audio_features, video_features, audio_feature_lens, video_feature_lens)  # 计算模型输出分类值
-                audio_label_pre = torch.max(audio_out, dim=1)[1]  # 获取概率最大值位置
-                video_label_pre = torch.max(video_out, dim=1)[1]  # 获取概率最大值位置
-                fusion_label_pre = torch.max(fusion_out, dim=1)[1]  # 获取概率最大值位置
+
+                audio_label_pre = torch.max(F.softmax(audio_out, dim=1), dim=1)[1]  # 获取概率最大值位置
+                video_label_pre = torch.max(F.softmax(video_out, dim=1), dim=1)[1]  # 获取概率最大值位置
+                fusion_label_pre = torch.max(F.softmax(fusion_out, dim=1), dim=1)[1]  # 获取概率最大值位置
 
                 audio_label_preds = torch.cat(
                     (audio_label_preds, audio_label_pre), dim=0)  # 保存所有预测结果

@@ -32,7 +32,7 @@ parser.add_argument('--config',
                     help='path to congigs')
 
 
-def train_worker(local_rank, config, train_data_index, test_data_index, data):
+def train_worker(local_rank, config, train_data_index, valid_data_index, data):
     config['self_auto']['local_rank'] = local_rank
     rank = 0
     if (local_rank is not None):
@@ -74,7 +74,7 @@ def train_worker(local_rank, config, train_data_index, test_data_index, data):
     batch_size = config["train"]['batch_size']  # 数据块大小
 
     train_data = Subset(data, train_data_index)
-    test_data = Subset(data, test_data_index)
+    valid_data = Subset(data, valid_data_index)
 
     # if config["train"]["loss_weight"] == True:
     #     labels = [train_data[i]["label"]
@@ -96,20 +96,20 @@ def train_worker(local_rank, config, train_data_index, test_data_index, data):
             rank=rank,
         )
         val_sampler = torch.utils.data.distributed.DistributedSampler(
-            test_data,
+            valid_data,
             num_replicas=config['self_auto']['world_size'],
             rank=rank,
         )
     train_loader = DataLoader(
         train_data, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True, collate_fn=collate_fn, sampler=train_sampler)
-    test_loader = DataLoader(
-        test_data, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True, collate_fn=collate_fn, sampler=val_sampler)
+    valid_loader = DataLoader(
+        valid_data, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True, collate_fn=collate_fn, sampler=val_sampler)
 
     # 定义新模型，设置参数，确认是否加载历史检查点
     device = torch.device(
         f'cuda:{local_rank}') if (local_rank is not None) else torch.device('cpu')
     solver = globals()[config["sorlver"]["name"]](
-        train_loader, test_loader, config, device)
+        train_loader, valid_loader, config, device)
     if (local_rank in [0, None]):
         solver.print_network()
     solver.train()
@@ -170,13 +170,13 @@ def main(config):
     k = 0  # 记录训练折数
 
     if config['train']['Kfold'] > 1:
-        for train_data_index, test_data_index in random_split_index_K(n_samples=data_len, K=config['train']['Kfold'], shuffle=True):
+        for train_data_index, valid_data_index in random_split_index_K(n_samples=data_len, K=config['train']['Kfold'], shuffle=True):
             k = k+1
             config["train"]["last_epochs"] = last_epochs_
             print(f'\n################ 开始训练第 {k} 次模型 ################')
             if config['self_auto']['gpu_nums'] > 0:
                 context = mp.spawn(train_worker,
-                                   nprocs=config['self_auto']['gpu_nums'], args=(config, train_data_index, test_data_index, data), join=False)
+                                   nprocs=config['self_auto']['gpu_nums'], args=(config, train_data_index, valid_data_index, data), join=False)
                 # Loop on join until it returns True or raises an exception.
                 try:
                     while not context.join():
@@ -185,15 +185,19 @@ def main(config):
                     raise e
             elif config['self_auto']['gpu_nums'] == 0:
                 train_worker(None, config, train_data_index,
-                             test_data_index, data)
+                             valid_data_index, data)
     else:
-        indices = np.random.permutation(data_len)
-        train_data_index, test_data_index = indices[:int(
-            config['train']['train_rate']*data_len)], indices[int(config['train']['train_rate']*data_len):]
+        if hasattr(data, "indices"):
+            train_data_index = data.indices["train"]
+            valid_data_index = data.indices["valid"]
+        else:
+            indices = np.random.permutation(data_len)
+            train_data_index, valid_data_index = indices[:int(
+                config['train']['train_rate']*data_len)], indices[int(config['train']['train_rate']*data_len):]
         print(f'\n################ 开始训练模型 ################')
         if config['self_auto']['gpu_nums'] > 0:
             context = mp.spawn(train_worker,
-                               nprocs=config['self_auto']['gpu_nums'], args=(config, train_data_index, test_data_index, data), join=False)
+                               nprocs=config['self_auto']['gpu_nums'], args=(config, train_data_index, valid_data_index, data), join=False)
             # Loop on join until it returns True or raises an exception.
             try:
                 while not context.join():
@@ -201,7 +205,7 @@ def main(config):
             except Exception as e:
                 raise e
         else:
-            train_worker(None, config, train_data_index, test_data_index)
+            train_worker(None, config, train_data_index, valid_data_index, data)
 
 
 if __name__ == '__main__':

@@ -136,6 +136,7 @@ class Audio_Classification(object):
 
         # 保存最好的结果
         self.maxACC = self.WA_ = self.UA_ = self.macro_f1_ = self.w_f1_ = 0
+        self.best_re = self.best_ma = None
         est_endtime = "..."
         for epoch in range(start_iter, self.n_epochs):  # epoch 迭代循环 [0, epoch)
             # [0, num_batch)
@@ -206,6 +207,9 @@ class Audio_Classification(object):
         # 保存最终的模型
         if (self.config['self_auto']['local_rank'] in [0, None]):
             self.save(save_dir=self.model_save_dir, it=self.last_epochs)
+            print(self.best_re)
+            print(self.best_ma)
+
         return True
 
     def test(self):
@@ -244,7 +248,8 @@ class Audio_Classification(object):
 
             with torch.no_grad():
                 out, _ = self.net(features, feature_lens)  # 计算模型输出分类值
-                label_pre = torch.max(out, dim=1)[1]  # 获取概率最大值位置
+
+                label_pre = torch.max(F.softmax(out, dim=1), dim=1)[1]  # 获取概率最大值位置
                 label_preds = torch.cat(
                     (label_preds, label_pre), dim=0)  # 保存所有预测结果
                 total_labels = torch.cat(
@@ -288,14 +293,18 @@ class Audio_Classification(object):
             if self.maxACC < ACC:
                 self.maxACC, self.WA_, self.UA_ = ACC, WA, UA
                 self.macro_f1_, self.w_f1_ = macro_f1, w_f1
-                best_re, best_ma = report, matrix
-
+                self.best_re, self.best_ma = report, matrix
+                print("# <best_report>: ")
+                print(self.best_re)
+                print("# <best_matrix>: ")
+                print(self.best_ma)
                 # 每次遇到更好的就保存一次模型
                 if self.config['logs']['model_save_every']:
                     self.save(save_dir=self.model_save_dir,
                               it=self.last_epochs)
             print(
                 f"# <best>: [WA: {self.WA_}] [UA: {self.UA_}] [ACC: {self.maxACC}] [macro_f1: {self.macro_f1_}] [w_f1: {self.w_f1_}]")
+            
 
     def calculate(self, inputs: list):
         self.to_device(device=self.device)
@@ -535,6 +544,7 @@ class Audio_Classification_CoTeaching(object):
 
         # 保存最好的结果
         self.maxACC = self.WA_ = self.UA_ = self.macro_f1_ = self.w_f1_ = 0
+        self.best_re = self.best_ma = None
         est_endtime = "..."
         for epoch in range(start_iter, self.n_epochs):  # epoch 迭代循环 [0, epoch)
             # [0, num_batch)
@@ -622,6 +632,8 @@ class Audio_Classification_CoTeaching(object):
         # 保存最终的模型
         if (self.config['self_auto']['local_rank'] in [0, None]):
             self.save(save_dir=self.model_save_dir, it=self.last_epochs)
+            print(self.best_re)
+            print(self.best_ma)
         return True
 
     def test(self):
@@ -666,7 +678,7 @@ class Audio_Classification_CoTeaching(object):
                 out1, _ = self.net.module.coopnet0(features)
                 out2, _ = self.net.module.coopnet1(features.detach())
 
-                label_pre1 = torch.max(out1, dim=1)[1]  # 获取概率最大值位置
+                label_pre1 = torch.max(F.softmax(out1, dim=1), dim=1)[1]  # 获取概率最大值位置
                 label_preds1 = torch.cat(
                     (label_preds1, label_pre1), dim=0)  # 保存所有预测结果
                 total_labels1 = torch.cat(
@@ -675,7 +687,7 @@ class Audio_Classification_CoTeaching(object):
                     [loss_func(out1, true_labels)], device=self.device)
                 total_loss1 = torch.cat((total_loss1, label_loss1), dim=0)
 
-                label_pre2 = torch.max(out2, dim=1)[1]  # 获取概率最大值位置
+                label_pre2 = torch.max(F.softmax(out2, dim=1), dim=1)[1]  # 获取概率最大值位置
                 label_preds2 = torch.cat(
                     (label_preds2, label_pre2), dim=0)  # 保存所有预测结果
                 total_labels2 = torch.cat(
@@ -744,14 +756,12 @@ class Audio_Classification_CoTeaching(object):
                     ACC1+ACC2)/2, (WA1+WA2)/2, (UA1+UA2)/2
                 self.macro_f1_, self.w_f1_ = (
                     macro_f11, macro_f12), (w_f11, w_f12)
-                best_re, best_ma = (report1, report2), (matrix1, matrix2)
+                self.best_re, self.best_ma = (report1, report2), (matrix1, matrix2)
 
                 # 每次遇到更好的就保存一次模型
                 if self.config['logs']['model_save_every']:
                     self.save(save_dir=self.model_save_dir,
                               it=self.last_epochs)
-                print(best_re)
-                print(best_ma)
             print(
                 f"# <best>: [WA: {self.WA_}] [UA: {self.UA_}] [ACC: {self.maxACC}] [macro_f1: {self.macro_f1_}] [w_f1: {self.w_f1_}]")
 
