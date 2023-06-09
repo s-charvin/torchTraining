@@ -26,11 +26,11 @@ def get_extensions():
     main_file = glob.glob(os.path.join(extensions_dir, "*.cpp"))
     source_cpu = glob.glob(os.path.join(extensions_dir, "cpu", "*.cpp"))
     source_cuda = glob.glob(os.path.join(extensions_dir, "cuda", "*.cu"))
-
     sources = main_file + source_cpu
+
     extension = CppExtension
-    extra_compile_args = {"cxx": []}
-    define_macros = []
+    extra_compile_args = {"cxx": []} 
+    define_macros = [] 
 
     if torch.cuda.is_available() and CUDA_HOME is not None:
         extension = CUDAExtension
@@ -49,18 +49,18 @@ def get_extensions():
     include_dirs = [extensions_dir]
     ext_modules = [
         extension(
-            "DCNv3",
-            sources,
-            include_dirs=include_dirs,
-            define_macros=define_macros,
-            extra_compile_args=extra_compile_args,
+            "DCNv3_c",
+            sources, # 源文件路径
+            include_dirs=include_dirs, # 附加的 include 路径
+            define_macros=define_macros, # 附加的宏定义
+            extra_compile_args=extra_compile_args, # 附加的编译参数
         )
     ]
     return ext_modules
 
 
 setup(
-    name="DCNv3",
+    name="DCNv3_c",
     version="1.1",
     author="InternImage",
     url="https://github.com/OpenGVLab/InternImage",

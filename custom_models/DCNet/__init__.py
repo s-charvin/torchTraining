@@ -5,3 +5,4 @@
 # --------------------------------------------------------
 
 from .build import build_model
+from .intern_image import InternImage

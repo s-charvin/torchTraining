@@ -8,9 +8,10 @@ import torch
 import torch.nn as nn
 import torch.utils.checkpoint as checkpoint
 from timm.models.layers import trunc_normal_, DropPath
-from ops_dcnv3 import modules as opsm
-import torch.nn.functional as F
 
+import torch.nn.functional as F
+from .DCNv3 import DCNv3_pytorch
+# from ops_dcnv3 import modules as opsm
 
 class to_channels_first(nn.Module):
 
@@ -598,7 +599,7 @@ class InternImage(nn.Module):
         print(f"res_post_norm: {res_post_norm}")
         print(f"remove_center: {remove_center}")
 
-        in_chans = 3
+        in_chans = 1
         self.patch_embed = StemLayer(in_chans=in_chans,
                                      out_chans=channels,
                                      act_layer=act_layer,
@@ -617,7 +618,7 @@ class InternImage(nn.Module):
             post_norm_block_ids = level2_post_norm_block_ids if level2_post_norm and (
                 i == 2) else None # for InternImage-H/G
             level = InternImageBlock(
-                core_op=getattr(opsm, core_op),
+                core_op=DCNv3_pytorch,
                 channels=int(channels * 2**i),
                 depth=depths[i],
                 groups=groups[i],
@@ -687,7 +688,7 @@ class InternImage(nn.Module):
             nn.init.constant_(m.weight, 1.0)
 
     def _init_deform_weights(self, m):
-        if isinstance(m, getattr(opsm, self.core_op)):
+        if isinstance(m, DCNv3_pytorch):
             m._reset_parameters()
 
     @torch.jit.ignore
@@ -759,10 +760,11 @@ class InternImage(nn.Module):
         
         return x
     
-    def forward(self, x):
+    def forward(self, x,x_lens=None):
+        x = x.permute(0, 3, 1, 2) # NHWC -> NCHW
         if self.use_clip_projector: # for InternImage-H/G
             x = self.forward_clip_projector(x)
         else: # for InternImage-T/S/B/L/XL
             x = self.forward_features(x)
         x = self.head(x)
-        return x
+        return x, None

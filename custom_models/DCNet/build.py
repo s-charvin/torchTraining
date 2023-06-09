@@ -4,26 +4,26 @@
 # Licensed under The MIT License [see LICENSE for details]
 # --------------------------------------------------------
 
-from intern_image import InternImage
+from .intern_image import InternImage
 
 
-def build_model(model_type: str):
+def build_model(model_type: str='intern_image'):
     if model_type == 'intern_image':
         model = InternImage(
                  core_op='DCNv3',
-                 channels=64,
-                 depths=[3, 4, 18, 5],
-                 groups=[3, 6, 12, 24],
-                 num_classes=1000,
+                 channels=80,
+                 depths=[4, 4, 21, 4],
+                 groups=[5, 10, 20, 40],
+                 num_classes=4,
                  mlp_ratio=4.,
-                 drop_rate=0.,
+                 drop_rate=0.4,
                  drop_path_rate=0.2,
                  drop_path_type='linear',
                  act_layer='GELU',
                  norm_layer='LN',
-                 layer_scale=None,
+                 layer_scale=1e-5,
                  offset_scale=1.0,
-                 post_norm=False,
+                 post_norm=True,
                  cls_scale=1.5,
                  with_cp=False,
                  dw_kernel_size=None, # for InternImage-H/G

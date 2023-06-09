@@ -6,3 +6,4 @@ from .RevTransformers.MViT import MViT
 from .CooperationNet import CooperationNet
 from .resnet import ResNet
 from .densenet import DenseNet
+from .DCNet import InternImage

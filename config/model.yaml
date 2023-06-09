@@ -63,9 +63,16 @@
 #             # emo_rnn_hidden_dim: [64, 64]
 architecture:
     net:
-        name: "LightTestSerNet"
+        name: "InternImage"
         para:
-
+            core_op: 'DCNv3'
+            channels: 80
+            depths: [4, 4, 21, 4]
+            groups: [5, 10, 20, 40]
+            num_classes: 4
+            drop_rate: 0.4
+            layer_scale: 0.00001
+            post_norm: True
 # architecture:
 #     net:
 #         name: "CooperationNet"
