@@ -4,7 +4,7 @@ from torch import Tensor, nn
 from typing import Tuple, Optional
 import torch.nn.functional as F
 import math
-
+import torchvision
 
 class Conv2dFeatureExtractor(nn.Module):
     """构建连续的2D卷积网络结构主Module
@@ -32,6 +32,7 @@ class Conv2dFeatureExtractor(nn.Module):
         for block in self.conv_blocks:
             x = block(x)
         return x
+
 
 
 def _get_Conv2d_extractor(
@@ -76,6 +77,62 @@ def _get_Conv2d_extractor(
         # 卷积块设置
         blocks.append(
             Conv2dLayerBlock(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=kernel_size,
+                stride=stride,
+                bias=bias,
+                layer_norm=normalization,
+                layer_poolling=poolling,
+                activate_func=nn.functional.relu
+            )
+        )
+
+        in_channels = out_channels  # 修改输入通道为 Extractor 的输出通道
+    return Conv2dFeatureExtractor(nn.ModuleList(blocks))
+
+def _get_ModulatedDeformConv2d_extractor(
+        in_channels,
+        # [channel:int, kernel:list|int, stride:list|int, norm:str|None, pool:str|None, pool_kernel:list|int]
+        shapes,
+        bias: bool,) -> Conv2dFeatureExtractor:
+
+    blocks = []
+    in_channels = in_channels  # 输入数据的通道
+
+    for i, (out_channels, kernel_size, stride, norm_mode, pool_mode, pool_kernel) in enumerate(shapes):
+
+        # Norm设置
+        assert norm_mode in ["gn", "ln", "bn", "None"]
+        assert pool_mode in ["mp", "ap", "gap", "None"]
+        if norm_mode == "gn":
+            normalization = nn.GroupNorm(
+                num_groups=out_channels,
+                num_channels=out_channels,
+                affine=True,
+            )
+        elif norm_mode == "ln":
+            normalization = nn.LayerNorm(
+                normalized_shape=out_channels,
+                elementwise_affine=True,
+            )
+        elif norm_mode == "bn":
+            normalization = nn.BatchNorm2d(out_channels)
+        else:
+            normalization = None
+
+        if pool_mode == "mp":
+            poolling = nn.MaxPool2d(pool_kernel)
+        elif pool_mode == "ap":
+            poolling = nn.AvgPool2d(pool_kernel)
+        elif pool_mode == "gap":  # GlobalAveragePooling2D
+            pool_kernel = 1
+            poolling = nn.AdaptiveAvgPool2d(1)
+        else:
+            poolling = None
+        # 卷积块设置
+        blocks.append(
+            ModulatedDeformConv2dLayerBlock(
                 in_channels=in_channels,
                 out_channels=out_channels,
                 kernel_size=kernel_size,
@@ -231,6 +288,55 @@ class Conv2dLayerBlock(nn.Module):
         if self.leyer_poolling is not None:
             x = self.leyer_poolling(x)
         return x
+
+
+class ModulatedDeformConv2dLayerBlock(nn.Module):
+    """单个卷积块,内部含有 Conv2d_layer, Norm_layer(可选), Activation_layer(可选, 默认GELU)"""
+
+    def __init__(
+            self,
+            in_channels: int,
+            out_channels: int,
+            kernel_size,
+            stride: int,
+            bias: bool,
+            layer_norm: Optional[nn.Module],
+            layer_poolling: Optional[nn.Module],
+            activate_func=nn.functional.relu,):
+
+        super().__init__()
+        self.kernel_size = kernel_size
+        self.stride = stride
+
+        self.conv = ModulatedDeformConv2dSamePack(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=stride,  # 步长
+            bias=bias,  # 是否使用偏置数
+        )
+        self.layer_norm = layer_norm
+        self.activate_func = activate_func
+        self.leyer_poolling = layer_poolling
+
+    def forward(
+            self,
+            x: Tensor,) -> Tuple[Tensor, Optional[Tensor]]:
+        """
+        Args:
+            x (Tensor): Shape ``[batch, in_channels, in_frames, in_features]``.
+        Returns:
+            Tensor: Shape ``[batch, out_channels, out_frames, in_features]``.
+        """
+        x = self.conv(x)
+        if self.layer_norm is not None:
+            x = self.layer_norm(x)
+        if self.activate_func is not None:
+            x = self.activate_func(x)
+        if self.leyer_poolling is not None:
+            x = self.leyer_poolling(x)
+        return x
+
 
 
 class Conv2dMultiBlock(nn.Module):
@@ -439,3 +545,102 @@ class BiLSTM_Attention(nn.Module):
         attn_output, attention = self.attention_net(output, final_hidden_state)
         # model : [batch_size, num_classes], attention : [batch_size, n_step]
         return attn_output, attention
+
+
+
+
+
+class ModulatedDeformConv2dPack(torchvision.ops.DeformConv2d):
+    def __init__(self, *args, **kwargs):
+        super(ModulatedDeformConv2dPack, self).__init__(*args, **kwargs)
+        self.conv_offset2d = nn.Conv2d(
+            self.in_channels, 
+            self.groups * 3 * self.kernel_size[0] * self.kernel_size[1],
+            kernel_size=self.kernel_size, 
+            stride=self.stride, 
+            padding=self.padding, 
+            dilation=self.dilation,
+            bias=True)
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        super().reset_parameters()
+        if hasattr(self, 'conv_offset2d'):
+            self.conv_offset2d.weight.data.zero_()
+            self.conv_offset2d.bias.data.zero_()
+        
+    def forward(self, x: torch.Tensor):
+        out = self.conv_offset2d(x)
+        o1, o2, mask = torch.chunk(out, 3, dim=1)
+        offset = torch.cat((o1, o2), dim=1)
+        mask = torch.sigmoid(mask)
+        return torchvision.ops.deform_conv2d(x, offset, self.weight, self.bias, stride=self.stride,
+                             padding=self.padding, dilation=self.dilation, mask=mask)
+
+class ModulatedDeformConv2dSamePack(torchvision.ops.DeformConv2d):
+    def __init__(self, *args, **kwargs):
+        super(ModulatedDeformConv2dSamePack, self).__init__(*args, **kwargs)
+        self.conv_offset2d = nn.Conv2d(
+            self.in_channels, 
+            self.groups * 3 * self.kernel_size[0] * self.kernel_size[1],
+            kernel_size=self.kernel_size, 
+            stride=self.stride, 
+            padding=self.padding, 
+            dilation=self.dilation,
+            bias=True)
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        super().reset_parameters()
+        if hasattr(self, 'conv_offset2d'):
+            self.conv_offset2d.weight.data.zero_()
+            self.conv_offset2d.bias.data.zero_()
+
+    def calc_same_pad(self, i: int, k: int, s: int, d: int) -> int:
+        return max((math.ceil(i / s) - 1) * s + (k - 1) * d + 1 - i, 0)
+
+
+    def forward(self, x: torch.Tensor):
+        ih, iw = x.size()[-2:]
+
+        pad_h = self.calc_same_pad(
+            i=ih, k=self.kernel_size[0], s=self.stride[0], d=self.dilation[0])
+        pad_w = self.calc_same_pad(
+            i=iw, k=self.kernel_size[1], s=self.stride[1], d=self.dilation[1])
+
+        if pad_h > 0 or pad_w > 0:
+            x = F.pad(
+                x, [pad_w // 2, pad_w - pad_w // 2,
+                    pad_h // 2, pad_h - pad_h // 2]
+            ).contiguous()
+
+        out = self.conv_offset2d(x)
+        o1, o2, mask = torch.chunk(out, 3, dim=1)
+        offset = torch.cat((o1, o2), dim=1)
+        mask = torch.sigmoid(mask)
+        return torchvision.ops.deform_conv2d(x, offset, self.weight, self.bias, stride=self.stride,
+                             padding=self.padding, dilation=self.dilation, mask=mask)
+
+class DeformConv2dPack(torchvision.ops.DeformConv2d):
+    def __init__(self, *args, **kwargs):
+        super(DeformConv2dPack, self).__init__(*args, **kwargs)
+        self.conv_offset2d = nn.Conv2d(
+            self.in_channels, 
+            self.groups * 2 * self.kernel_size[0] * self.kernel_size[1],
+            kernel_size=self.kernel_size, 
+            stride=self.stride, 
+            padding=self.padding, 
+            dilation=self.dilation,
+            bias=True)
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        super().reset_parameters()
+        if hasattr(self, 'conv_offset2d'):
+            self.conv_offset2d.weight.data.zero_()
+            self.conv_offset2d.bias.data.zero_()
+        
+    def forward(self, x: torch.Tensor):
+        offset = self.conv_offset2d(x)
+        return torchvision.ops.deform_conv2d(x, offset, self.weight, self.bias, stride=self.stride,
+                             padding=self.padding, dilation=self.dilation)
