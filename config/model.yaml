@@ -61,18 +61,24 @@
 #             seq_len: [189, 30] # af_: 63*3=189, 63*7=441 | vf_: 10*3, 10*3
 #             enable_classifier: true
 #             # emo_rnn_hidden_dim: [64, 64]
+
+# architecture:
+#     net:
+#         name: "InternImage"
+#         para:
+#             core_op: 'DCNv3'
+#             channels: 80
+#             depths: [4, 4, 21, 4]
+#             groups: [5, 10, 20, 40]
+#             num_classes: 4
+#             drop_rate: 0.4
+#             layer_scale: 0.00001
+#             post_norm: True
+
 architecture:
     net:
-        name: "InternImage"
+        name: "TIMNet"
         para:
-            core_op: 'DCNv3'
-            channels: 80
-            depths: [4, 4, 21, 4]
-            groups: [5, 10, 20, 40]
-            num_classes: 4
-            drop_rate: 0.4
-            layer_scale: 0.00001
-            post_norm: True
 # architecture:
 #     net:
 #         name: "CooperationNet"

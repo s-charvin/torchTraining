@@ -3,7 +3,7 @@
 # Copyright (c) 2022 OpenGVLab
 # Licensed under The MIT License [see LICENSE for details]
 # --------------------------------------------------------
-
+import math
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint as checkpoint
@@ -12,6 +12,37 @@ from timm.models.layers import trunc_normal_, DropPath
 import torch.nn.functional as F
 from .DCNv3 import DCNv3_pytorch
 # from ops_dcnv3 import modules as opsm
+
+
+class Conv2dSame(torch.nn.Conv2d):
+
+    def calc_same_pad(self, i: int, k: int, s: int, d: int) -> int:
+        return max((math.ceil(i / s) - 1) * s + (k - 1) * d + 1 - i, 0)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        ih, iw = x.size()[-2:]
+
+        pad_h = self.calc_same_pad(
+            i=ih, k=self.kernel_size[0], s=self.stride[0], d=self.dilation[0])
+        pad_w = self.calc_same_pad(
+            i=iw, k=self.kernel_size[1], s=self.stride[1], d=self.dilation[1])
+
+        if pad_h > 0 or pad_w > 0:
+            x = F.pad(
+                x, [pad_w // 2, pad_w - pad_w // 2,
+                    pad_h // 2, pad_h - pad_h // 2]
+            ).contiguous()
+        return F.conv2d(
+            x,
+            self.weight,
+            self.bias,
+            self.stride,
+            self.padding,
+            self.dilation,
+            self.groups,
+        ).contiguous()
+
+
 
 class to_channels_first(nn.Module):
 
@@ -600,7 +631,30 @@ class InternImage(nn.Module):
         print(f"remove_center: {remove_center}")
 
         in_chans = 1
-        self.patch_embed = StemLayer(in_chans=in_chans,
+
+        self.path1 = nn.Sequential(
+            Conv2dSame(in_channels=1, out_channels=32, kernel_size=(
+                11, 1), stride=(1, 1)),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.AvgPool2d(kernel_size=2)
+        )
+        self.path2 = nn.Sequential(
+            Conv2dSame(in_channels=1, out_channels=32, kernel_size=(
+                1, 9), stride=(1, 1)),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.AvgPool2d(kernel_size=2)
+        )
+        self.path3 = nn.Sequential(
+            Conv2dSame(in_channels=1, out_channels=32, kernel_size=(
+                3, 3), stride=(1, 1)),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.AvgPool2d(kernel_size=2)
+        )
+
+        self.patch_embed = StemLayer(in_chans=32*3,
                                      out_chans=channels,
                                      act_layer=act_layer,
                                      norm_layer=norm_layer)
@@ -733,7 +787,6 @@ class InternImage(nn.Module):
     def forward_features_seq_out(self, x):
         x = self.patch_embed(x)
         x = self.pos_drop(x)
-
         seq_out = []
         for level in self.levels:
             x, x_ = level(x, return_wo_downsample=True)
@@ -762,6 +815,12 @@ class InternImage(nn.Module):
     
     def forward(self, x,x_lens=None):
         x = x.permute(0, 3, 1, 2) # NHWC -> NCHW
+        
+        out1 = self.path1(x)
+        out2 = self.path2(x)
+        out3 = self.path3(x)
+        x = torch.cat([out1, out2, out3], dim=1).contiguous()
+        
         if self.use_clip_projector: # for InternImage-H/G
             x = self.forward_clip_projector(x)
         else: # for InternImage-T/S/B/L/XL

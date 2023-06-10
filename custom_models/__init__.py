@@ -7,3 +7,4 @@ from .CooperationNet import CooperationNet
 from .resnet import ResNet
 from .densenet import DenseNet
 from .DCNet import InternImage
+from .TIMNet import TIMNet
