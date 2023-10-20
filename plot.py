@@ -1228,7 +1228,7 @@ def plot_confusionMatrix_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention():
 
 device = torch.device('cuda:0')
 if __name__ == '__main__':
-    # plot_rt_MIFFNet_Conv2D_InterFusion_Joint()
+    plot_rt_MIFFNet_Conv2D_InterFusion_Joint()
     # plot_rt_MIFFNet_Conv2D_SVC_InterFusion_Joint()
     # plot_rt_VideoNet_Conv2D()
     # plot_rt_AudioNet()

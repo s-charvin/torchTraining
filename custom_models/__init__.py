@@ -8,3 +8,6 @@ from .resnet import ResNet
 from .densenet import DenseNet
 from .DCNet import InternImage
 from .TIMNet import TIMNet
+from .MFFTNet import *
+from .DFNet import *
+from .MERSISF import *

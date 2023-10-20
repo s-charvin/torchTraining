@@ -193,8 +193,8 @@ class KeyFrameGetterBasedInterDifference(torch.nn.Module):
         return datadict
 
 
-class KeyFrameGetterBasedIntervalSampling(torch.nn.Module):
-    r""" 基于帧间差分的视频关键帧提取
+class KeyFrameGetterBasedTling(torch.nn.Module):
+    r"""
     link:
         https://github.com/monkeyDemon/AI-Toolbox/tree/master/computer_vision/image_classification_keras/multi_label_classification
         https://github.com/monkeyDemon/AI-Toolbox/blob/master/preprocess%20ToolBox/keyframes_extract_tool/keyframes_extract_diff.py

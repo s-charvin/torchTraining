@@ -478,15 +478,17 @@ class IEMOCAP(MediaDataset):
         wav_path = os.path.join(
             self.root, f"Session{sess}/sentences/wav/"+"_".join(filename_[:-1])+"/"+filename+".wav")
 
-        aro = audioread.ffdec.FFmpegAudioFile(wav_path)
+        if audioread.ffdec.available():
+            wav_path = audioread.ffdec.FFmpegAudioFile(wav_path)
 
-        y, sr = librosa.load(aro, sr=None)
+        y, sr = librosa.load(wav_path, sr=None)
         return y[None, :]  # 1xseq
 
     def _load_video(self, filename) -> torch.Tensor:
         # 指定文件名加载视频文件数据
         filename_ = filename.split("_")
         sess = int(filename_[0][3:-1])
+        
         # 视频文件路径
         if self.videomode == "crop":
             video_path = os.path.join(

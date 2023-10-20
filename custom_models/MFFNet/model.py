@@ -8,7 +8,7 @@ import numpy as np
 from .lightsernet import LightSerNet_Encoder, LightMultiSerNet_Encoder, LightResMultiSerNet_Encoder
 from .components import *
 import custom_models
-from custom_models.Light_Sernet import LightSerNet, LightResMultiSerNet, LightMultiSerNet, LightResMultiSerNet2
+from custom_models.Light_Sernet import LightSerNet, LightResMultiSerNet, LightMultiSerNet, LightResMultiSerNet
 from custom_models.GLAM import GLAM
 from custom_models.AACNN import AACNN
 from custom_models.MACNN import MACNN
@@ -142,7 +142,7 @@ def getModel(model_name, out_features, in_channels=1, input_size=[126, 40], num_
     elif model_name == "lightresmultisernet":
         return LightResMultiSerNet()
     elif model_name == "lightresmultisernet2":
-        return LightResMultiSerNet2()
+        return LightResMultiSerNet()
     elif model_name == "glamnet":
         # 此网络需要提供输入图维度
         return GLAM(

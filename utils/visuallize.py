@@ -29,19 +29,20 @@ def plot_spectrogram(input, outdir="./output/image/"):
         wav, sr = torchaudio.load(input)
         spec = spectrogram(wav)
         save_spectrogram(spec[0], path=os.path.join(
-            outdir.resolve(), Path(input).stem+".png"), title="Spectrogram (db)", ylabel="freq_bin")
+            outdir.resolve(), Path(input).stem+".svg"), title="Spectrogram (db)", ylabel="freq_bin")
     elif isinstance(input, Sequence) and os.path.isfile(input[0]):
         for it in input:
             path = Path(it)
             wav, sr = torchaudio.load(path.resolve())
             spec = spectrogram(wav)
             save_spectrogram(spec[0], path=os.path.join(
-                outdir.resolve(), path.stem+".png"), title="Spectrogram (db)", ylabel="freq_bin")
+                outdir.resolve(), path.stem+".svg"), title="Spectrogram (db)", ylabel="freq_bin")
 
 
 def save_spectrogram(specgram, path, title, ylabel):
 
     fig, axs = plt.subplots(1, 1)
+    fig.set_dpi(600)  # 这里将 DPI 设置为 600
     axs.set_title(title)
     axs.set_ylabel(ylabel)
     axs.set_xlabel("frame")
@@ -66,14 +67,14 @@ def plot_melspectrogram(input, outdir="./output/image/"):
         wav, sr = torchaudio.load(input)
         spec = melspectrogram(wav)
         save_spectrogram(spec[0], path=os.path.join(
-            outdir.resolve(), Path(input).stem+".png"), title="MelSpectrogram (db)", ylabel="mel freq")
+            outdir.resolve(), Path(input).stem+".svg"), title="MelSpectrogram (db)", ylabel="mel freq")
     elif isinstance(input, Sequence) and os.path.isfile(input[0]):
         for it in input:
             path = Path(it)
             wav, sr = torchaudio.load(path.resolve())
             spec = melspectrogram(wav)
             save_spectrogram(spec[0], path=os.path.join(
-                outdir.resolve(), path.stem+".png"), title="MelSpectrogram (db)", ylabel="mel freq")
+                outdir.resolve(), path.stem+".svg"), title="MelSpectrogram (db)", ylabel="mel freq")
 
 
 def plot_RGBDifference(input, outdir="./output/Video/"):
@@ -444,6 +445,7 @@ def plot_tsne(model: torch.nn.Module, dataloader, outdir="./output/t-sne/", info
         plt.clf()
         plt.cla()
         fig, ax = plt.subplots(1, 1, sharex=True, figsize=(10, 10))
+        fig.set_dpi(600)  # 这里将 DPI 设置为 600
         unique_labels = np.unique(labels)
         for i in unique_labels:
             mask = labels == i
@@ -460,7 +462,7 @@ def plot_tsne(model: torch.nn.Module, dataloader, outdir="./output/t-sne/", info
         if outdir is not None:
             fig.tight_layout()
             fig.savefig(os.path.join(
-                outdir.resolve(), f"{info}_t-sne_{j}.png"))
+                outdir.resolve(), f"{info}_t-sne_{j}.svg"), dpi=600)
         else:
             fig.show()
 
@@ -535,6 +537,7 @@ def plot_rt(model: torch.nn.Module, dataloader, outdir="./output/real-time/", in
     plt.clf()
     plt.cla()
     fig, ax = plt.subplots(len(all_preds), 1, sharex=True, figsize=(10, 13))
+    fig.set_dpi(600)  # 这里将 DPI 设置为 600
     for i in range(len(all_preds)):
         # if max(all_preds[i]) > 0.4:
         x = np.arange(len(all_preds[i]))
@@ -555,7 +558,7 @@ def plot_rt(model: torch.nn.Module, dataloader, outdir="./output/real-time/", in
     if outdir is not None:
         fig.tight_layout()
         fig.savefig(os.path.join(
-            outdir.resolve(), f"{info}_rtPred.png"))
+            outdir.resolve(), f"{info}_rtPred.svg"), dpi=600)
     else:
         fig.show()
 
@@ -616,6 +619,7 @@ def plot_confusionMatrix(model: torch.nn.Module, dataloader, outdir="./output/co
     # 绘制混淆矩阵
     # classes = np.arange(len(cm))
     fig, ax = plt.subplots()
+    fig.set_dpi(600)  # 这里将 DPI 设置为 600
     im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
     ax.figure.colorbar(im, ax=ax)
     ax.set(xticks=np.arange(cm.shape[1]),
@@ -637,6 +641,6 @@ def plot_confusionMatrix(model: torch.nn.Module, dataloader, outdir="./output/co
 
     if outdir is not None:
         fig.savefig(os.path.join(
-            outdir.resolve(), f"{info}_confusionMatrix.png"))
+            outdir.resolve(), f"{info}_confusionMatrix.svg"), dpi=600)
     else:
         fig.show()

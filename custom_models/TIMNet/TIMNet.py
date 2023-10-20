@@ -29,11 +29,13 @@ class Conv1dSame(torch.nn.Conv1d):
             self.groups,
         ).contiguous()
 
+
 def smooth_labels(labels, factor=0.1):
     # smooth the labels
     labels *= (1 - factor)
     labels += (factor / labels.shape[1])
     return labels
+
 
 class WeightLayer(nn.Module):
     def __init__(self, in_channels):
@@ -47,6 +49,7 @@ class WeightLayer(nn.Module):
         x = x.squeeze(dim=-1)
         return x
 
+
 class Temporal_Aware_Block(nn.Module):
     def __init__(self, dilation, nb_filters, kernel_size, dropout_rate=0):
         super(Temporal_Aware_Block, self).__init__()
@@ -54,17 +57,19 @@ class Temporal_Aware_Block(nn.Module):
         self.activation = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
 
-        self.conv_1_1 = Conv1dSame(nb_filters, nb_filters, kernel_size, dilation=dilation)
+        self.conv_1_1 = Conv1dSame(
+            nb_filters, nb_filters, kernel_size, dilation=dilation)
         self.bn_1_1 = nn.BatchNorm1d(nb_filters)
         self.dropout_1 = nn.Dropout(dropout_rate)
-        
-        self.conv_2_1 = Conv1dSame(nb_filters, nb_filters, kernel_size, dilation=dilation)
+
+        self.conv_2_1 = Conv1dSame(
+            nb_filters, nb_filters, kernel_size, dilation=dilation)
         self.bn_2_1 = nn.BatchNorm1d(nb_filters)
         self.dropout_2 = nn.Dropout(dropout_rate)
 
     def forward(self, x):
         original_x = x
-        
+
         conv_1_1 = self.conv_1_1(x)
         conv_1_1 = self.bn_1_1(conv_1_1)
         conv_1_1 = self.activation(conv_1_1)
@@ -94,29 +99,27 @@ class TIMNet(nn.Module):
         self.nb_filters = nb_filters
 
         self.supports_masking = True
-        self.mask_value=0.
+        self.mask_value = 0.
 
-        self.conv_forward = nn.Conv1d(40, nb_filters, kernel_size=1, dilation=1)
-        self.conv_backward = nn.Conv1d(40, nb_filters, kernel_size=1, dilation=1)
-        
+        self.conv_forward = nn.Conv1d(
+            40, nb_filters, kernel_size=1, dilation=1)
+        self.conv_backward = nn.Conv1d(
+            40, nb_filters, kernel_size=1, dilation=1)
+
         self.temporal_aware_blocks_forward = nn.ModuleList()
         self.temporal_aware_blocks_backward = nn.ModuleList()
+
         for _ in range(nb_stacks):
             for i in range(dilations):
-                self.temporal_aware_blocks_forward.append(Temporal_Aware_Block(2 ** i, nb_filters, kernel_size, dropout_rate))
-                self.temporal_aware_blocks_backward.append(Temporal_Aware_Block(2 ** i, nb_filters, kernel_size, dropout_rate))
+                self.temporal_aware_blocks_forward.append(
+                    Temporal_Aware_Block(2 ** i, nb_filters, kernel_size, dropout_rate))
+                self.temporal_aware_blocks_backward.append(
+                    Temporal_Aware_Block(2 ** i, nb_filters, kernel_size, dropout_rate))
 
-        # self.biadd_layers = nn.ModuleList()
-        # for i in range(dilations):
-        #     self.biadd_layers.append(nn.Sequential(nn.Conv1d(nb_filters, nb_filters, kernel_size=1),
-        #                                            nn.ReLU(inplace=True),
-        #                                            nn.Conv1d(nb_filters, nb_filters, kernel_size=1)))
-        
         self.global_avg_pool = nn.AdaptiveAvgPool1d(1)
 
         self.decision = WeightLayer(in_channels=nb_stacks * dilations)
         self.predictions = nn.Linear(nb_filters, num_classes)
-
 
     def forward(self, x, x_len=None):
         x = x.squeeze().permute(0, 2, 1)
@@ -126,17 +129,19 @@ class TIMNet(nn.Module):
 
         forward_convd = self.conv_forward(forward)
         backward_convd = self.conv_backward(backward)
-        
+
         final_skip_connection = []
-        
+
         skip_out_forward = forward_convd
         skip_out_backward = backward_convd
-        
+
         for i in range(self.nb_stacks):
             for j in range(self.dilations):
-                skip_out_forward = self.temporal_aware_blocks_forward[i * self.dilations + j](skip_out_forward)
-                skip_out_backward = self.temporal_aware_blocks_backward[i * self.dilations + j](skip_out_backward)
-                
+                skip_out_forward = self.temporal_aware_blocks_forward[i * self.dilations + j](
+                    skip_out_forward)
+                skip_out_backward = self.temporal_aware_blocks_backward[i * self.dilations + j](
+                    skip_out_backward)
+
                 temp_skip = skip_out_forward + skip_out_backward
                 temp_skip = self.global_avg_pool(temp_skip)
                 temp_skip = temp_skip.permute(0, 2, 1)
