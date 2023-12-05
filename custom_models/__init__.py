@@ -11,3 +11,4 @@ from .TIMNet import TIMNet
 from .MFFTNet import *
 from .DFNet import *
 from .MERSISF import *
+from .CLANet import CLANet

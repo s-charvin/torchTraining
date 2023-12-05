@@ -1872,7 +1872,7 @@ class MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention(nn.Module):
             out = self.classifier(joint_fea)
             return out, None
         else:
-            return joint_fea,
+            return (af_fea, common_feature, vf_fea, joint_fea)
 
     def normal(self, x):
         std, mean = torch.std_mean(x, -1, unbiased=False)

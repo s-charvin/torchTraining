@@ -17,6 +17,7 @@ import sklearn
 from sklearn.manifold import TSNE
 from sklearn.metrics import confusion_matrix
 
+
 def plot_spectrogram(input, outdir="./output/image/"):
     try:
         outdir = Path(outdir)
@@ -24,34 +25,56 @@ def plot_spectrogram(input, outdir="./output/image/"):
     except FileExistsError:
         pass
     spectrogram = torchaudio.transforms.Spectrogram(
-        n_fft=1024, win_length=1024, hop_length=256, pad=0, power=2, normalized=True, center=True, pad_mode="reflect", onesided=True)
+        n_fft=1024,
+        win_length=1024,
+        hop_length=256,
+        pad=0,
+        power=2,
+        normalized=True,
+        center=True,
+        pad_mode="reflect",
+        onesided=True,
+    )
     if isinstance(input, str) and os.path.isfile(input):
         wav, sr = torchaudio.load(input)
         spec = spectrogram(wav)
-        save_spectrogram(spec[0], path=os.path.join(
-            outdir.resolve(), Path(input).stem+".svg"), title="Spectrogram (db)", ylabel="freq_bin")
+        save_spectrogram(
+            spec[0],
+            path=os.path.join(outdir.resolve(), Path(input).stem + ".svg"),
+            title="Spectrogram (db)",
+            ylabel="freq_bin",
+        )
     elif isinstance(input, Sequence) and os.path.isfile(input[0]):
         for it in input:
             path = Path(it)
             wav, sr = torchaudio.load(path.resolve())
             spec = spectrogram(wav)
-            save_spectrogram(spec[0], path=os.path.join(
-                outdir.resolve(), path.stem+".svg"), title="Spectrogram (db)", ylabel="freq_bin")
+            save_spectrogram(
+                spec[0],
+                path=os.path.join(outdir.resolve(), path.stem + ".svg"),
+                title="Spectrogram (db)",
+                ylabel="freq_bin",
+            )
 
 
 def save_spectrogram(specgram, path, title, ylabel):
-
     fig, axs = plt.subplots(1, 1)
     fig.set_dpi(600)  # 这里将 DPI 设置为 600
     axs.set_title(title)
     axs.set_ylabel(ylabel)
     axs.set_xlabel("frame")
     # cmap =  ["inferno", "gnuplot2", "CMRmap", "jet", "turbo"]
-    im = axs.imshow(librosa.power_to_db(specgram),
-                    origin="lower", aspect="auto", cmap=plt.cm.jet)
+    im = axs.imshow(
+        librosa.power_to_db(specgram), origin="lower", aspect="auto", cmap=plt.cm.jet
+    )
     fig.colorbar(im, ax=axs)
-    plt.savefig(path, dpi=600, transparent=True,
-                bbox_inches="tight", pad_inches=0.,)
+    plt.savefig(
+        path,
+        dpi=600,
+        transparent=True,
+        bbox_inches="tight",
+        pad_inches=0.0,
+    )
     plt.close()
 
 
@@ -62,19 +85,39 @@ def plot_melspectrogram(input, outdir="./output/image/"):
     except FileExistsError:
         pass
     melspectrogram = torchaudio.transforms.MelSpectrogram(
-        n_mels=128, n_fft=1024, win_length=1024, hop_length=256, f_min=80, f_max=7600, pad=0, power=2, normalized=True, center=True, pad_mode="", onesided=True)
+        n_mels=128,
+        n_fft=1024,
+        win_length=1024,
+        hop_length=256,
+        f_min=80,
+        f_max=7600,
+        pad=0,
+        power=2,
+        normalized=True,
+        center=True,
+        pad_mode="",
+        onesided=True,
+    )
     if isinstance(input, str) and os.path.isfile(input):
         wav, sr = torchaudio.load(input)
         spec = melspectrogram(wav)
-        save_spectrogram(spec[0], path=os.path.join(
-            outdir.resolve(), Path(input).stem+".svg"), title="MelSpectrogram (db)", ylabel="mel freq")
+        save_spectrogram(
+            spec[0],
+            path=os.path.join(outdir.resolve(), Path(input).stem + ".svg"),
+            title="MelSpectrogram (db)",
+            ylabel="mel freq",
+        )
     elif isinstance(input, Sequence) and os.path.isfile(input[0]):
         for it in input:
             path = Path(it)
             wav, sr = torchaudio.load(path.resolve())
             spec = melspectrogram(wav)
-            save_spectrogram(spec[0], path=os.path.join(
-                outdir.resolve(), path.stem+".svg"), title="MelSpectrogram (db)", ylabel="mel freq")
+            save_spectrogram(
+                spec[0],
+                path=os.path.join(outdir.resolve(), path.stem + ".svg"),
+                title="MelSpectrogram (db)",
+                ylabel="mel freq",
+            )
 
 
 def plot_RGBDifference(input, outdir="./output/Video/"):
@@ -93,14 +136,20 @@ def plot_RGBDifference(input, outdir="./output/Video/"):
             width=-1,
             height=-1,
             num_threads=8,
-            fault_tol=-1,)
+            fault_tol=-1,
+        )
         width, height = video.shape[2], video.shape[1]
         _fps = _av_reader.get_avg_fps()
         video = _av_reader.get_batch(frame_idxs)
         video = video.asnumpy()
         video = difference(video).numpy()
-        save_video(video, path=os.path.join(
-            outdir.resolve(), Path(input).stem+".avi"), width=width, height=height, _fps=_fps)
+        save_video(
+            video,
+            path=os.path.join(outdir.resolve(), Path(input).stem + ".avi"),
+            width=width,
+            height=height,
+            _fps=_fps,
+        )
 
     elif isinstance(input, Sequence) and os.path.isfile(input[0]):
         for it in input:
@@ -122,15 +171,19 @@ def plot_RGBDifference(input, outdir="./output/Video/"):
             width, height = video.shape[2], video.shape[1]
             video = video.asnumpy()
             video = difference(video).numpy().astype(np.uint8)
-            save_video(video, out_path=os.path.join(
-                outdir.resolve(), Path(path).stem+".avi"), width=width, height=height, _fps=_fps)
+            save_video(
+                video,
+                out_path=os.path.join(outdir.resolve(), Path(path).stem + ".avi"),
+                width=width,
+                height=height,
+                _fps=_fps,
+            )
 
 
 def save_video(video, out_path, width, height, _fps):
-    fourcc = cv2.VideoWriter_fourcc(*'XVID')  # 视频的编码
+    fourcc = cv2.VideoWriter_fourcc(*"XVID")  # 视频的编码
     # 定义视频对象输出
-    writer = cv2.VideoWriter(out_path, fourcc, _fps,
-                             (width, height))  # , isColor=False
+    writer = cv2.VideoWriter(out_path, fourcc, _fps, (width, height))  # , isColor=False
     for img in video:
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)  # RGB2GRAY
         writer.write(img)  # 视频保存
@@ -138,10 +191,22 @@ def save_video(video, out_path, width, height, _fps):
 
 
 class Plot:
-    def __init__(self, xlabel=None, ylabel=None, legend=None, grid=True, xlim=None,
-                 ylim=None, xscale='linear', yscale='linear',
-                 fmts=('b-', 'm--', 'g-.', 'r:', 'c:', 'y:', 'k:', 'w:'), nrows=1, ncols=1,
-                 figsize=(3.5, 2.5), ion=None):
+    def __init__(
+        self,
+        xlabel=None,
+        ylabel=None,
+        legend=None,
+        grid=True,
+        xlim=None,
+        ylim=None,
+        xscale="linear",
+        yscale="linear",
+        fmts=("b-", "m--", "g-.", "r:", "c:", "y:", "k:", "w:"),
+        nrows=1,
+        ncols=1,
+        figsize=(3.5, 2.5),
+        ion=None,
+    ):
         """使用matplotlib绘制数据点。
         para xlabel: 子窗X轴标签
         para ylabel: 子窗Y轴标签
@@ -167,15 +232,18 @@ class Plot:
         self.use_svg_display()
         self.fig, self.axes = plt.subplots(nrows, ncols, figsize=figsize)
         if nrows * ncols == 1:
-            self.axes = [self.axes, ]
+            self.axes = [
+                self.axes,
+            ]
         # 使用lambda函数捕获参数，设置matplotlib的轴等属性。
         self.config_axes = lambda: self.set_axes(
-            self.axes[0], xlabel, ylabel, xlim, ylim, xscale, yscale, legend, grid)
+            self.axes[0], xlabel, ylabel, xlim, ylim, xscale, yscale, legend, grid
+        )
         self.X, self.Y, self.fmts = None, None, fmts
 
     def use_svg_display(self):
         """使用svg格式显示绘图。"""
-        display.set_matplotlib_formats('svg')
+        display.set_matplotlib_formats("svg")
 
     def set_axes(self, axes, xlabel, ylabel, xlim, ylim, xscale, yscale, legend, grid):
         """设置matplotlib的轴。
@@ -205,10 +273,16 @@ class Plot:
         para X: 给定Y为坐标否则为要绘制的数据
         para Y: 给定X条件下,Y为数据
         """
+
         # 如果输入的 `X` 只有有一个轴，输出True(表示只输入了一维数据,即一条线)
         def has_one_axis(X):
-            return (hasattr(X, "ndim") and X.ndim == 1 or isinstance(X, list)
-                    and not hasattr(X[0], "__len__"))
+            return (
+                hasattr(X, "ndim")
+                and X.ndim == 1
+                or isinstance(X, list)
+                and not hasattr(X[0], "__len__")
+            )
+
         if has_one_axis(X):
             X = [X]
         if Y is None:  # Y为空,赋值X给Y,坐标为空
@@ -266,7 +340,8 @@ class Plot:
         for i, (ax, spec) in enumerate(zip(self.axes, specs)):
             if torch.is_tensor(spec):  # 张量数据
                 spec = librosa.display.specshow(
-                    spec.cpu().numpy().T, y_axis='mel', sr=sr, x_axis='time', ax=ax)
+                    spec.cpu().numpy().T, y_axis="mel", sr=sr, x_axis="time", ax=ax
+                )
                 # self.fig.colorbar(spec, ax=ax, format="%+2.f dB")
             ax.axes.get_xaxis().set_visible(False)  # 取消x坐标轴显示
             ax.axes.get_yaxis().set_visible(False)  # 取消y坐标轴显示
@@ -289,7 +364,9 @@ class Plot:
             self.X = [[] for _ in range(n)]  # 定义n个空坐标组,对应n条线
         if not self.Y:
             self.Y = [[] for _ in range(n)]  # 定义n个空数据组,对应n条线
-        for i, (a, b) in enumerate(zip(x, y)):  # 将坐标组与数据组一一对应，打包成可迭代对象，并给出每个(坐标,数据)的下标，下标对应哪条线段
+        for i, (a, b) in enumerate(
+            zip(x, y)
+        ):  # 将坐标组与数据组一一对应，打包成可迭代对象，并给出每个(坐标,数据)的下标，下标对应哪条线段
             if a is not None and b is not None:
                 self.X[i].append(a)  # 将坐标扩展到到self.X的第i条线中
                 self.Y[i].append(b)  # 将数据扩展到到self.Y的第i条线中
@@ -317,11 +394,14 @@ def unnormalize(tensor, mean, std, inplace=False):
     """
     if not isinstance(tensor, torch.Tensor):
         raise TypeError(
-            'Input tensor should be a torch tensor. Got {}.'.format(type(tensor)))
+            "Input tensor should be a torch tensor. Got {}.".format(type(tensor))
+        )
 
     if tensor.ndim < 3:
-        raise ValueError('Expected tensor to be a tensor image of size (..., C, H, W). Got tensor.size() = '
-                         '{}.'.format(tensor.size()))
+        raise ValueError(
+            "Expected tensor to be a tensor image of size (..., C, H, W). Got tensor.size() = "
+            "{}.".format(tensor.size())
+        )
 
     if not inplace:
         tensor = tensor.clone()
@@ -331,7 +411,10 @@ def unnormalize(tensor, mean, std, inplace=False):
     std = torch.as_tensor(std, dtype=dtype, device=tensor.device)
     if (std == 0).any():
         raise ValueError(
-            'std evaluated to zero after conversion to {}, leading to division by zero.'.format(dtype))
+            "std evaluated to zero after conversion to {}, leading to division by zero.".format(
+                dtype
+            )
+        )
     if mean.ndim == 1:
         mean = mean.view(-1, 1, 1)
     if std.ndim == 1:
@@ -340,7 +423,110 @@ def unnormalize(tensor, mean, std, inplace=False):
     return tensor
 
 
-def plot_tsne(model: torch.nn.Module, dataloader, outdir="./output/t-sne/", info="", device=torch.device('cpu')):
+def plot_avc_tsne(
+    model: torch.nn.Module,
+    dataloader,
+    outdir="./output/t-sne/",
+    info="",
+    device=torch.device("cpu"),
+):
+    """
+    Visualizes the feature embeddings of a PyTorch model using t-SNE.
+
+    Args:
+        model (callable): A PyTorch model or any other callable that accepts a batch of data as input and returns feature embeddings.
+        dataloader (torch.utils.data.DataLoader): A PyTorch DataLoader object that provides the data to be visualized.
+    """
+    try:
+        outdir = Path(outdir)
+        outdir.mkdir(parents=True)
+    except FileExistsError:
+        pass
+
+    # Get feature embeddings for all data points
+    # embeddings = [[], [], []]
+    embeddings = [[], [], []]  # a_embed, v_embed, c_embed
+    labels = []
+    print("获取特征向量")
+    with torch.no_grad():
+        model = model.to(device)
+
+        # count = 0
+        for data in dataloader:
+            # if count == 20:
+            #     break
+            audio_features, video_features = data["audio"], data["video"]
+            audio_features = audio_features.float().to(device)
+            video_features = video_features.float().to(device)
+            labels = labels + data["label"]
+
+            a_embed, v_embed, c_embed = model(audio_features, video_features)
+
+            embeddings[0].append(a_embed.cpu().numpy())
+            embeddings[1].append(v_embed.cpu().numpy())
+            embeddings[2].append(c_embed.cpu().numpy())
+            # count += 1
+
+    embeddings = [np.concatenate(embedding, axis=0) for embedding in embeddings]
+
+    print("t-SNE 降维")
+    tsne = TSNE(
+        n_components=2,
+        perplexity=30,
+        random_state=42,
+        init="pca",  # random
+        early_exaggeration=12.0,
+        learning_rate=500,
+        n_iter=1000,
+        n_iter_without_progress=300,
+        min_grad_norm=1e-7,
+        metric="euclidean",
+        metric_params=None,
+        verbose=0,
+        method="barnes_hut",
+        angle=0.6,
+        n_jobs=-1,
+    )
+
+    embeddings_tsne = [
+        preprocessing.MinMaxScaler(feature_range=(-1, 1)).fit_transform(
+            tsne.fit_transform(embedding)
+        )
+        for embedding in embeddings
+    ]
+    # [3, B, 2]
+
+    print("展示图片")
+    titles = ["a_embed", "v_embed", "c_embed"]
+    plt.clf()
+    plt.cla()
+    fig, ax = plt.subplots(1, 1, sharex=True, figsize=(10, 10))
+    fig.set_dpi(600)  # 这里将 DPI 设置为 600
+    for i in range(3):
+        x = embeddings_tsne[i][:, 0]
+        y = embeddings_tsne[i][:, 1]
+        ax.scatter(x, y, label=titles[i])
+    # 设置图示字体属性
+    legend_font = {"family": "serif", "size": 20, "weight": "bold"}  # 定义字体属性
+    ax.legend(prop=legend_font)
+    # Save the figure if an output path is specified
+    ax.tick_params(axis="both", labelsize=20, which="both", width=5)
+    ax.yaxis.set_ticks([-1, -0.5, 0, 0.5, 1])
+    ax.xaxis.set_ticks([-1, -0.5, 0, 0.5, 1])
+    if outdir is not None:
+        fig.tight_layout()
+        fig.savefig(os.path.join(outdir.resolve(), f"{info}_t-sne.png"), dpi=600)
+    else:
+        fig.show()
+
+
+def plot_tsne(
+    model: torch.nn.Module,
+    dataloader,
+    outdir="./output/t-sne/",
+    info="",
+    device=torch.device("cpu"),
+):
     """
     Visualizes the feature embeddings of a PyTorch model using t-SNE.
 
@@ -371,7 +557,7 @@ def plot_tsne(model: torch.nn.Module, dataloader, outdir="./output/t-sne/", info
                 if "video" in data:
                     video_features = data["video"]
                     video_features = video_features.float().to(device)
-                labels = labels+data["label"]
+                labels = labels + data["label"]
 
                 if audio_features is not None and video_features is not None:
                     embed = model(audio_features, video_features)
@@ -399,10 +585,12 @@ def plot_tsne(model: torch.nn.Module, dataloader, outdir="./output/t-sne/", info
                 if "video" in data:
                     video_features = data["video"]
                     video_features = video_features.float()
-                labels = labels+data["label"]
+                labels = labels + data["label"]
                 if audio_features is not None and video_features is not None:
-                    embed = (audio_features.view(audio_features.shape[0], -1),
-                             video_features.view(video_features.shape[0], -1))
+                    embed = (
+                        audio_features.view(audio_features.shape[0], -1),
+                        video_features.view(video_features.shape[0], -1),
+                    )
                 elif audio_features is not None:
                     embed = (audio_features.view(audio_features.shape[0], -1),)
                 elif video_features is not None:
@@ -416,29 +604,37 @@ def plot_tsne(model: torch.nn.Module, dataloader, outdir="./output/t-sne/", info
                     embed = [i.cpu().numpy() for i in embed]
                     embeddings = [[embed[i]] for i in range(len(embed))]
 
-    embeddings = [np.concatenate(embedding, axis=0)
-                  for embedding in embeddings]
+    embeddings = [np.concatenate(embedding, axis=0) for embedding in embeddings]
     label_encoder = sklearn.preprocessing.LabelEncoder()
     label_encoder.fit(y=labels)
     labels = label_encoder.transform(labels)
     classes_ = label_encoder.classes_
 
     print("t-SNE 降维")
-    tsne = TSNE(n_components=2, perplexity=30, random_state=42, init='pca',  # random
-                early_exaggeration=12.0,
-                learning_rate=500,
-                n_iter=1000,
-                n_iter_without_progress=300,
-                min_grad_norm=1e-7,
-                metric="euclidean",
-                metric_params=None,
-                verbose=0,
-                method="barnes_hut",
-                angle=0.6,
-                n_jobs=-1)
+    tsne = TSNE(
+        n_components=2,
+        perplexity=30,
+        random_state=42,
+        init="pca",  # random
+        early_exaggeration=12.0,
+        learning_rate=500,
+        n_iter=1000,
+        n_iter_without_progress=300,
+        min_grad_norm=1e-7,
+        metric="euclidean",
+        metric_params=None,
+        verbose=0,
+        method="barnes_hut",
+        angle=0.6,
+        n_jobs=-1,
+    )
 
-    embeddings_tsne = [preprocessing.MinMaxScaler(feature_range=(-1, 1)).fit_transform(tsne.fit_transform(
-        embedding)) for embedding in embeddings]
+    embeddings_tsne = [
+        preprocessing.MinMaxScaler(feature_range=(-1, 1)).fit_transform(
+            tsne.fit_transform(embedding)
+        )
+        for embedding in embeddings
+    ]
 
     print("展示图片")
     for j, embedding_tsne in enumerate(embeddings_tsne):
@@ -449,25 +645,32 @@ def plot_tsne(model: torch.nn.Module, dataloader, outdir="./output/t-sne/", info
         unique_labels = np.unique(labels)
         for i in unique_labels:
             mask = labels == i
-            ax.scatter(embedding_tsne[mask, 0],
-                       embedding_tsne[mask, 1], label=classes_[i])
+            ax.scatter(
+                embedding_tsne[mask, 0], embedding_tsne[mask, 1], label=classes_[i]
+            )
         # 设置图示字体属性
-        legend_font = {'family': 'serif',
-                       'size': 20, 'weight': 'bold'}  # 定义字体属性
+        legend_font = {"family": "serif", "size": 20, "weight": "bold"}  # 定义字体属性
         ax.legend(prop=legend_font)
         # Save the figure if an output path is specified
-        ax.tick_params(axis='both', labelsize=20, which='both', width=5)
+        ax.tick_params(axis="both", labelsize=20, which="both", width=5)
         ax.yaxis.set_ticks([-1, -0.5, 0, 0.5, 1])
         ax.xaxis.set_ticks([-1, -0.5, 0, 0.5, 1])
         if outdir is not None:
             fig.tight_layout()
-            fig.savefig(os.path.join(
-                outdir.resolve(), f"{info}_t-sne_{j}.svg"), dpi=600)
+            fig.savefig(
+                os.path.join(outdir.resolve(), f"{info}_t-sne_{j}.svg"), dpi=600
+            )
         else:
             fig.show()
 
 
-def plot_rt(model: torch.nn.Module, dataloader, outdir="./output/real-time/", info="", device=torch.device('cpu')):
+def plot_rt(
+    model: torch.nn.Module,
+    dataloader,
+    outdir="./output/real-time/",
+    info="",
+    device=torch.device("cpu"),
+):
     """
     Visualizes the real-time classification.
 
@@ -486,7 +689,6 @@ def plot_rt(model: torch.nn.Module, dataloader, outdir="./output/real-time/", in
     classes_ = {"angry": 0, "happy": 1, "neutral": 2, "sad": 3}
     print("获取预测值")
     with torch.no_grad():
-
         if model is not None:
             model = model.to(device)
             for data in dataloader:
@@ -498,8 +700,17 @@ def plot_rt(model: torch.nn.Module, dataloader, outdir="./output/real-time/", in
                     # audio_features = torch.split(audio_features, 441, dim=1)
                     af_seq_len = 441
                     af_seq_step = 63
-                    audio_features = [audio_features[:, af_seq_step*i:af_seq_step*i+af_seq_len, :, :]
-                                      for i in range(int(((audio_features.shape[1]-af_seq_len) / af_seq_step)+1))]
+                    audio_features = [
+                        audio_features[
+                            :, af_seq_step * i : af_seq_step * i + af_seq_len, :, :
+                        ]
+                        for i in range(
+                            int(
+                                ((audio_features.shape[1] - af_seq_len) / af_seq_step)
+                                + 1
+                            )
+                        )
+                    ]
 
                 if "video" in data:
                     video_features = data["video"]
@@ -508,19 +719,29 @@ def plot_rt(model: torch.nn.Module, dataloader, outdir="./output/real-time/", in
 
                     vf_seq_len = 70
                     vf_seq_step = 10
-                    video_features = [video_features[:, vf_seq_step*i:vf_seq_step*i+vf_seq_len, :, :, :]
-                                      for i in range(int(((video_features.shape[1]-vf_seq_len) / vf_seq_step)+1))]
+                    video_features = [
+                        video_features[
+                            :, vf_seq_step * i : vf_seq_step * i + vf_seq_len, :, :, :
+                        ]
+                        for i in range(
+                            int(
+                                ((video_features.shape[1] - vf_seq_len) / vf_seq_step)
+                                + 1
+                            )
+                        )
+                    ]
                 if audio_features is not None and video_features is not None:
-                    pred_prob = [F.softmax(model(a, v)[0], dim=1)
-                                 for a, v in zip(audio_features, video_features)]
+                    pred_prob = [
+                        F.softmax(model(a, v)[0], dim=1)
+                        for a, v in zip(audio_features, video_features)
+                    ]
                 elif audio_features is not None:
                     pred_prob = [F.softmax(model(a)[0], dim=1) for a in audio_features]
                 elif video_features is not None:
                     pred_prob = [F.softmax(model(v)[0], dim=1) for v in video_features]
                 # S * [B,C]
                 if pred_prob:
-                    pred_prob = torch.stack(
-                        pred_prob).permute(1, 0, 2).tolist()
+                    pred_prob = torch.stack(pred_prob).permute(1, 0, 2).tolist()
                     #  [B, S, C]
                     target = [classes_[t] for t in data["label"]]
                     #  [B]
@@ -528,11 +749,39 @@ def plot_rt(model: torch.nn.Module, dataloader, outdir="./output/real-time/", in
                         t = target[i_b]
                         for i_p, pre in enumerate(b_pre):
                             pred_prob[i_b][i_p] = pred_prob[i_b][i_p][t]
-                    all_preds = all_preds+pred_prob
-    colors = ["#FFB6C1", "#66CDAA", "#FFD700", "#6A5ACD", "#FFA07A", "#98FB98", "#2E8B57", "#CD853F",
-              "#20B2AA", "#FF4500", "#DB7093", "#32CD32", "#8B008B", "#ADFF2F", "#4169E1", "#FF69B4",
-              "#7FFF00", "#0000FF", "#BA55D3", "#3CB371", "#1E90FF", "#8A2BE2", "#00FF7F", "#6B8E23",
-              "#9370DB", "#2F4F4F", "#FFD700", "#00BFFF", "#FF8C00", "#8B4513"]
+                    all_preds = all_preds + pred_prob
+    colors = [
+        "#FFB6C1",
+        "#66CDAA",
+        "#FFD700",
+        "#6A5ACD",
+        "#FFA07A",
+        "#98FB98",
+        "#2E8B57",
+        "#CD853F",
+        "#20B2AA",
+        "#FF4500",
+        "#DB7093",
+        "#32CD32",
+        "#8B008B",
+        "#ADFF2F",
+        "#4169E1",
+        "#FF69B4",
+        "#7FFF00",
+        "#0000FF",
+        "#BA55D3",
+        "#3CB371",
+        "#1E90FF",
+        "#8A2BE2",
+        "#00FF7F",
+        "#6B8E23",
+        "#9370DB",
+        "#2F4F4F",
+        "#FFD700",
+        "#00BFFF",
+        "#FF8C00",
+        "#8B4513",
+    ]
     print("展示图片")
     plt.clf()
     plt.cla()
@@ -542,14 +791,20 @@ def plot_rt(model: torch.nn.Module, dataloader, outdir="./output/real-time/", in
         # if max(all_preds[i]) > 0.4:
         x = np.arange(len(all_preds[i]))
         pre = np.array(all_preds[i])
-        ax[i].plot(x, pre, linestyle='-', marker='.',
-                   color=colors[i % 30], label=f'{i}', linewidth=4)
+        ax[i].plot(
+            x,
+            pre,
+            linestyle="-",
+            marker=".",
+            color=colors[i % 30],
+            label=f"{i}",
+            linewidth=4,
+        )
         # 设置图示字体属性
-        legend_font = {'family': 'serif',
-                       'size': 20, 'weight': 'bold'}  # 定义字体属性
+        legend_font = {"family": "serif", "size": 20, "weight": "bold"}  # 定义字体属性
         ax[i].legend(prop=legend_font)
 
-        ax[i].tick_params(axis='both', labelsize=20, which='both', width=5)
+        ax[i].tick_params(axis="both", labelsize=20, which="both", width=5)
         ax[i].yaxis.set_ticks([-0.1, 1.1])
 
         # 设置 y 轴刻度显示整数位
@@ -557,13 +812,18 @@ def plot_rt(model: torch.nn.Module, dataloader, outdir="./output/real-time/", in
         ax[i].yaxis.set_major_locator(y_major_locator)
     if outdir is not None:
         fig.tight_layout()
-        fig.savefig(os.path.join(
-            outdir.resolve(), f"{info}_rtPred.svg"), dpi=600)
+        fig.savefig(os.path.join(outdir.resolve(), f"{info}_rtPred.svg"), dpi=600)
     else:
         fig.show()
 
 
-def plot_confusionMatrix(model: torch.nn.Module, dataloader, outdir="./output/confusionMatrix/", info="", device=torch.device('cpu')):
+def plot_confusionMatrix(
+    model: torch.nn.Module,
+    dataloader,
+    outdir="./output/confusionMatrix/",
+    info="",
+    device=torch.device("cpu"),
+):
     """
     绘制混淆矩阵
     :param model: 已训练好的分类模型
@@ -620,27 +880,35 @@ def plot_confusionMatrix(model: torch.nn.Module, dataloader, outdir="./output/co
     # classes = np.arange(len(cm))
     fig, ax = plt.subplots()
     fig.set_dpi(600)  # 这里将 DPI 设置为 600
-    im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+    im = ax.imshow(cm, interpolation="nearest", cmap=plt.cm.Blues)
     ax.figure.colorbar(im, ax=ax)
-    ax.set(xticks=np.arange(cm.shape[1]),
-           yticks=np.arange(cm.shape[0]),
-           xticklabels=classes,
-           yticklabels=classes,
-           title="Confusion matrix" + info,
-           ylabel='True label',
-           xlabel='Predicted label')
+    ax.set(
+        xticks=np.arange(cm.shape[1]),
+        yticks=np.arange(cm.shape[0]),
+        xticklabels=classes,
+        yticklabels=classes,
+        title="Confusion matrix" + info,
+        ylabel="True label",
+        xlabel="Predicted label",
+    )
     plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
-    fmt = 'd'
-    thresh = cm.max() / 2.
+    fmt = "d"
+    thresh = cm.max() / 2.0
     for i in range(cm.shape[0]):
         for j in range(cm.shape[1]):
-            ax.text(j, i, format(cm[i, j], fmt),
-                    ha="center", va="center",
-                    color="white" if cm[i, j] > thresh else "black")
+            ax.text(
+                j,
+                i,
+                format(cm[i, j], fmt),
+                ha="center",
+                va="center",
+                color="white" if cm[i, j] > thresh else "black",
+            )
     fig.tight_layout()
 
     if outdir is not None:
-        fig.savefig(os.path.join(
-            outdir.resolve(), f"{info}_confusionMatrix.svg"), dpi=600)
+        fig.savefig(
+            os.path.join(outdir.resolve(), f"{info}_confusionMatrix.svg"), dpi=600
+        )
     else:
         fig.show()

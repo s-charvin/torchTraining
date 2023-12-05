@@ -41,7 +41,7 @@ class Audio_Classification(object):
         if self.config['self_auto']['gpu_nums'] > 0:
             self.net = self.net.to(device=self.device)
             self.net = torch.nn.parallel.DistributedDataParallel(
-                self.net, device_ids=[self.device])  # device_ids 默认选用本地显示的所有 GPU
+                self.net, device_ids=[self.device], find_unused_parameters=True)  # device_ids 默认选用本地显示的所有 GPU
 
         # 设置优化器
         if 'para' in self.config["sorlver"]['optimizer'] and self.config["sorlver"]['optimizer']['para']:
@@ -434,7 +434,7 @@ class Audio_Classification_CoTeaching(object):
         if self.config['self_auto']['gpu_nums'] > 0:
             self.net = self.net.to(device=self.device)
             self.net = torch.nn.parallel.DistributedDataParallel(
-                self.net, device_ids=[self.device])  # device_ids 默认选用本地显示的所有 GPU
+                self.net, device_ids=[self.device], find_unused_parameters=True)  # device_ids 默认选用本地显示的所有 GPU
 
         # 设置优化器
         if 'para' in self.config["sorlver"]['optimizer'] and self.config["sorlver"]['optimizer']['para']:
@@ -929,7 +929,7 @@ class Audio_Classification(object):
         if self.config['self_auto']['gpu_nums'] > 0:
             self.net = self.net.to(device=self.device)
             self.net = torch.nn.parallel.DistributedDataParallel(
-                self.net, device_ids=[self.device])  # device_ids 默认选用本地显示的所有 GPU
+                self.net, device_ids=[self.device], find_unused_parameters=True)  # device_ids 默认选用本地显示的所有 GPU
 
         # 设置优化器
         if 'para' in self.config["sorlver"]['optimizer'] and self.config["sorlver"]['optimizer']['para']:

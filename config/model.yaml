@@ -36,10 +36,9 @@
 
 # architecture:
 #     net:
-#         name: "GLAM"
+#         name: "CLANet"
 #         para:
-#             shape: [189, 40]
-
+#             af_seq_len: 189
 # architecture:
 #     net:
 #         name: "AudioSVNet_Step" # AudioSVNet_Step, AudioSVNet, AudioSVNet_Step_MultiObject, VideoSVNet_Conv2D, VideoSVNet_Step_Conv2D
@@ -52,7 +51,7 @@
 
 architecture:
     net:
-        name: "MER_SISF_Conv2D_SVC_InterFusion_Joint_Attention" # MIFFNet_Conv2D_InterFusion_Joint, MIFFNet_Conv2D_SVC_InterFusion_Joint
+        name: "MER_SISF_Conv2D_SVC_InterFusion_Joint_Attention_SLoss" # MIFFNet_Conv2D_InterFusion_Joint, MIFFNet_Conv2D_SVC_InterFusion_Joint
         para:
             num_classes: 4
             input_size: [[189, 40], [150, 150]]
