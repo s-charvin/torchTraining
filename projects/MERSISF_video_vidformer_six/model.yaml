@@ -1,0 +1,10 @@
+architecture:
+    net:
+        name: "MER_VideoNet"
+        para:
+            num_classes: 4
+            model_name: "uniformerv2"
+            last_hidden_dim: 768
+            input_size: 150
+            num_frames: 71
+            pretrained: False

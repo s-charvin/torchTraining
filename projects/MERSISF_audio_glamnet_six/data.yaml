@@ -1,0 +1,117 @@
+# data:
+#     name: "EMODB"
+#     root: "/sdb/visitors2/SCW/data/EMODB/Feature/EMODB-EMODB_test-WaveCopyPad-MelSpectrogram-AmplitudeToDB-Label2Id-.npy"
+#     para:
+#         info: "test" # 存储数据要添加的额外信息
+
+data:
+    name: "IEMOCAP"
+    # Feature/IEMOCAP-3s-audio_Wave_pad_cut_MFCC_Permute_Channel-.npy, Feature/IEMOCAP-3s-audio_AudioSplit-audio_MFCC_Permute_Channel-.npy
+    # Feature/IEMOCAP-7s-audio_Wave_pad_cut_MFCC_Permute_Channel-.npy, Feature/IEMOCAP-7s-audio_AudioSplit-audio_MFCC_Permute_Channel-.npy
+    # Feature/IEMOCAP-10s-audio_Wave_pad_cut_MFCC_Permute_Channel-.npy, Feature/IEMOCAP-10s-AudioSplit-MFCC-Permute_Channel-.npy
+    # Feature/IEMOCAP-pad-audio_MFCC_Permute_Channel.npy
+
+    # Feature/IEMOCAP-10s-audio_Wave_pad_cut_Spectrogram_Permute_Channel-.npy
+    # Feature/IEMOCAP-3s-WaveCopyPad-MelSpectrogram-AmplitudeToDB-.npy
+    # Feature/IEMOCAP-3s-AudioSplit-WaveCopyPad-MelSpectrogram-AmplitudeToDB-.npy
+    # Feature/IEMOCAP-7s-AudioSplit-MelSpectrogram-Permute_Channel-.npy
+    # Feature/IEMOCAP-7s-audio_Wave_pad_cut_MelSpectrogram_Permute_Channel-.npy
+
+    # Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy
+    # Feature/IEMOCAP-pad-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy
+
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy"
+    para:
+        info: "" # 存储数据要添加的额外信息
+        mode: "av" # ["v", "a", "t", "av", "at", "vt", "avt"]
+        videomode: "crop"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+
+    enhances:
+        # AudioSplit:
+        #     sampleNum: 112000 # 16000 * duration
+        # VideoSplit:
+        #     video_sample: 210 # 29.7 * duration
+        AVSplit:
+            sampleNum: 112000
+            video_sample: 210
+    transforms: # 注意: 参数顺序即执行顺序
+        # WaveCopyPad:
+        #     sampleNum: 32680
+
+        # # 获取 mel 谱
+        # MelSpectrogram:
+        #     sample_rate: 16000
+        #     n_fft: 1024
+        #     win_length: 1024
+        #     hop_length: 256
+        #     f_min: 80.
+        #     f_max: 7600.
+        #     pad: 0
+        #     n_mels: 256
+        #     power: 2.
+        #     normalized: True
+        #     center:  True
+        #     pad_mode: "reflect"
+        #     onesided: True
+        # AmplitudeToDB:
+        #     stype: "power"
+        #     top_db: 80
+
+        # 处理文本
+
+        # # 获取 MFCC 系数
+        MFCC:
+            sample_rate: 16000
+            n_mfcc: 40
+            log_mels: True
+            melkwargs:
+                n_fft: 1024
+                win_length: 1024
+                hop_length: 256
+                f_min: 80.
+                f_max: 7600.
+                pad: 0
+                n_mels: 128
+                power: 2.
+                normalized: True
+                center: True
+                pad_mode: "reflect"
+                onesided: True
+        KeyFrameGetterBasedIntervalSampling:
+            interval: 3
+
+        Permute_Channel:
+            dims: [[2, 1, 0], [0, 1, 2, 3]] # [c, fea, seq] - > [seq, fea, c] | [seq,w,h,c]
+            names: ["audio", "video"]
+
+        # Permute_Channel:
+        #     dims: [[2, 1, 0]] # [c, fea, seq] - > [seq, fea, c] | [seq,w,h,c]
+        #     names: ["audio"]
+
+    filters: {
+            # replace:key:{source: target}
+            "replace": { "label": { "excited": "happy" } },
+            # dropna:key:{target}
+            "dropna":
+                {
+                    "label":
+                        [
+                            "other",
+                            "xxx",
+                            "frustrated",
+                            "disgusted",
+                            "fearful",
+                            "surprised",
+                        ],
+                },
+            # sort_values:key
+            "sort_values": "duration",
+        }
+
+    # filters: {
+    #     "replace": {},
+    #     "dropna": {'label': [ "other", "xxx" ,"excited",  "frustrated", "disgusted", "fearful", "surprised"] },
+    #     "sort_values": "duration"
+    #     }

@@ -2,17 +2,24 @@ import torch
 from torch import Tensor, nn
 import torch.nn.functional as F
 import numpy as np
-
-
-from .lightsernet import LightSerNet, LightResMultiSerNet, LightResMultiSerNet_Encoder
 from .components import *
 
+# audio
+from .lightsernet import LightSerNet, LightResMultiSerNet_Encoder
 from .glamnet import GLAM
 from .aacnnnet import AACNN
 from .macnnnet import MACNN
-from custom_models.MVIT import *
+from .mdease import MDEASE
+
+# video
 from .resnet import ResNet, DCResNet
 from .densenet import DenseNet
+from .res2net import res2net50_14w_8s
+from .convnext import convnext_tiny
+from .i3d import InceptionI3d
+from .x3d import X3D
+from .slowfast import SlowFast
+from .uniformerv2 import uniformerv2_b16
 
 
 class PretrainedBaseModel:
@@ -158,6 +165,20 @@ class PretrainedBaseModel:
         return self.base_model
 
 
+class VideoImageEncoder(nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
+    def forward(self, x):
+        # x: [B, T, C, H, W]
+        B, T, C, H, W = x.shape
+        x = x.view(B * T, C, H, W)
+        x = self.model(x)
+        x = x.view(B, T, -1)
+        return x.mean(dim=1)
+
+
 def getModel(
     model_name,
     out_features,
@@ -183,40 +204,94 @@ def getModel(
                 pass
 
     if model_name == "lightsernet":
-        return LightSerNet()
-    elif model_name == "lightresmultisernet":
-        return LightResMultiSerNet()
+        model = LightSerNet(in_channels=in_channels, out_features=out_features)
+
+        model.last_linear = EmptyModel()
+        return model  # 320
+    elif model_name == "md-ease":
+        model = MDEASE(in_channels=in_channels, out_features=out_features)
+        model.last_linear = EmptyModel()
+        return model  # 320
     elif model_name == "glamnet":
         # 此网络需要提供输入图维度
-        return GLAM(shape=input_size, out_features=out_features)
+        model = GLAM(shape=input_size, out_features=out_features)
+        # model.last_linear = EmptyModel()
+        return model  # 128 * shape[0]//2 * shape[1]//4
     elif model_name == "aacnn":
         # 此网络需要提供输入图维度
-        return AACNN(shape=input_size, out_features=out_features)
+        model = AACNN(shape=input_size, out_features=out_features)
+        model.last_linear = EmptyModel()
+        return model  # 80 * ((shape[0] - 1) // 2) * ((shape[1] - 1) // 4)
     elif model_name == "macnn":
         # 此网络需要提供输入图维度
-        return MACNN(out_features=out_features)
-    elif model_name == "rev_mvit_b_conv2d":
-        return rev_mvit_b_conv2d(
+        model = MACNN(out_features=out_features)
+        model.last_linear = EmptyModel()
+        return model  # 256
+
+    elif model_name == "resnet50":
+        model = ResNet(in_channels=in_channels, num_classes=out_features)
+        model.last_linear = EmptyModel()
+        return model  # 512 * block.expansion = 2048
+    elif model_name == "densenet161":
+        model = DenseNet(
+            in_channels=in_channels,
             num_classes=out_features,
-            crop_size=input_size,
-            input_channel_num=[in_channels, in_channels],
+            growth_rate=48,
+            block_config=[6, 12, 36, 24],
+            num_init_features=96,
         )
-        return True
-    elif model_name == "rev_mvit_b_16x4_conv3d":
-        return rev_mvit_b_16x4_conv3d(
+        model.last_linear = EmptyModel()
+        return model  # 96 + 6 * 48 + 12 * 48 + 36 * 48 + 24 * 48 = 3840
+    elif model_name == "res2net50":
+        model = res2net50_14w_8s(in_channels=in_channels, num_classes=out_features)
+        model.fc = EmptyModel()
+        return model  # 512 * block.expansion
+    elif model_name == "convnext":
+        model = convnext_tiny(in_channels=in_channels, num_classes=out_features)
+        model.head = EmptyModel()
+        return model  # 768
+    elif model_name == "i3d":
+        model = InceptionI3d(num_classes=out_features, in_channels=in_channels)
+        model.replace_logits(384 + 384 + 128 + 128)
+        return model  # 384 + 384 + 128 + 128
+    elif model_name == "x3d":
+        model = X3D(
+            in_channels=in_channels,
             num_classes=out_features,
             crop_size=input_size,
-            input_channel_num=[in_channels, in_channels],
+            num_frames=num_frames,
+            depth_factor=2.2,
+        )
+        model.head.projection = EmptyModel()
+        return model  # 2048
+    elif model_name == "slowfast":
+        model = SlowFast(
+            in_channels=[in_channels, in_channels],
+            num_classes=out_features,
+            crop_size=input_size,
+            num_frames=num_frames,
+            alpha=5,
+            beta_inv=8,
+            fusion_conv_channel_ratio=2,
+            fusion_kernel_sz=7,
+            nonlocal_location=[[[], []], [[], []], [[], []], [[], []]],
+            nonlocal_group=[[1, 1], [1, 1], [1, 1], [1, 1]],
+        )
+        model.head.projection = EmptyModel()
+        return model  # 64 * 32 + (64 * 32 // 8) = 2048 + 256
+    elif model_name == "uniformerv2":
+        model = uniformerv2_b16(
+            input_size=input_size,
+            num_classes=out_features,
+            backbone_drop_path_rate=0.2,
+            drop_path_rate=0.4,
+            dw_reduction=1.5,
+            no_lmhra=True,
+            temporal_downsample=False,
             num_frames=num_frames,
         )
-    elif model_name == "resnet50":
-        return ResNet(in_channels=in_channels, num_classes=out_features)
-    elif model_name == "dcresnet50":
-        return DCResNet(
-            in_channels=in_channels, num_classes=out_features, with_dcn=True
-        )
-    elif model_name == "densenet121":
-        return DenseNet(in_channels=in_channels, num_classes=out_features)
+        model.transformer.proj = EmptyModel()
+        return model
     else:
         raise ValueError(f"不支持的基本模型: {model_name}")
 
@@ -229,6 +304,17 @@ def getVideoModel(
     input_size=[126, 40],
     pretrained=False,
 ):
+    if model_name in ["resnet50", "densenet161", "res2net50", "convnext"]:
+        model = VideoImageEncoder(
+            getModel(
+                model_name,
+                out_features,
+                in_channels=in_channels,
+                input_size=input_size,
+                pretrained=pretrained,
+            )
+        )
+        return model
     return getModel(
         model_name,
         out_features,
@@ -240,7 +326,7 @@ def getVideoModel(
 
 
 # 纯音频基线模型
-class AudioNet(nn.Module):
+class MER_AudioNet(nn.Module):
     def __init__(
         self,
         num_classes=4,
@@ -279,13 +365,13 @@ class AudioNet(nn.Module):
         # 分类
         if self.enable_classifier:
             af_out = self.audio_classifier(af_fea)
-            return F.softmax(af_out, dim=1), None
+            return af_out, None
         else:
             return af_fea
 
 
 # 纯视频基线模型
-class VideoNet_Conv2D(nn.Module):
+class MER_VideoNet(nn.Module):
     """ """
 
     def __init__(
@@ -294,6 +380,9 @@ class VideoNet_Conv2D(nn.Module):
         model_name="resnet50",
         last_hidden_dim=320,
         enable_classifier=True,
+        input_size=[150, 150],
+        num_frames=30,
+        pretrained=False,
     ) -> None:
         super().__init__()
         self.num_classes = num_classes
@@ -304,9 +393,9 @@ class VideoNet_Conv2D(nn.Module):
             self.model_name,
             out_features=self.last_hidden_dim,
             in_channels=3,
-            num_frames=30,
-            input_size=None,
-            pretrained=True,
+            num_frames=num_frames,
+            input_size=input_size,
+            pretrained=pretrained,
         )
         self.video_classifier = nn.Linear(
             in_features=self.last_hidden_dim, out_features=num_classes
@@ -321,19 +410,15 @@ class VideoNet_Conv2D(nn.Module):
             Tensor: size:[batch, out]
         """
         seq_length = vf.shape[1]
-        #  [B, Seq, W, H, C]
+        #  [B, T, W, H, C]
         vf = vf.permute(0, 1, 4, 2, 3).contiguous()
-        # [B, Seq, C, W, H]
-        vf_fea = self.video_feature_extractor(vf.view((-1,) + vf.size()[-3:]))
+        # [B, T, C, W, H]
+        vf_fea = self.video_feature_extractor(vf)
 
         if self.enable_classifier:
             # [batch * seq, 320]
             vf_out = self.video_classifier(vf_fea)
-
-            vf_out = vf_out.view((-1, seq_length) + vf_out.size()[1:])
-            # [batch, seq, num_class]
-            vf_out = vf_out.mean(dim=1)
-            return F.softmax(vf_out, dim=1), None
+            return vf_out, None
         else:
             return vf_fea.view((-1, seq_length) + vf_fea.size()[1:]).mean(dim=1)
 
@@ -1311,19 +1396,23 @@ class MER_SISF_Conv2D_SVC_InterFusion_Joint_Attention_SLoss(nn.Module):
                 self.af_last_hidden_dim == 320
             ), "由原论文可知 情绪识别中的 LightSerNet 的隐藏层向量最好限定为 320"
 
-        self.audio_feature_extractor = LightResMultiSerNet_Encoder()
+        self.audio_feature_extractor = getModel(
+            self.af_model_name,
+            out_features=num_classes,
+            in_channels=1,
+            input_size=self.af_input_size,
+        )
         self.video_feature_extractor = getVideoModel(
             self.vf_model_name,
             out_features=self.vf_last_hidden_dim,
             in_channels=3,
-            num_frames=30,
+            num_frames=10,
             input_size=self.vf_input_size,
-            pretrained=True,
+            pretrained=False,
         )
 
         self.af_esaAttention = ESIAttention(self.af_last_hidden_dim, 4)
         self.vf_esaAttention = ESIAttention(self.vf_last_hidden_dim, 4)
-
 
         # self.af_esaAttention = BiLSTM_ESIAttention(
         #     input_size=self.af_last_hidden_dim, hidden_size=self.af_last_hidden_dim
@@ -1416,26 +1505,27 @@ class MER_SISF_Conv2D_SVC_InterFusion_Joint_Attention_SLoss(nn.Module):
             vf = vf[:-1]
             vf_floor_ = True  # 控制计算有效长度时是否需要去掉最后一段数据
         vf_seg_len = len(vf)  # 记录分段数量, vf_seg_len = ceil(seq/vf_seg_len)
+
+        # vf: [B, vf_seg_len, vf_seq_len, C, W, H]
         vf = torch.stack(vf).permute(1, 0, 3, 2, 4, 5).contiguous()
-        # [B, vf_seg_len, vf_seq_len, C, W, H]
 
-        # # 二维
+        # in: [B * vf_seg_len, vf_seq_len, C, W, H], out: [B * vf_seg_len, F]
+        vf_fea = self.video_feature_extractor(vf.view((-1,) + vf.size()[-4:]))
 
-        # [B * vf_seg_len * vf_seq_len, C, W, H]
-        vf_fea = self.video_feature_extractor(vf.view((-1,) + vf.size()[-3:]))
-        # [B * vf_seg_len * vf_seq_len, F]
-        vf_fea = vf_fea.view((-1, vf_seg_len, self.vf_seq_len) + vf_fea.size()[1:])
-        # [B, vf_seg_len, vf_seq_len, F]
-        vf_fea = vf_fea.mean(dim=2)
-        # [B, vf_seg_len, F]
+        # vf_fea: [B * vf_seg_len, F] -> [B, vf_seg_len, F]
+        vf_fea = vf_fea.view((-1, vf_seg_len) + vf_fea.size()[1:])
+        vf_fea = vf_fea.mean(dim=1)
+        # 二维
 
-        # 三维
-        # vf_fea = self.video_feature_extractor(
-        #     vf.view((-1, ) + vf.size()[-4:]).permute(0, 2, 1, 3, 4))
-        # # [B* vf_seg_len, F]
-        # vf_fea = vf_fea.view(
-        #     (-1, vf_seg_len) + vf_fea.size()[1:])
+        ################################
+        # # [B * vf_seg_len * vf_seq_len, C, W, H]
+        # vf_fea = self.video_feature_extractor(vf.view((-1,) + vf.size()[-3:]))
+        # # [B * vf_seg_len * vf_seq_len, F]
+        # vf_fea = vf_fea.view((-1, vf_seg_len, self.vf_seq_len) + vf_fea.size()[1:])
+        # # [B, vf_seg_len, vf_seq_len, F]
+        # vf_fea = vf_fea.mean(dim=2)
         # # [B, vf_seg_len, F]
+        ################################
 
         if vf_len is not None:
             batch_size, max_len, _ = vf_fea.shape

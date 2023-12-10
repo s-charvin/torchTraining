@@ -7,7 +7,6 @@ import math
 
 
 class Conv2dSame(nn.Conv2d):
-
     def calc_same_pad(self, i: int, k: int, s: int, d: int) -> int:
         return max((math.ceil(i / s) - 1) * s + (k - 1) * d + 1 - i, 0)
 
@@ -15,14 +14,15 @@ class Conv2dSame(nn.Conv2d):
         ih, iw = x.size()[-2:]
 
         pad_h = self.calc_same_pad(
-            i=ih, k=self.kernel_size[0], s=self.stride[0], d=self.dilation[0])
+            i=ih, k=self.kernel_size[0], s=self.stride[0], d=self.dilation[0]
+        )
         pad_w = self.calc_same_pad(
-            i=iw, k=self.kernel_size[1], s=self.stride[1], d=self.dilation[1])
+            i=iw, k=self.kernel_size[1], s=self.stride[1], d=self.dilation[1]
+        )
 
         if pad_h > 0 or pad_w > 0:
             x = F.pad(
-                x, [pad_w // 2, pad_w - pad_w // 2,
-                    pad_h // 2, pad_h - pad_h // 2]
+                x, [pad_w // 2, pad_w - pad_w // 2, pad_h // 2, pad_h - pad_h // 2]
             )
         return F.conv2d(
             x,
@@ -41,18 +41,24 @@ class MACNN(nn.Module):
         # activation='ReLU')
         self.attention_heads = attention_heads
         self.attention_hidden = attention_hidden
-        self.conv1a = nn.Conv2d(kernel_size=(
-            10, 2), in_channels=1, out_channels=8, padding=(4, 0))
-        self.conv1b = nn.Conv2d(kernel_size=(
-            2, 8), in_channels=1, out_channels=8, padding=(0, 3))
-        self.conv2 = nn.Conv2d(kernel_size=(
-            3, 3), in_channels=16, out_channels=32, padding=1)
-        self.conv3 = nn.Conv2d(kernel_size=(
-            3, 3), in_channels=32, out_channels=48, padding=1)
-        self.conv4 = nn.Conv2d(kernel_size=(
-            3, 3), in_channels=48, out_channels=64, padding=1)
-        self.conv5 = nn.Conv2d(kernel_size=(
-            3, 3), in_channels=64, out_channels=80, padding=1)
+        self.conv1a = nn.Conv2d(
+            kernel_size=(10, 2), in_channels=1, out_channels=8, padding=(4, 0)
+        )
+        self.conv1b = nn.Conv2d(
+            kernel_size=(2, 8), in_channels=1, out_channels=8, padding=(0, 3)
+        )
+        self.conv2 = nn.Conv2d(
+            kernel_size=(3, 3), in_channels=16, out_channels=32, padding=1
+        )
+        self.conv3 = nn.Conv2d(
+            kernel_size=(3, 3), in_channels=32, out_channels=48, padding=1
+        )
+        self.conv4 = nn.Conv2d(
+            kernel_size=(3, 3), in_channels=48, out_channels=64, padding=1
+        )
+        self.conv5 = nn.Conv2d(
+            kernel_size=(3, 3), in_channels=64, out_channels=80, padding=1
+        )
         self.maxp = nn.MaxPool2d(kernel_size=(2, 2))
         self.bn1a = nn.BatchNorm2d(8)
         self.bn1b = nn.BatchNorm2d(8)
@@ -61,8 +67,9 @@ class MACNN(nn.Module):
         self.bn4 = nn.BatchNorm2d(64)
         self.bn5 = nn.BatchNorm2d(80)
         self.gap = nn.AdaptiveAvgPool2d(1)
-        self.last_linear = nn.Linear(in_features=self.attention_hidden,
-                                     out_features=out_features)
+        self.last_linear = nn.Linear(
+            in_features=self.attention_hidden, out_features=out_features
+        )
         self.dropout = nn.Dropout(0.5)
         self.attention_query = nn.ModuleList()
         self.attention_key = nn.ModuleList()
@@ -70,14 +77,22 @@ class MACNN(nn.Module):
 
         for i in range(self.attention_heads):
             self.attention_query.append(
-                nn.Conv2d(in_channels=80, out_channels=self.attention_hidden, kernel_size=1))
+                nn.Conv2d(
+                    in_channels=80, out_channels=self.attention_hidden, kernel_size=1
+                )
+            )
             self.attention_key.append(
-                nn.Conv2d(in_channels=80, out_channels=self.attention_hidden, kernel_size=1))
+                nn.Conv2d(
+                    in_channels=80, out_channels=self.attention_hidden, kernel_size=1
+                )
+            )
             self.attention_value.append(
-                nn.Conv2d(in_channels=80, out_channels=self.attention_hidden, kernel_size=1))
+                nn.Conv2d(
+                    in_channels=80, out_channels=self.attention_hidden, kernel_size=1
+                )
+            )
 
     def forward(self, x, xlen=None):
-
         xa = self.conv1a(x)
         xa = self.bn1a(xa)
 
@@ -121,7 +136,7 @@ class MACNN(nn.Module):
             # img = Image.fromarray(attention_img, 'L')
             # img.save('img/img_'+str(i)+'.png')
 
-            if (attn is None):
+            if attn is None:
                 attn = attention
             else:
                 attn = torch.cat((attn, attention), 2)
@@ -135,7 +150,7 @@ class MACNN(nn.Module):
         return x
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test = np.random.random((4, 1, 40, 40)).astype(np.float32)
     test = torch.Tensor(test)
     macnn = MACNN()

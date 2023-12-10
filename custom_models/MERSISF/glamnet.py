@@ -89,12 +89,12 @@ class GLAM(nn.Module):
         self.bn1b = nn.BatchNorm2d(16)
         self.bn5 = nn.BatchNorm2d(128)
         dim = (shape[0]//2) * (shape[1]//4)
+
+        self.gmlp = gMLP(dim=dim, depth=1, seq_len=128, act=nn.Tanh())
+        
         i = 128 * dim
         self.last_linear = nn.Linear(in_features=i, out_features=out_features)
         self.dropout = nn.Dropout(0.5)
-
-        self.gmlp = gMLP(dim=dim, depth=1, seq_len=128, act=nn.Tanh())
-
     def forward(self, *input):
         # input[0]: torch.Size([32, 1, 26, 63])
         xa = self.conv1a(input[0])  # (32, 16, 25, 62)

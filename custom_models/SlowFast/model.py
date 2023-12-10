@@ -41,6 +41,7 @@ class SlowFast(nn.Module):
     """
     SlowFast model builder for SlowFast network.
     page: https://arxiv.org/pdf/1812.03982.pdf
+    
     """
 
     def __init__(self, modelarch, stagelayers, pathway):

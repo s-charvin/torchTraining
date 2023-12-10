@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 
 class DenseNet(nn.Module):
-    """ DenseNet 基本模型, 可通过给定参数(growth_rate, block_config,num_init_features)定制模型. 例如:
+    """DenseNet 基本模型, 可通过给定参数(growth_rate, block_config,num_init_features)定制模型. 例如:
         densenet121 = DenseNet(32, (6, 12, 24, 16), 64)
         densenet161 = DenseNet(48, (6, 12, 36, 24), 96)
         densenet169 = DenseNet(32, (6, 12, 32, 32), 64)
@@ -29,13 +29,18 @@ class DenseNet(nn.Module):
         bn_size: int = 4,
         drop_rate: float = 0,
     ) -> None:
-
         super().__init__()
         self.num_outputs = num_classes
 
         # First convolution
-        self.conv0 = nn.Conv2d(in_channels, num_init_features,
-                               kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv0 = nn.Conv2d(
+            in_channels,
+            num_init_features,
+            kernel_size=7,
+            stride=2,
+            padding=3,
+            bias=False,
+        )
         self.norm0 = nn.BatchNorm2d(num_init_features)
         self.relu0 = nn.ReLU(inplace=True)
         self.pool0 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -43,13 +48,26 @@ class DenseNet(nn.Module):
         # Each denseblock
 
         self.denseblock = nn.Sequential()
-        self._make_block(num_init_features, block_config, bn_size,
-                         growth_rate, drop_rate, self.num_outputs)
+        self._make_block(
+            num_init_features,
+            block_config,
+            bn_size,
+            growth_rate,
+            drop_rate,
+            self.num_outputs,
+        )
 
-    def _make_block(self, num_init_features, block_config, bn_size, growth_rate, drop_rate, num_outputs):
+    def _make_block(
+        self,
+        num_init_features,
+        block_config,
+        bn_size,
+        growth_rate,
+        drop_rate,
+        num_outputs,
+    ):
         num_features = num_init_features
         for i, num_layers in enumerate(block_config):
-
             # 构造 block
             block = DenseBlock(
                 num_layers=num_layers,
@@ -65,7 +83,9 @@ class DenseNet(nn.Module):
             # block 过渡层, 每次过渡, 特征通道少一半
             if i != len(block_config) - 1:
                 trans = _transitionblock(
-                    num_input_features=num_features, num_output_features=num_features // 2)
+                    num_input_features=num_features,
+                    num_output_features=num_features // 2,
+                )
                 self.denseblock.add_module("transition%d" % (i + 1), trans)
                 num_features = num_features // 2
 
@@ -106,21 +126,25 @@ def _transitionblock(num_input_features: int, num_output_features: int) -> None:
     transition = nn.Sequential()
     transition.add_module("trans_norm", nn.BatchNorm2d(num_input_features))
     transition.add_module("trans_relu", nn.ReLU(inplace=True))
-    transition.add_module("trans_conv", nn.Conv2d(
-        num_input_features, num_output_features, kernel_size=1, stride=1, bias=False))
+    transition.add_module(
+        "trans_conv",
+        nn.Conv2d(
+            num_input_features, num_output_features, kernel_size=1, stride=1, bias=False
+        ),
+    )
     transition.add_module("trans_pool", nn.AvgPool2d(kernel_size=2, stride=2))
     return transition
 
 
 class DenseBlock(nn.Module):
-
     def __init__(
-            self,
-            num_layers: int,
-            num_input_features: int,
-            bn_size: int,
-            growth_rate: int,
-            drop_rate: float,) -> None:
+        self,
+        num_layers: int,
+        num_input_features: int,
+        bn_size: int,
+        growth_rate: int,
+        drop_rate: float,
+    ) -> None:
         super().__init__()
 
         self.layers = nn.Sequential()
@@ -129,7 +153,8 @@ class DenseBlock(nn.Module):
                 num_input_features + i * growth_rate,
                 growth_rate=growth_rate,
                 bn_size=bn_size,
-                drop_rate=drop_rate,)
+                drop_rate=drop_rate,
+            )
             self.layers.add_module("denseLayer%d" % (i + 1), layer)
 
     def forward(self, x: Tensor) -> Tensor:
@@ -140,28 +165,93 @@ class DenseBlock(nn.Module):
 
 
 class DenseLayer(nn.Module):
-    """进行 Dense 的我每一层 Layer
-    """
+    """进行 Dense 的我每一层 Layer"""
 
     def __init__(
-            self, num_input_features: int, growth_rate: int, bn_size: int, drop_rate: float) -> None:
+        self, num_input_features: int, growth_rate: int, bn_size: int, drop_rate: float
+    ) -> None:
         super().__init__()
         self.norm1 = nn.BatchNorm2d(num_input_features)
         self.relu1 = nn.ReLU(inplace=True)
-        self.conv1 = nn.Conv2d(num_input_features, bn_size *
-                               growth_rate, kernel_size=1, stride=1, bias=False)
+        self.conv1 = nn.Conv2d(
+            num_input_features,
+            bn_size * growth_rate,
+            kernel_size=1,
+            stride=1,
+            bias=False,
+        )
 
         self.norm2 = nn.BatchNorm2d(bn_size * growth_rate)
 
         self.relu2 = nn.ReLU(inplace=True)
-        self.conv2 = nn.Conv2d(bn_size * growth_rate, growth_rate,
-                               kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(
+            bn_size * growth_rate,
+            growth_rate,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False,
+        )
 
         self.drop_rate = float(drop_rate)
 
     def forward(self, input: Tensor) -> Tensor:
-        out = self.conv2(self.relu2(self.norm2(self.conv1(
-            self.relu1(self.norm1(input))))))
+        out = self.conv2(
+            self.relu2(self.norm2(self.conv1(self.relu1(self.norm1(input)))))
+        )
         if self.drop_rate > 0:
             out = F.dropout(out, p=self.drop_rate, training=self.training)
         return out
+
+
+if __name__ == "__main__":
+    from torchinfo import summary
+
+    input = torch.randn(2, 3, 224, 224)
+    # densenet121 mult-adds (G): 5.67 params (M): 7,978,856
+    model = DenseNet(
+        growth_rate=32,
+        block_config=[6, 12, 24, 16],
+        num_init_features=64,
+    )
+    output = model(input)
+    print("\n\nmodel: densenet121")
+    print("input shape: ", input.shape)
+    print("output shape: ", output[0].shape)
+    summary(model, input_size=(2, 3, 224, 224), depth=0, device="cuda:1")
+
+    # densenet161 mult-adds (G): 15.46 params (M): 28,681,000
+    model = DenseNet(
+        growth_rate=48,
+        block_config=[6, 12, 36, 24],
+        num_init_features=96,
+    )
+    output = model(input)
+    print("\n\nmodel: densenet161")
+    print("input shape: ", input.shape)
+    print("output shape: ", output[0].shape)
+    summary(model, input_size=(2, 3, 224, 224), depth=0, device="cuda:1")
+
+    # densenet169 mult-adds (G): 6.72 params (M): 14,149,480
+    model = DenseNet(
+        growth_rate=32,
+        block_config=[6, 12, 32, 32],
+        num_init_features=64,
+    )
+    output = model(input)
+    print("\n\nmodel: densenet169")
+    print("input shape: ", input.shape)
+    print("output shape: ", output[0].shape)
+    summary(model, input_size=(2, 3, 224, 224), depth=0, device="cuda:1")
+
+    # densenet201 mult-adds (G): 8.58 params (M): 20,013,928
+    model = DenseNet(
+        growth_rate=32,
+        block_config=[6, 12, 48, 32],
+        num_init_features=64,
+    )
+    output = model(input)
+    print("\n\nmodel: densenet201")
+    print("input shape: ", input.shape)
+    print("output shape: ", output[0].shape)
+    summary(model, input_size=(2, 3, 224, 224), depth=0, device="cuda:1")

@@ -1,0 +1,10 @@
+architecture:
+    net:
+        name: "MER_VideoNet"
+        para:
+            num_classes: 6
+            model_name: "x3d"
+            last_hidden_dim: 2048
+            input_size: [150, 150]
+            num_frames: 71
+            pretrained: False

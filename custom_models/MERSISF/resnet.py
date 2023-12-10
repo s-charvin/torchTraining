@@ -1,4 +1,3 @@
-
 from . import components
 from typing import Type, Any, Callable, Union, List, Optional
 import torch
@@ -6,7 +5,7 @@ from torch import Tensor, nn
 
 
 class ResNet(nn.Module):
-    """ ResNet 基本模型, 可通过给定参数(block, layers等)定制模型. 例如:
+    """ResNet 基本模型, 可通过给定参数(block, layers等)定制模型. 例如:
         resnet18 = ResNet(components.Bottleneck, [2, 2, 2, 2])
         resnet34 = ResNet(components.BasicBlock, [3, 4, 6, 3])
         resnet50 = ResNet(components.Bottleneck, [3, 4, 6, 3])
@@ -24,25 +23,24 @@ class ResNet(nn.Module):
         zero_init_residual (bool, optional): _description_. Defaults to False.
         groups (int, optional): 卷积分组数. Defaults to 1.
         width_per_group (int, optional): 卷积过程中每组的宽度. Defaults to 64.
-        replace_stride_with_dilation (Optional[List[bool]], optional): # 使用膨胀(空洞)卷积替换普通组卷积. 
+        replace_stride_with_dilation (Optional[List[bool]], optional): # 使用膨胀(空洞)卷积替换普通组卷积.
             Defaults to None.
             含有三个 bool 元素的列表, 分别对应是否替换 layer[1-3] 的卷积
         norm_layer (Optional[Callable[..., nn.Module]], optional): norm 层. Defaults to nn.BatchNorm2d.
     """
 
     def __init__(
-            self,
-            in_channels=3,
-            num_classes=1000,
-            blocktype="Bottleneck",  # "BasicBlock", "Bottleneck"
-            layers=[3, 4, 6, 3],
-            zero_init_residual: bool = False,
-            groups: int = 1,
-            width_per_group: int = 64,
-            replace_stride_with_dilation: Optional[List[bool]] = None,
-            norm_layer: Optional[Callable[..., nn.Module]] = nn.BatchNorm2d
+        self,
+        in_channels=3,
+        num_classes=1000,
+        blocktype="Bottleneck",  # "BasicBlock", "Bottleneck"
+        layers=[3, 4, 6, 3],
+        zero_init_residual: bool = False,
+        groups: int = 1,
+        width_per_group: int = 64,
+        replace_stride_with_dilation: Optional[List[bool]] = None,
+        norm_layer: Optional[Callable[..., nn.Module]] = nn.BatchNorm2d,
     ) -> None:
-
         super().__init__()
 
         if blocktype == "Bottleneck":
@@ -51,7 +49,7 @@ class ResNet(nn.Module):
             block = components.BasicBlock
 
         self.norm_layer = norm_layer
-        self.inplanes = 64   # 初始特征通道数
+        self.inplanes = 64  # 初始特征通道数
         self.dilation = 1
         zero_init_residual = zero_init_residual
         self.groups = groups
@@ -63,22 +61,28 @@ class ResNet(nn.Module):
             # the 2x2 stride with a dilated convolution instead
             replace_stride_with_dilation = [False, False, False]
         if len(replace_stride_with_dilation) != 3:
-            raise ValueError("replace_stride_with_dilation should be None "
-                             "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
+            raise ValueError(
+                "replace_stride_with_dilation should be None "
+                "or a 3-element tuple, got {}".format(replace_stride_with_dilation)
+            )
 
-        self.conv1 = nn.Conv2d(in_channels, self.inplanes,
-                               kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(
+            in_channels, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False
+        )
         self.bn1 = self.norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
         self.layer1 = self._make_block(block, 64, layers[0])
         self.layer2 = self._make_block(
-            block, 128, layers[1], stride=2, dilate=replace_stride_with_dilation[0])
+            block, 128, layers[1], stride=2, dilate=replace_stride_with_dilation[0]
+        )
         self.layer3 = self._make_block(
-            block, 256, layers[2], stride=2, dilate=replace_stride_with_dilation[1])
+            block, 256, layers[2], stride=2, dilate=replace_stride_with_dilation[1]
+        )
         self.layer4 = self._make_block(
-            block, 512, layers[3], stride=2, dilate=replace_stride_with_dilation[2])
+            block, 512, layers[3], stride=2, dilate=replace_stride_with_dilation[2]
+        )
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
 
@@ -90,8 +94,7 @@ class ResNet(nn.Module):
         # Conv2d 和 Norm 参数初始化
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(
-                    m.weight, mode="fan_out", nonlinearity="relu")
+                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
             elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
@@ -108,21 +111,22 @@ class ResNet(nn.Module):
                     nn.init.constant_(m.bn2.weight, 0)
 
     def _make_block(
-            self,
-            block: Type[Union[components.BasicBlock, components.Bottleneck]],
-            planes: int,
-            blocks: int,
-            stride: int = 1,
-            dilate: bool = False,) -> nn.Sequential:
+        self,
+        block: Type[Union[components.BasicBlock, components.Bottleneck]],
+        planes: int,
+        blocks: int,
+        stride: int = 1,
+        dilate: bool = False,
+    ) -> nn.Sequential:
         """构建动态结构
         Args:
-            block (Type[Union[components.BasicBlock, components.Bottleneck]]): 
+            block (Type[Union[components.BasicBlock, components.Bottleneck]]):
             planes (int): _description_
             blocks (int): block数量
             stride (int, optional): 卷积步长. Defaults to 1.
             dilate (bool, optional): 是否使用空洞卷积. Defaults to False.
         Returns:
-            nn.Sequential: 
+            nn.Sequential:
         """
         norm_layer = self.norm_layer
         downsample = None
@@ -132,15 +136,21 @@ class ResNet(nn.Module):
             stride = 1
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
-                components.conv2d1x1(
-                    self.inplanes, planes * block.expansion, stride),
+                components.conv2d1x1(self.inplanes, planes * block.expansion, stride),
                 norm_layer(planes * block.expansion),
             )
 
         layers = []
         layers.append(
             block(
-                self.inplanes, planes, stride, downsample, self.groups, self.base_width, previous_dilation, norm_layer
+                self.inplanes,
+                planes,
+                stride,
+                downsample,
+                self.groups,
+                self.base_width,
+                previous_dilation,
+                norm_layer,
             )
         )
         self.inplanes = planes * block.expansion
@@ -178,10 +188,9 @@ class ResNet(nn.Module):
         return x
 
 
-
 # 基线模型
 class DCResNet(nn.Module):
-    """ 
+    """
         ResNet 基本模型, 可通过给定参数(block, layers等)定制模型. 例如:
         resnet18 = ResNet(components.Bottleneck, [2, 2, 2, 2])
         resnet34 = ResNet(components.BasicBlock, [3, 4, 6, 3])
@@ -200,26 +209,25 @@ class DCResNet(nn.Module):
         zero_init_residual (bool, optional): _description_. Defaults to False.
         groups (int, optional): 卷积分组数. Defaults to 1.
         width_per_group (int, optional): 卷积过程中每组的宽度. Defaults to 64.
-        replace_stride_with_dilation (Optional[List[bool]], optional): # 使用膨胀(空洞)卷积替换普通组卷积. 
+        replace_stride_with_dilation (Optional[List[bool]], optional): # 使用膨胀(空洞)卷积替换普通组卷积.
             Defaults to None.
             含有三个 bool 元素的列表, 分别对应是否替换 layer[1-3] 的卷积
         norm_layer (Optional[Callable[..., nn.Module]], optional): norm 层. Defaults to nn.BatchNorm2d.
     """
 
     def __init__(
-            self,
-            in_channels=3,
-            num_classes=1000,
-            blocktype="Bottleneck",  # "BasicBlock", "Bottleneck"
-            layers=[3, 4, 6, 3],
-            zero_init_residual: bool = False,
-            groups: int = 1,
-            width_per_group: int = 64,
-            replace_stride_with_dilation: Optional[List[bool]] = None,
-            norm_layer: Optional[Callable[..., nn.Module]] = nn.BatchNorm2d,
-            with_dcn = True,
+        self,
+        in_channels=3,
+        num_classes=1000,
+        blocktype="Bottleneck",  # "BasicBlock", "Bottleneck"
+        layers=[3, 4, 6, 3],
+        zero_init_residual: bool = False,
+        groups: int = 1,
+        width_per_group: int = 64,
+        replace_stride_with_dilation: Optional[List[bool]] = None,
+        norm_layer: Optional[Callable[..., nn.Module]] = nn.BatchNorm2d,
+        with_dcn=True,
     ) -> None:
-
         super().__init__()
 
         if blocktype == "Bottleneck":
@@ -228,7 +236,7 @@ class DCResNet(nn.Module):
             block = components.BasicBlock
 
         self.norm_layer = norm_layer
-        self.inplanes = 64   # 初始特征通道数
+        self.inplanes = 64  # 初始特征通道数
         self.dilation = 1
         zero_init_residual = zero_init_residual
         self.groups = groups
@@ -240,22 +248,43 @@ class DCResNet(nn.Module):
             # the 2x2 stride with a dilated convolution instead
             replace_stride_with_dilation = [False, False, False]
         if len(replace_stride_with_dilation) != 3:
-            raise ValueError("replace_stride_with_dilation should be None "
-                             "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
+            raise ValueError(
+                "replace_stride_with_dilation should be None "
+                "or a 3-element tuple, got {}".format(replace_stride_with_dilation)
+            )
 
-        self.conv1 = nn.Conv2d(in_channels, self.inplanes,
-                               kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(
+            in_channels, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False
+        )
         self.bn1 = self.norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
         self.layer1 = self._make_block(block, 64, layers[0])
         self.layer2 = self._make_block(
-            block, 128, layers[1], stride=2, dilate=replace_stride_with_dilation[0], with_dcn = with_dcn)
+            block,
+            128,
+            layers[1],
+            stride=2,
+            dilate=replace_stride_with_dilation[0],
+            with_dcn=with_dcn,
+        )
         self.layer3 = self._make_block(
-            block, 256, layers[2], stride=2, dilate=replace_stride_with_dilation[1], with_dcn = with_dcn)
+            block,
+            256,
+            layers[2],
+            stride=2,
+            dilate=replace_stride_with_dilation[1],
+            with_dcn=with_dcn,
+        )
         self.layer4 = self._make_block(
-            block, 512, layers[3], stride=2, dilate=replace_stride_with_dilation[2], with_dcn = with_dcn)
+            block,
+            512,
+            layers[3],
+            stride=2,
+            dilate=replace_stride_with_dilation[2],
+            with_dcn=with_dcn,
+        )
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
 
@@ -267,8 +296,7 @@ class DCResNet(nn.Module):
         # Conv2d 和 Norm 参数初始化
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(
-                    m.weight, mode="fan_out", nonlinearity="relu")
+                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
             elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
@@ -285,23 +313,23 @@ class DCResNet(nn.Module):
                     nn.init.constant_(m.bn2.weight, 0)
 
     def _make_block(
-            self,
-            block: Type[Union[components.BasicBlock, components.Bottleneck]],
-            planes: int,
-            blocks: int,
-            stride: int = 1,
-            dilate: bool = False,
-            with_dcn = False,
-            ) -> nn.Sequential:
+        self,
+        block: Type[Union[components.BasicBlock, components.Bottleneck]],
+        planes: int,
+        blocks: int,
+        stride: int = 1,
+        dilate: bool = False,
+        with_dcn=False,
+    ) -> nn.Sequential:
         """构建动态结构
         Args:
-            block (Type[Union[components.BasicBlock, components.Bottleneck]]): 
+            block (Type[Union[components.BasicBlock, components.Bottleneck]]):
             planes (int): _description_
             blocks (int): block数量
             stride (int, optional): 卷积步长. Defaults to 1.
             dilate (bool, optional): 是否使用空洞卷积. Defaults to False.
         Returns:
-            nn.Sequential: 
+            nn.Sequential:
         """
         norm_layer = self.norm_layer
         downsample = None
@@ -311,15 +339,22 @@ class DCResNet(nn.Module):
             stride = 1
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
-                components.conv2d1x1(
-                    self.inplanes, planes * block.expansion, stride),
+                components.conv2d1x1(self.inplanes, planes * block.expansion, stride),
                 norm_layer(planes * block.expansion),
             )
 
         layers = []
         layers.append(
             block(
-                self.inplanes, planes, stride, downsample, self.groups, self.base_width, previous_dilation, norm_layer, with_dcn = with_dcn
+                self.inplanes,
+                planes,
+                stride,
+                downsample,
+                self.groups,
+                self.base_width,
+                previous_dilation,
+                norm_layer,
+                with_dcn=with_dcn,
             )
         )
         self.inplanes = planes * block.expansion
@@ -332,7 +367,7 @@ class DCResNet(nn.Module):
                     base_width=self.base_width,
                     dilation=self.dilation,
                     norm_layer=norm_layer,
-                    with_dcn = with_dcn
+                    with_dcn=with_dcn,
                 )
             )
 
@@ -356,3 +391,40 @@ class DCResNet(nn.Module):
         x = torch.flatten(x, 1)
         x = self.last_linear(x)
         return x
+
+
+if __name__ == "__main__":
+    # 测试前将 from . import components 改为 import components
+    # 测试后再改回来
+
+    from torchinfo import summary
+
+    input = torch.randn(2, 3, 224, 224)
+    # ResNet18 mult-adds (G): 4.68, params (M): 15,995,176
+    model = ResNet(blocktype="Bottleneck", layers=[2, 2, 2, 2])
+    output = model(input)
+    print("model: ResNet18")
+    print("input shape: ", input.shape)
+    print("output shape: ", output[0].shape)
+    summary(model, input_size=(2, 3, 224, 224), depth=0, device="cuda:1")
+    # ResNet34 mult-adds (G): 7.33, params (M): 21,797,672
+    model = ResNet(blocktype="BasicBlock", layers=[3, 4, 6, 3])
+    output = model(input)
+    print("model: ResNet34")
+    print("input shape: ", input.shape)
+    print("output shape: ", output[0].shape)
+    summary(model, input_size=(2, 3, 224, 224), depth=0, device="cuda:1")
+    # ResNet50 mult-adds (G): 8.18, params (M): 25,557,032
+    model = ResNet(blocktype="Bottleneck", layers=[3, 4, 6, 3])
+    output = model(input)
+    print("model: ResNet50")
+    print("input shape: ", input.shape)
+    print("output shape: ", output[0].shape)
+    summary(model, input_size=(2, 3, 224, 224), depth=0, device="cuda:1")
+    # ResNet101 mult-adds (G): 15.60, params (M): 44,549,160
+    model = ResNet(blocktype="Bottleneck", layers=[3, 4, 23, 3])
+    output = model(input)
+    print("model: ResNet101")
+    print("input shape: ", input.shape)
+    print("output shape: ", output[0].shape)
+    summary(model, input_size=(2, 3, 224, 224), depth=0, device="cuda:1")

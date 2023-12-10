@@ -786,7 +786,7 @@ class Visionformer(nn.Module):
         return checkpoint
 
     def forward_features(self, x):
-        x = self.patch_embed1(x) # 将输入视频转换为嵌入特征
+        x = self.patch_embed1(x)  # 将输入视频转换为嵌入特征
         x = self.pos_drop(x)
         for blk in self.blocks1:
             x = blk(x)
@@ -842,4 +842,3 @@ if __name__ == "__main__":
 
     # 打印模型结构
     summary(model, input_size=(1, 3, 10, 250, 250))
- 

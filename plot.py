@@ -159,7 +159,7 @@ def plot_rt_VideoNet_Conv2D():
         data, batch_size=1, shuffle=False, num_workers=0
     )
 
-    net = VideoNet_Conv2D(
+    net = MER_VideoNet(
         num_classes=4,
         model_name="resnet50",
         last_hidden_dim=320,
@@ -216,7 +216,7 @@ def plot_rt_AudioNet():
         data, batch_size=1, shuffle=False, num_workers=0
     )
 
-    net = AudioNet(
+    net = MER_AudioNet(
         num_classes=4,
         model_name="lightresmultisernet2",
         last_hidden_dim=320,
@@ -384,7 +384,7 @@ def plot_tsne_VideoNet_Conv2D_all():
         data, batch_size=32, shuffle=False, num_workers=0
     )
 
-    net = VideoNet_Conv2D(
+    net = MER_VideoNet(
         num_classes=4,
         model_name="resnet50",
         last_hidden_dim=320,
@@ -437,7 +437,7 @@ def plot_tsne_AudioNet_all():
         data, batch_size=64, shuffle=False, num_workers=0
     )
 
-    net = AudioNet(
+    net = MER_AudioNet(
         num_classes=4,
         model_name="lightresmultisernet2",
         last_hidden_dim=320,
@@ -603,7 +603,7 @@ def plot_tsne_VideoNet_Conv2D_train():
         data, batch_size=32, shuffle=False, num_workers=0
     )
 
-    net = VideoNet_Conv2D(
+    net = MER_VideoNet(
         num_classes=4,
         model_name="resnet50",
         last_hidden_dim=320,
@@ -660,7 +660,7 @@ def plot_tsne_AudioNet_train():
         data, batch_size=64, shuffle=False, num_workers=0
     )
 
-    net = AudioNet(
+    net = MER_AudioNet(
         num_classes=4,
         model_name="lightresmultisernet2",
         last_hidden_dim=320,
@@ -828,7 +828,7 @@ def plot_tsne_VideoNet_Conv2D_test():
         data, batch_size=32, shuffle=False, num_workers=0
     )
 
-    net = VideoNet_Conv2D(
+    net = MER_VideoNet(
         num_classes=4,
         model_name="resnet50",
         last_hidden_dim=320,
@@ -885,7 +885,7 @@ def plot_tsne_AudioNet_test():
         data, batch_size=64, shuffle=False, num_workers=0
     )
 
-    net = AudioNet(
+    net = MER_AudioNet(
         num_classes=4,
         model_name="lightresmultisernet2",
         last_hidden_dim=320,

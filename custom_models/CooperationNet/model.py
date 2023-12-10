@@ -5,7 +5,7 @@ class CooperationNet(nn.Module):
     def __init__(self, num_classes, model_names, input_size, seq_len, last_hidden_dim, seq_step) -> None:
         super().__init__()
         for i, name in enumerate(model_names):
-            setattr(self, f"coopnet{i}", AudioNet(
+            setattr(self, f"coopnet{i}", MER_AudioNet(
                 num_classes=num_classes[i], model_name=name,  last_hidden_dim=last_hidden_dim[i], input_size=input_size[i], pretrained=False))
 
     def forward(self, x: Tensor, **args) -> Tensor:

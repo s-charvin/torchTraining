@@ -11,27 +11,35 @@ from .components import *
 
 
 class AACNN(nn.Module):
-    '''
+    """
     Area Attention, ICASSP 2020
-    '''
+    """
 
-    def __init__(self, area_height=3, area_width=3, out_features=4, shape=(26, 63), **kwargs):
+    def __init__(
+        self, area_height=3, area_width=3, out_features=4, shape=(26, 63), **kwargs
+    ):
         super(AACNN, self).__init__()
         self.height = area_height
         self.width = area_width
         # self.conv1 = nn.Conv2D(32, (3,3), padding='same', data_format='channels_last',)
-        self.conv1a = nn.Conv2d(kernel_size=(
-            10, 2), in_channels=1, out_channels=16, padding=(4, 0))
-        self.conv1b = nn.Conv2d(kernel_size=(
-            2, 8), in_channels=1, out_channels=16, padding=(0, 3))
-        self.conv2 = nn.Conv2d(kernel_size=(
-            3, 3), in_channels=16, out_channels=32, padding=1)
-        self.conv3 = nn.Conv2d(kernel_size=(
-            3, 3), in_channels=32, out_channels=48, padding=1)
-        self.conv4 = nn.Conv2d(kernel_size=(
-            3, 3), in_channels=48, out_channels=64, padding=1)
-        self.conv5 = nn.Conv2d(kernel_size=(
-            3, 3), in_channels=64, out_channels=80, padding=1)
+        self.conv1a = nn.Conv2d(
+            kernel_size=(10, 2), in_channels=1, out_channels=16, padding=(4, 0)
+        )
+        self.conv1b = nn.Conv2d(
+            kernel_size=(2, 8), in_channels=1, out_channels=16, padding=(0, 3)
+        )
+        self.conv2 = nn.Conv2d(
+            kernel_size=(3, 3), in_channels=16, out_channels=32, padding=1
+        )
+        self.conv3 = nn.Conv2d(
+            kernel_size=(3, 3), in_channels=32, out_channels=48, padding=1
+        )
+        self.conv4 = nn.Conv2d(
+            kernel_size=(3, 3), in_channels=48, out_channels=64, padding=1
+        )
+        self.conv5 = nn.Conv2d(
+            kernel_size=(3, 3), in_channels=64, out_channels=80, padding=1
+        )
         # self.conv6 = nn.Conv2D(128, (3, 3), padding= )#
         self.maxp = nn.MaxPool2d(kernel_size=(2, 2))
         self.bn1a = nn.BatchNorm2d(16)
@@ -42,14 +50,14 @@ class AACNN(nn.Module):
         self.bn5 = nn.BatchNorm2d(80)
         # self.gap = nn.AdaptiveAvgPool2d(1)
 
-        i = 80 * ((shape[0] - 1)//2) * ((shape[1] - 1)//4)
+        i = 80 * ((shape[0] - 1) // 2) * ((shape[1] - 1) // 4)
         self.last_linear = nn.Linear(in_features=i, out_features=out_features)
         # self.dropout = nn.Dropout(0.5)
 
         self.area_attention = AreaAttention(
             key_query_size=80,
-            area_key_mode='mean',
-            area_value_mode='sum',
+            area_key_mode="mean",
+            area_value_mode="sum",
             max_area_height=area_height,
             max_area_width=area_width,
             dropout_rate=0.5,
@@ -80,8 +88,11 @@ class AACNN(nn.Module):
         x = F.relu(x)
 
         shape = x.shape
-        x = x.contiguous().permute(0, 2, 3, 1).view(
-            shape[0], shape[3]*shape[2], shape[1])
+        x = (
+            x.contiguous()
+            .permute(0, 2, 3, 1)
+            .view(shape[0], shape[3] * shape[2], shape[1])
+        )
         x = self.area_attention(x, x, x)
         x = F.relu(x)
         x = x.reshape(*shape)
@@ -98,18 +109,24 @@ class AACNN_HeadConcat(nn.Module):
         super(AACNN_HeadConcat, self).__init__()
         self.height = height
         self.width = width
-        self.conv1a = nn.Conv2d(kernel_size=(
-            10, 2), in_channels=1, out_channels=8, padding=(4, 0))
-        self.conv1b = nn.Conv2d(kernel_size=(
-            2, 8), in_channels=1, out_channels=8, padding=(0, 3))
-        self.conv2 = nn.Conv2d(kernel_size=(
-            3, 3), in_channels=16, out_channels=32, padding=1)
-        self.conv3 = nn.Conv2d(kernel_size=(
-            3, 3), in_channels=32, out_channels=48, padding=1)
-        self.conv4 = nn.Conv2d(kernel_size=(
-            3, 3), in_channels=48, out_channels=64, padding=1)
-        self.conv5 = nn.Conv2d(kernel_size=(
-            3, 3), in_channels=64, out_channels=80, padding=1)
+        self.conv1a = nn.Conv2d(
+            kernel_size=(10, 2), in_channels=1, out_channels=8, padding=(4, 0)
+        )
+        self.conv1b = nn.Conv2d(
+            kernel_size=(2, 8), in_channels=1, out_channels=8, padding=(0, 3)
+        )
+        self.conv2 = nn.Conv2d(
+            kernel_size=(3, 3), in_channels=16, out_channels=32, padding=1
+        )
+        self.conv3 = nn.Conv2d(
+            kernel_size=(3, 3), in_channels=32, out_channels=48, padding=1
+        )
+        self.conv4 = nn.Conv2d(
+            kernel_size=(3, 3), in_channels=48, out_channels=64, padding=1
+        )
+        self.conv5 = nn.Conv2d(
+            kernel_size=(3, 3), in_channels=64, out_channels=80, padding=1
+        )
         self.maxp = nn.MaxPool2d(kernel_size=(2, 2))
         self.bn1a = nn.BatchNorm2d(8)
         self.bn1b = nn.BatchNorm2d(8)
@@ -117,13 +134,13 @@ class AACNN_HeadConcat(nn.Module):
         self.bn3 = nn.BatchNorm2d(48)
         self.bn4 = nn.BatchNorm2d(64)
         self.bn5 = nn.BatchNorm2d(80)
-        i = 80 * ((shape[0] - 1)//4) * ((shape[1] - 1)//4)
+        i = 80 * ((shape[0] - 1) // 4) * ((shape[1] - 1) // 4)
         self.fc = nn.Linear(in_features=i, out_features=4)
         self.dropout = nn.Dropout(0.5)
         self.area_attention = AreaAttention(
             key_query_size=80,
-            area_key_mode='mean',
-            area_value_mode='sum',
+            area_key_mode="mean",
+            area_value_mode="sum",
             max_area_height=height,
             max_area_width=width,
             dropout_rate=0.5,
@@ -157,8 +174,11 @@ class AACNN_HeadConcat(nn.Module):
 
         # flatten
         shape = x.shape
-        x = x.contiguous().permute(0, 2, 3, 1).view(
-            shape[0], shape[3]*shape[2], shape[1])
+        x = (
+            x.contiguous()
+            .permute(0, 2, 3, 1)
+            .view(shape[0], shape[3] * shape[2], shape[1])
+        )
 
         x = self.area_attention(x, x, x)
         x = F.relu(x)
@@ -171,36 +191,39 @@ class AACNN_HeadConcat(nn.Module):
 
 
 class AAResMultiConv3(nn.Module):
-    '''
+    """
     Area Attention with Multiscale blocks
-    '''
+    """
 
     def __init__(self, head=4, attn_hidden=64, shape=(26, 63), **kwargs):
         super(AAResMultiConv3, self).__init__()
         self.head = head
         self.attn_hidden = attn_hidden
-        self.conv1a = nn.Conv2d(kernel_size=(
-            3, 1), in_channels=1, out_channels=16, padding=(1, 0))
-        self.conv1b = nn.Conv2d(kernel_size=(
-            1, 3), in_channels=1, out_channels=16, padding=(0, 1))
+        self.conv1a = nn.Conv2d(
+            kernel_size=(3, 1), in_channels=1, out_channels=16, padding=(1, 0)
+        )
+        self.conv1b = nn.Conv2d(
+            kernel_size=(1, 3), in_channels=1, out_channels=16, padding=(0, 1)
+        )
         self.conv2 = ResMultiConv(16)
         self.conv3 = ResMultiConv(32)
         self.conv4 = ResMultiConv(64)
-        self.conv5 = nn.Conv2d(kernel_size=(
-            5, 5), in_channels=128, out_channels=128, padding=2)
+        self.conv5 = nn.Conv2d(
+            kernel_size=(5, 5), in_channels=128, out_channels=128, padding=2
+        )
         self.maxp = nn.MaxPool2d(kernel_size=(2, 2))
         self.bn1a = nn.BatchNorm2d(16)
         self.bn1b = nn.BatchNorm2d(16)
         self.bn5 = nn.BatchNorm2d(128)
 
-        i = 128 * (shape[0]//2) * (shape[1]//4)
+        i = 128 * (shape[0] // 2) * (shape[1] // 4)
         self.fc = nn.Linear(in_features=i, out_features=4)
         # self.dropout = nn.Dropout(0.5)
 
         self.area_attention = AreaAttention(
             key_query_size=80,
-            area_key_mode='mean',
-            area_value_mode='sum',
+            area_key_mode="mean",
+            area_value_mode="sum",
             max_area_height=3,
             max_area_width=3,
             dropout_rate=0.5,
@@ -229,8 +252,11 @@ class AAResMultiConv3(nn.Module):
         x = F.relu(x)
 
         shape = x.shape
-        x = x.contiguous().permute(0, 2, 3, 1).view(
-            shape[0], shape[3]*shape[2], shape[1])
+        x = (
+            x.contiguous()
+            .permute(0, 2, 3, 1)
+            .view(shape[0], shape[3] * shape[2], shape[1])
+        )
         x = self.area_attention(x, x, x)
         x = F.relu(x)
         x = x.reshape(x.shape[0], -1)
