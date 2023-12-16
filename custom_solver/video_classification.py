@@ -163,7 +163,8 @@ class Video_Classification(object):
         self.maxACC = self.WA_ = self.UA_ = self.macro_f1_ = self.w_f1_ = 0
         self.best_re = self.best_ma = None
         est_endtime = "..."
-
+        print(f"# 计算模型的初始性能:")
+        self.test()
         for epoch in range(start_iter, self.n_epochs):  # 迭代循环 [0, epoch)
             # [0, num_batch)
             for batch_i, data in enumerate(self.train_loader):
@@ -186,12 +187,11 @@ class Video_Classification(object):
                     feature_lens = feature_lens.to(device=self.device)
                 labels = labels.long().to(device=self.device)
 
-                # 清空梯度数据
-                self.reset_grad()
                 # permute(0, 4, 1, 2, 3)
                 out, _ = self.net(features, feature_lens)
                 loss = loss_func(out, labels)
                 loss_ = loss.clone()
+                loss = loss / self.batch_delay
                 loss.backward()
 
                 # 在所有进程运行到这一步之前，先完成此前代码的进程会在这里等待其他进程。
@@ -216,8 +216,11 @@ class Video_Classification(object):
                     )
 
                 # 反向更新
-                if ((batch_i + 1) % self.batch_delay) == 0:
+                if ((batch_i + 1) % self.batch_delay) == 0 or (
+                    batch_i + 1 == len(self.train_loader)
+                ):
                     self.optimizer.step()  # 根据反向传播的梯度，更新网络参数
+                    self.reset_grad()
 
                 # 更新学习率
                 if self.config["sorlver"]["lr_method"]["mode"] == "step":

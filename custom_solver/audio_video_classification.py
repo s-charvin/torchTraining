@@ -166,7 +166,8 @@ class Audio_Video_Joint_Classification(object):
         self.maxACC = self.WA_ = self.UA_ = self.macro_f1_ = self.w_f1_ = 0
         self.best_re = self.best_ma = None
         est_endtime = "..."
-
+        print(f"# 计算模型的初始性能:")
+        self.test()
         for epoch in range(start_iter, self.n_epochs):  # epoch 迭代循环 [0, epoch)
             # [0, num_batch)
             for batch_i, data in enumerate(self.train_loader):
@@ -210,8 +211,6 @@ class Audio_Video_Joint_Classification(object):
 
                 labels = labels.long().to(device=self.device)
 
-                # 清空梯度数据
-                self.reset_grad()
                 out, _ = self.net(
                     audio_features,
                     video_features,
@@ -220,6 +219,7 @@ class Audio_Video_Joint_Classification(object):
                 )
                 loss = loss_func(out, labels)
                 loss_ = loss.clone()
+                loss = loss / self.batch_delay
                 loss.backward()
                 # 在所有进程运行到这一步之前，先完成此前代码的进程会在这里等待其他进程。
                 if self.config["self_auto"]["gpu_nums"]:
@@ -245,9 +245,9 @@ class Audio_Video_Joint_Classification(object):
                     )
 
                 # 反向更新
-                if ((batch_i + 1) % self.batch_delay) == 0:
+                if ((batch_i + 1) % self.batch_delay) == 0 or (batch_i + 1 == len(self.train_loader)):
                     self.optimizer.step()  # 根据反向传播的梯度，更新网络参数
-
+                    self.reset_grad()
                 # 更新学习率
                 if self.config["sorlver"]["lr_method"]["mode"] == "step":
                     self.lr_method.step()  # 当更新函数需要的是总 step 数量时, 输入小数
@@ -645,7 +645,8 @@ class Audio_Video_Fusion_Classification(object):
         # 保存最好的结果
         self.maxACC = self.WA_ = self.UA_ = self.macro_f1_ = self.w_f1_ = 0
         est_endtime = "..."
-
+        print(f"# 计算模型的初始性能:")
+        self.test()
         for epoch in range(start_iter, self.n_epochs):  # epoch 迭代循环 [0, epoch)
             # [0, num_batch)
             for batch_i, data in enumerate(self.train_loader):
@@ -689,8 +690,6 @@ class Audio_Video_Fusion_Classification(object):
 
                 labels = labels.long().to(device=self.device)
 
-                # 清空梯度数据
-                self.reset_grad()
                 audio_out, video_out, fusion_out, _ = self.net(
                     audio_features,
                     video_features,
@@ -706,6 +705,7 @@ class Audio_Video_Fusion_Classification(object):
                 audio_loss_ = audio_loss.clone()
                 fusion_loss_ = fusion_loss.clone()
                 avg_loss_ = avg_loss.clone()
+                avg_loss_ = avg_loss_ / self.batch_delay
                 avg_loss.backward()
                 # 在所有进程运行到这一步之前，先完成此前代码的进程会在这里等待其他进程。
                 if self.config["self_auto"]["gpu_nums"]:
@@ -740,8 +740,9 @@ class Audio_Video_Fusion_Classification(object):
                     )
 
                 # 反向更新
-                if ((batch_i + 1) % self.batch_delay) == 0:
+                if ((batch_i + 1) % self.batch_delay) == 0 or (batch_i + 1 == len(self.train_loader)):
                     self.optimizer.step()  # 根据反向传播的梯度，更新网络参数
+                    self.reset_grad()
 
                 # 更新学习率
                 if self.config["sorlver"]["lr_method"]["mode"] == "step":
@@ -759,6 +760,7 @@ class Audio_Video_Fusion_Classification(object):
             # 每 epoch 次测试下模型
             if (epoch + 1) % self.test_every == 0:
                 self.test()
+                
 
         # 保存最终的模型
         if self.config["self_auto"]["local_rank"] in [0, None]:
@@ -1346,7 +1348,8 @@ class Audio_Video_Joint_Classification_Customloss(object):
         self.maxACC = self.WA_ = self.UA_ = self.macro_f1_ = self.w_f1_ = 0
         self.best_re = self.best_ma = None
         est_endtime = "..."
-
+        print(f"# 计算模型的初始性能:")
+        self.test()
         for epoch in range(start_iter, self.n_epochs):  # epoch 迭代循环 [0, epoch)
             # [0, num_batch)
             for batch_i, data in enumerate(self.train_loader):
@@ -1390,8 +1393,6 @@ class Audio_Video_Joint_Classification_Customloss(object):
 
                 labels = labels.long().to(device=self.device)
 
-                # 清空梯度数据
-                self.reset_grad()
                 out, dis_loss, sim_loss = self.net(
                     audio_features,
                     video_features,
@@ -1403,6 +1404,7 @@ class Audio_Video_Joint_Classification_Customloss(object):
                 dis_loss_ = dis_loss.clone()
                 sim_loss_ = sim_loss.clone()
                 all_loss = (loss + dis_loss + sim_loss) / 3
+                all_loss = all_loss / self.batch_delay
                 all_loss.backward()
                 # 在所有进程运行到这一步之前，先完成此前代码的进程会在这里等待其他进程。
                 if self.config["self_auto"]["gpu_nums"]:
@@ -1430,8 +1432,9 @@ class Audio_Video_Joint_Classification_Customloss(object):
                     )
 
                 # 反向更新
-                if ((batch_i + 1) % self.batch_delay) == 0:
+                if ((batch_i + 1) % self.batch_delay) == 0 or (batch_i + 1 == len(self.train_loader)):
                     self.optimizer.step()  # 根据反向传播的梯度，更新网络参数
+                    self.reset_grad()
 
                 # 更新学习率
                 if self.config["sorlver"]["lr_method"]["mode"] == "step":

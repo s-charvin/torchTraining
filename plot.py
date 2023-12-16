@@ -1081,7 +1081,7 @@ def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_AVA_train():
 def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention_train():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
         map_location=torch.device("cpu"),
     )
 
@@ -1139,7 +1139,7 @@ def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention_train():
 def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention_test():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
         map_location=torch.device("cpu"),
     )
 
@@ -1197,7 +1197,7 @@ def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention_test():
 def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention_all():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
         map_location=torch.device("cpu"),
     )
 
@@ -1255,7 +1255,7 @@ def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention_all():
 def plot_rt_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
         map_location=torch.device("cpu"),
     )
 
@@ -1313,7 +1313,7 @@ def plot_rt_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention():
 def plot_confusionMatrix_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
         map_location=torch.device("cpu"),
     )
 
@@ -1400,7 +1400,7 @@ def plot_similarity_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention():
 
     for i in [ 2, 3, 4, 12, 21, 35, 41, 57, 67, 77, 100, 144, 150]:
         dictionary = torch.load(
-            "/sdb/visitors2/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/%06d.ckpt"
+            "/sdb/visitors2/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/%06d.ckpt"
             % i,
             map_location=torch.device("cpu"),
         )

@@ -33,7 +33,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     "--config",
     metavar="DIR",
-    default="/home/visitors2/SCW/torchTraining/projects/MERSISF_video_vidformer_four",
+    default="/home/visitors2/SCW/torchTraining/projects/MERSISF_video_x3d_four",
     help="path to congigs",
 )
 

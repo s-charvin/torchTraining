@@ -424,7 +424,7 @@ class InceptionI3d(nn.Module):
 
         x = self.logits(self.dropout(self.avg_pool(x)))
         if self._spatial_squeeze:
-            logits = x.squeeze(3).squeeze(3)
+            logits = x.squeeze(2).squeeze(2).squeeze(2)
         # logits is batch X time X classes, which is what we want to work with
         return logits
 
@@ -441,11 +441,11 @@ if __name__ == "__main__":
     from torchinfo import summary
 
     # [B, C, T, H, W]
-    input = torch.randn(2, 10, 3, 224, 224)
+    input = torch.randn(2, 71, 3, 150, 150)
     # InceptionI3d mult-adds (G):  36.24  params (M): 12,697,264
     model = InceptionI3d(num_classes=400, in_channels=3)
     output = model(input)
     print("\n\nmodel: InceptionI3d")
     print("input shape: ", input.shape)
-    print("output shape: ", output[0].shape)
-    summary(model, input_size=(2, 10, 3, 224, 224), depth=0, device="cuda:1")
+    print("output shape: ", output.shape)
+    summary(model, input_size=(2, 10, 3, 224, 224), depth=0, device="cuda:0")

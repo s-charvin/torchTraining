@@ -607,20 +607,22 @@ if __name__ == "__main__":
     import numpy as np
     from torchinfo import summary
 
+    # uniformerv2_b16 mult-adds (G): 8.51 params (M): 25,699,120
     input = torch.rand(2, 10, 3, 150, 150)
-
     model = uniformerv2_b16(
-        input_size = 150,
+        input_size=150,
         num_frames=10,
-        num_classes = 1000,
+        num_classes=1000,
         backbone_drop_path_rate=0.2,
         drop_path_rate=0.4,
         dw_reduction=1.5,
         no_lmhra=True,
         temporal_downsample=False,
     )
-
-    flops = FlopCountAnalysis(model, input)
+    output = model(input)
     print("model: uniformerv2_b16")
-    print(flop_count_table(flops, max_depth=1))
+    print("input shape: ", input.shape)
+    print("output shape: ", output.shape)
     summary(model, input_data={"x": input}, depth=1, device="cpu")
+    flops = FlopCountAnalysis(model, input)
+    print(flop_count_table(flops, max_depth=1))

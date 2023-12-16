@@ -237,7 +237,7 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
                     dist.all_reduce(loss_, op=dist.ReduceOp.SUM)
                     # 计算所有 GPU 的平均损失
                     loss_ /= self.config['self_auto']['world_size']
-
+                loss = loss / self.batch_delay
                 loss.backward()
 
             #############################################################
@@ -255,9 +255,8 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
                                    runningtime.seconds/(epoch+1))
                     print(
                         f"# <trained>: [Epoch {epoch}/{self.n_epochs-1}] [Batch {batch_i}/{len(self.train_loader)-1}] [lr: {self.optimizer.param_groups[0]['lr']}] [train_loss: {loss_.item():.4f}] [runtime: {runningtime}] [est_endtime: {est_endtime/360:.2f}h]")
-                # 反向更新
-                if ((batch_i+1) % self.batch_delay) == 0:
-                    self.optimizer.step()  # 根据反向传播的梯度，更新网络参数
+                # 反向更新参数
+                self.optimizer.step()  # 根据反向传播的梯度，更新网络参数
                 # 更新学习率
                 if self.config["sorlver"]["lr_method"]["mode"] == "step":
                     self.lr_method.step()  # 当更新函数需要的是总 step 数量时, 输入小数
