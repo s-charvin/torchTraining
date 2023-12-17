@@ -41,7 +41,7 @@ data:
             "dropna":
                 {
                     "label":
-                        ["other", "xxx", "frustrated", "fearful", "surprised"],
+                        ["other", "xxx", "fearful", "surprised", "disgusted"],
                 },
             "sort_values": "duration",
         }

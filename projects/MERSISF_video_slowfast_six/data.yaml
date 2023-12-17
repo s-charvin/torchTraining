@@ -1,6 +1,5 @@
 data:
     name: "IEMOCAP"
-
     root: "/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy"
     para:
         info: ""
@@ -13,8 +12,7 @@ data:
         AVSplit:
             sampleNum: 112000
             video_sample: 210
-    transforms: # 注意: 参数顺序即执行顺序
-        # 获取 MFCC 系数
+    transforms:
         MFCC:
             sample_rate: 16000
             n_mfcc: 40
@@ -38,20 +36,12 @@ data:
             dims: [[2, 1, 0], [0, 1, 2, 3]]
             names: ["audio", "video"]
 
-    filters:
-        {
-            "replace": { "label": { "excited": "happy" } },
+    filters: {
+            "replace": {},
             "dropna":
                 {
                     "label":
-                        [
-                            "other",
-                            "xxx",
-                            "frustrated",
-                            "disgusted",
-                            "fearful",
-                            "surprised",
-                        ],
+                        ["other", "xxx", "fearful", "surprised", "disgusted"],
                 },
             "sort_values": "duration",
         }
