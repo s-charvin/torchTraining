@@ -1,6 +1,6 @@
 train:
     # 训练设备
-    name: "MER_VideoNet_res2net50-inlength(7s)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)" # 本次运行模型名称
+    name: "MER_VideoNet_four_res2net50-inlength(7s)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)" # 本次运行模型名称
     nodes: 1 # 本次训练总共要使用的节点数量, 如果需要多台计算机进行分布式计算才需要设置. 从 1 开始
     node_rank: 0 # 当前节点在所有节点中的排名, 从 0 开始
     master_addr: "127.0.0.1" # 声明主进程 0 的 IP 地址和通信端口, 以便所有进程可以同步更新参数.
