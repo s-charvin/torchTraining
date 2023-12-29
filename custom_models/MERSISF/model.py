@@ -19,7 +19,7 @@ from .convnext import convnext_tiny
 from .i3d import InceptionI3d
 from .x3d import X3D
 from .slowfast import SlowFast
-from .uniformerv2 import uniformerv2_b16
+from .uniformerv2 import uniformerv2_self
 
 
 class PretrainedBaseModel:
@@ -280,7 +280,7 @@ def getModel(
         model.head.projection = EmptyModel()
         return model  # 64 * 32 + (64 * 32 // 8) = 2048 + 256
     elif model_name == "uniformerv2":
-        model = uniformerv2_b16(
+        model = uniformerv2_self(
             input_size=input_size,
             num_classes=out_features,
             backbone_drop_path_rate=0.2,

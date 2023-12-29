@@ -259,6 +259,7 @@ class Transformer(nn.Module):
         assert n_layers == len(return_list)
         self.frozen = frozen
         self.temporal_cls_token = nn.Parameter(torch.zeros(1, 1, n_dim))
+        # dpe = depth-wise point-wise expansion
         self.dpe = nn.ModuleList(
             [
                 nn.Conv3d(
@@ -470,7 +471,7 @@ def uniformerv2_b16(
 ):
     model = VisionTransformer(
         input_size=input_size,
-        patch_size=16,
+        patch_size=16, # 16 = 224 / 14
         width=768,
         layers=12,
         heads=12,
@@ -571,7 +572,7 @@ def uniformerv2_l14_336(
     frozen=False,
 ):
     model = VisionTransformer(
-        input_size=input_size,
+        input_size=input_size, # 150, 表示输入的图片大小
         patch_size=14,
         width=1024,
         layers=24,
@@ -600,6 +601,59 @@ def uniformerv2_l14_336(
     return model.eval()
 
 
+
+
+def uniformerv2_self(
+    input_size = 224,
+    use_checkpoint=False,
+    checkpoint_num=[0],
+    num_frames=16,
+    dw_reduction=1.5,
+    backbone_drop_path_rate=0.0,
+    temporal_downsample=True,
+    no_lmhra=False,
+    double_lmhra=True,
+    return_list=[2,3,4,5],
+    n_layers=4,
+    n_dim=768,
+    n_head=12,
+    mlp_factor=4.0,
+    drop_path_rate=0.0,
+    mlp_dropout=[0.5, 0.5, 0.5, 0.5],
+    cls_dropout=0.5,
+    num_classes=400,
+    frozen=False,
+):
+    model = VisionTransformer(
+        input_size=input_size,
+        patch_size=16, # 16 = 224 / 14
+        width=768,
+        layers=6,
+        heads=12,
+        output_dim=512,
+        use_checkpoint=use_checkpoint,
+        checkpoint_num=checkpoint_num,
+        num_frames=num_frames,
+        dw_reduction=dw_reduction,
+        backbone_drop_path_rate=backbone_drop_path_rate,
+        temporal_downsample=temporal_downsample,
+        no_lmhra=no_lmhra,
+        double_lmhra=double_lmhra,
+        return_list=return_list,
+        n_layers=n_layers,
+        n_dim=n_dim,
+        n_head=n_head,
+        mlp_factor=mlp_factor,
+        drop_path_rate=drop_path_rate,
+        mlp_dropout=mlp_dropout,
+        cls_dropout=cls_dropout,
+        num_classes=num_classes,
+        frozen=frozen,
+    )
+
+    return model
+
+
 if __name__ == "__main__":
     import time
     from fvcore.nn import FlopCountAnalysis
@@ -607,9 +661,9 @@ if __name__ == "__main__":
     import numpy as np
     from torchinfo import summary
 
-    # uniformerv2_b16 mult-adds (G): 8.51 params (M): 25,699,120
-    input = torch.rand(2, 10, 3, 150, 150)
-    model = uniformerv2_b16(
+    # uniformerv2_b16 mult-adds (G): 8.51 params (M): 114,925,288
+    input = torch.rand(2, 10, 3, 150, 150).to(device="cuda:0")
+    model = uniformerv2_self(
         input_size=150,
         num_frames=10,
         num_classes=1000,
@@ -618,11 +672,11 @@ if __name__ == "__main__":
         dw_reduction=1.5,
         no_lmhra=True,
         temporal_downsample=False,
-    )
+    ).to(device="cuda:0")
     output = model(input)
-    print("model: uniformerv2_b16")
+    print("model: uniformerv2_self")
     print("input shape: ", input.shape)
     print("output shape: ", output.shape)
-    summary(model, input_data={"x": input}, depth=1, device="cpu")
+    summary(model, input_data={"x": input}, depth=6, device="cuda:0")
     flops = FlopCountAnalysis(model, input)
     print(flop_count_table(flops, max_depth=1))
