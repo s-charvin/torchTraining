@@ -227,11 +227,15 @@ def getModel(
         model = MACNN(out_features=out_features)
         model.last_linear = EmptyModel()
         return model  # 256
-
+    elif model_name == "resnet18":
+        model = ResNet(in_channels=in_channels, num_classes=out_features,layers=[2,2,2,2])
+        model.last_linear = EmptyModel()
+        return model  # 512 * block.expansion = 2048
     elif model_name == "resnet50":
         model = ResNet(in_channels=in_channels, num_classes=out_features)
         model.last_linear = EmptyModel()
         return model  # 512 * block.expansion = 2048
+    
     elif model_name == "densenet161":
         model = DenseNet(
             in_channels=in_channels,
