@@ -1,10 +1,10 @@
 train:
     # 训练设备
-    name: "MER_SISF_Conv2D_SVC_InterFusion_Joint_Attention_SLoss_UniG-inlength(7s)-batch(12)-batch_delay(1)-epoch(200)-lr(0.00025)" # 本次运行模型名称
+    name: "MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_four-inlength(7s)-batch(12)-batch_delay(1)-epoch(200)-lr(0.00025)" # 本次运行模型名称
     nodes: 1 # 本次训练总共要使用的节点数量, 如果需要多台计算机进行分布式计算才需要设置. 从 1 开始
     node_rank: 0 # 当前节点在所有节点中的排名, 从 0 开始
     master_addr: "127.0.0.1" # 声明主进程 0 的 IP 地址和通信端口, 以便所有进程可以同步更新参数.
-    master_port: "7852" # 每个任务都需要不同的端口
+    master_port: "6936" # 每个任务都需要不同的端口
     available_gpus: "0" # 设置当前环境可用的 GPU
 
     # 数据
@@ -35,11 +35,6 @@ train:
             username: trainer
 
 sorlver:
-    # Audio_Classification, Video_Classification, Audio_Video_Joint_Classification,
-    # Audio_Video_Fusion_Classification,Audio_Classification2MultiObject_MGDA_UB
-    # Audio_Classification_CoTeaching
-    # Audio_Video_Joint_Classification_Customloss
-
     name: "Audio_Video_Joint_Classification_Customloss"
     optimizer:
         name: "AdamW"
@@ -48,13 +43,6 @@ sorlver:
             betas: [0.9, 0.999]
 
     lr_method:
-        # name: "CosineAnnealingWarmRestarts"
-        # mode: "step"
-        # para:
-        #     T_0: 1
-        #     T_mult: 1
-        #     eta_min: 0
-
         name: "CosineLearningRateWithWarmRestarts"
         mode: "epoch" # "epoch", "step"
         para:
@@ -62,20 +50,6 @@ sorlver:
             epochs: 200
             cosine_end_lr: 0.000001
             warmup_start_lr: 0.00000001
-
-        # name: "StepLR"
-        # mode: "epoch" # "epoch", "step"
-        # para:
-        #     step_size: 20
-        #     gamma: 0.3
-
-        # name: "LinearStepDecay"
-        # mode: "step" # "epoch", "step"
-        # para:
-        #     # steps_per_epoch : 86 # 自动设置
-        #     epochs: 889 # 任意设置
-        #     num_decay_step: 99900
-
     batch_delay: 1
 
 logs: # 记录参数

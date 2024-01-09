@@ -202,6 +202,7 @@ class Extractor(nn.Module):
         return out
 
     def forward(self, x, y):
+        # x: [1, B, F], y: [T * (H * W + 1), B, C]
         x = x + self.drop_path(self.attention(self.ln_1(x), self.ln_3(y)))
         x = x + self.drop_path(self.mlp(self.ln_2(x)))
         return x
@@ -300,11 +301,12 @@ class Transformer(nn.Module):
             self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
+        # [H * W + 1, B * T, C] == [L, BT. C]
         T_down = self.T
-        L, NT, C = x.shape
-        N = NT // T_down
+        L, BT, C = x.shape
+        B = BT // T_down
         H = W = int((L - 1) ** 0.5)
-        cls_token = self.temporal_cls_token.repeat(1, N, 1)
+        cls_token = self.temporal_cls_token.repeat(1, B, 1)
 
         j = -1
         for i, resblock in enumerate(self.resblocks):
@@ -315,26 +317,27 @@ class Transformer(nn.Module):
             if i in self.return_list:
                 j += 1
                 tmp_x = x.clone()
-                tmp_x = tmp_x.view(L, N, T_down, C)
+                tmp_x = tmp_x.view(L, B, T_down, C)
+                # [H * W + 1, B, T, C]
                 # dpe
                 _, tmp_feats = tmp_x[:1], tmp_x[1:]
-                tmp_feats = tmp_feats.permute(1, 3, 2, 0).reshape(N, C, T_down, H, W)
+                tmp_feats = tmp_feats.permute(1, 3, 2, 0).reshape(B, C, T_down, H, W)
                 tmp_feats = (
                     self.dpe[j](tmp_feats.clone())
-                    .view(N, C, T_down, L - 1)
+                    .view(B, C, T_down, L - 1)
                     .permute(3, 0, 2, 1)
                     .contiguous()
                 )
                 tmp_x[1:] = tmp_x[1:] + tmp_feats
                 # global block
-                tmp_x = tmp_x.permute(2, 0, 1, 3).flatten(0, 1)  # T * L, N, C
+                tmp_x = tmp_x.permute(2, 0, 1, 3).flatten(0, 1)  # T * (H * W + 1), B, C
                 cls_token = self.dec[j](cls_token, tmp_x)
 
         if self.frozen:
             return self.proj(cls_token[0, :, :])
         else:
             weight = self.sigmoid(self.balance)
-            residual = x.view(L, N, T_down, C)[0].mean(1)  # L, N, T, C
+            residual = x.view(L, B, T_down, C)[0].mean(1)  # L, N, T, C
             return self.proj((1 - weight) * cls_token[0, :, :] + weight * residual)
 
 
@@ -426,9 +429,11 @@ class VisionTransformer(nn.Module):
     def forward(self, x):
         x = x.permute(0, 2, 1, 3, 4)
         # [B, C, T, H, W]
+
         x = self.conv1(x)  # shape = [*, width, grid, grid]
-        N, C, T, H, W = x.shape
-        x = x.permute(0, 2, 3, 4, 1).reshape(N * T, H * W, C)
+        B, C, T, H, W = x.shape
+        x = x.permute(0, 2, 3, 4, 1).reshape(B * T, H * W, C)
+        # [B * T, H * W, C]
 
         x = torch.cat(
             [
@@ -440,16 +445,18 @@ class VisionTransformer(nn.Module):
             ],
             dim=1,
         )  # shape = [*, grid ** 2 + 1, width]
+        # [B * T, H * W + 1, C]
         x = x + self.positional_embedding.to(x.dtype)
         x = self.ln_pre(x)
 
         x = x.permute(1, 0, 2)  # NLD -> LND
+        # [H * W + 1, B * T, C]
         out = self.transformer(x)
         return out
 
 
 def uniformerv2_b16(
-    input_size = 224,
+    input_size=224,
     use_checkpoint=False,
     checkpoint_num=[0],
     num_frames=16,
@@ -471,7 +478,7 @@ def uniformerv2_b16(
 ):
     model = VisionTransformer(
         input_size=input_size,
-        patch_size=16, # 16 = 224 / 14
+        patch_size=16,  # 16 = 224 / 14
         width=768,
         layers=12,
         heads=12,
@@ -500,7 +507,7 @@ def uniformerv2_b16(
 
 
 def uniformerv2_l14(
-    input_size = 224,
+    input_size=224,
     use_checkpoint=False,
     checkpoint_num=[0],
     t_size=16,
@@ -551,7 +558,7 @@ def uniformerv2_l14(
 
 
 def uniformerv2_l14_336(
-    input_size = 336,
+    input_size=336,
     use_checkpoint=False,
     checkpoint_num=[0],
     t_size=16,
@@ -572,7 +579,7 @@ def uniformerv2_l14_336(
     frozen=False,
 ):
     model = VisionTransformer(
-        input_size=input_size, # 150, 表示输入的图片大小
+        input_size=input_size,  # 150, 表示输入的图片大小
         patch_size=14,
         width=1024,
         layers=24,
@@ -601,10 +608,8 @@ def uniformerv2_l14_336(
     return model.eval()
 
 
-
-
 def uniformerv2_self(
-    input_size = 224,
+    input_size=224,
     use_checkpoint=False,
     checkpoint_num=[0],
     num_frames=16,
@@ -613,7 +618,7 @@ def uniformerv2_self(
     temporal_downsample=True,
     no_lmhra=False,
     double_lmhra=True,
-    return_list=[2,3,4,5],
+    return_list=[2, 3, 4, 5],
     n_layers=4,
     n_dim=768,
     n_head=12,
@@ -626,7 +631,7 @@ def uniformerv2_self(
 ):
     model = VisionTransformer(
         input_size=input_size,
-        patch_size=16, # 16 = 224 / 14
+        patch_size=16,  # 16 = 224 / 14
         width=768,
         layers=6,
         heads=12,
