@@ -1394,7 +1394,7 @@ class MER_SISF_Conv2D_SVC_InterFusion_Joint_Attention_base(nn.Module):
                 num_frames=70,
                 before_dropout=0,
                 before_softmax=False,
-                pretrained = False
+                pretrained = True
             )()
         self.video_feature_extractor = PretrainedBaseModel(
                 in_channels=3,
@@ -1404,7 +1404,7 @@ class MER_SISF_Conv2D_SVC_InterFusion_Joint_Attention_base(nn.Module):
                 num_frames=10,
                 before_dropout=0,
                 before_softmax=False,
-                pretrained = False
+                pretrained = True
             )()
 
         self.af_esaAttention = ESIAttention(self.af_last_hidden_dim, 4)
@@ -1589,7 +1589,7 @@ class MER_SISF_Conv2D_SVC_InterFusion_Joint_Attention_base_pretrained(nn.Module)
                 num_frames=10,
                 before_dropout=0,
                 before_softmax=False,
-                pretrained = False
+                pretrained = True
             )()
         self.video_feature_extractor = PretrainedBaseModel(
                 in_channels=3,
@@ -1599,7 +1599,7 @@ class MER_SISF_Conv2D_SVC_InterFusion_Joint_Attention_base_pretrained(nn.Module)
                 num_frames=10,
                 before_dropout=0,
                 before_softmax=False,
-                pretrained = False
+                pretrained = True
             )()
 
         self.af_esaAttention = ESIAttention(self.af_last_hidden_dim, 4)
@@ -3013,7 +3013,7 @@ class MER_SISF_Conv2D_SVC_InterFusion_Joint_Attention_SLoss_Luck_UniG_pretrained
             num_frames=self.vf_seq_len,
             before_dropout=0,
             before_softmax=False,
-            pretrained = False)
+            pretrained = True)
 
         self.af_esaAttention = ESIAttention(self.af_last_hidden_dim, 4)
         self.vf_esaAttention = ESIAttention(self.vf_last_hidden_dim, 4)
@@ -3181,7 +3181,7 @@ class Base_AudioNet_Resnet50(nn.Module):
                 num_frames=1,
                 before_dropout=0,
                 before_softmax=False,
-                pretrained = False
+                pretrained = True
             )()
 
         self.audio_classifier = self.audio_feature_extractor.last_linear
@@ -3263,7 +3263,7 @@ class Base_VideoNet_Resnet50(nn.Module):
                 num_frames=num_frames,
                 before_dropout=0,
                 before_softmax=False,
-                pretrained = False
+                pretrained = True
             )()
         )
   
@@ -3318,7 +3318,7 @@ class Base_VideoNet_MSDC(nn.Module):
             num_frames=num_frames,
             before_dropout=0,
             before_softmax=False,
-            pretrained = False)
+            pretrained = True)
   
         self.video_classifier = nn.Linear(
             in_features=self.last_hidden_dim,
@@ -3378,7 +3378,7 @@ class BER_ISF(nn.Module):
                 num_frames=1,
                 before_dropout=0,
                 before_softmax=False,
-                pretrained = False
+                pretrained = True
             )()
         
         self.af_last_hidden_dim = self.audio_feature_extractor.last_linear.in_features
@@ -3393,7 +3393,7 @@ class BER_ISF(nn.Module):
                 num_frames=num_frames,
                 before_dropout=0,
                 before_softmax=False,
-                pretrained = False
+                pretrained = True
             )()
         )
         self.vf_last_hidden_dim = self.video_feature_extractor.model.last_linear.in_features
@@ -3469,7 +3469,7 @@ class BER_SISF(nn.Module):
                 num_frames=1,
                 before_dropout=0,
                 before_softmax=False,
-                pretrained = False
+                pretrained = True
             )()
         
         self.video_feature_extractor = PretrainedBaseModel(
@@ -3480,7 +3480,7 @@ class BER_SISF(nn.Module):
                 num_frames=num_frames,
                 before_dropout=0,
                 before_softmax=False,
-                pretrained = False
+                pretrained = True
             )()
     
         
@@ -3671,7 +3671,7 @@ class BER_SISF_E(nn.Module):
             num_frames=self.vf_seq_len,
             before_dropout=0,
             before_softmax=False,
-            pretrained = False)
+            pretrained = True)
 
         self.af_esaAttention = ESIAttention(self.af_last_hidden_dim, 4)
         self.vf_esaAttention = ESIAttention(self.vf_last_hidden_dim, 4)
