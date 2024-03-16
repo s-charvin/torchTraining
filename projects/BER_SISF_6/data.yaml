@@ -1,12 +1,12 @@
 data:
     name: "IEMOCAP"
 
-    root: "/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy"
+    root: "/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy"
     para:
         info: ""
         mode: "av"
         videomode: "crop"
-        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
 
     enhances:
@@ -38,20 +38,12 @@ data:
             dims: [[2, 1, 0], [0, 1, 2, 3]]
             names: ["audio", "video"]
 
-    filters:
-        {
-            "replace": { "label": { "excited": "happy" } },
+    filters: {
+            "replace": {},
             "dropna":
                 {
                     "label":
-                        [
-                            "other",
-                            "xxx",
-                            "frustrated",
-                            "disgusted",
-                            "fearful",
-                            "surprised",
-                        ],
+                        ["other", "xxx", "fearful", "surprised", "disgusted"],
                 },
             "sort_values": "duration",
         }

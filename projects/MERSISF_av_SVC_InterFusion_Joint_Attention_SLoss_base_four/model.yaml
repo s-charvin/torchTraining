@@ -1,0 +1,12 @@
+
+architecture:
+    net:
+        name: "MER_SISF_Conv2D_SVC_InterFusion_Joint_Attention_base" # MIFFNet_Conv2D_InterFusion_Joint, MIFFNet_Conv2D_SVC_InterFusion_Joint
+        para:
+            num_classes: 4
+            input_size: [[189, 40], [150, 150]]
+            model_name: ["resnet50", "resnet50"] # "resnet50" "resmulti"
+            last_hidden_dim: [320, 320]
+            seq_len: [189, 30] # af_: 63*3=189, 63*7=441 | vf_: 10*3, 10*3
+            enable_classifier: true
+            # emo_rnn_hidden_dim: [64, 64]

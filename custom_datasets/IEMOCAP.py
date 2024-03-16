@@ -1,7 +1,7 @@
 # 官方库
 import gc
 from custom_datasets.subset import *
-
+import logging
 from utils.filefolderTool import create_folder
 from utils.video_featureExtract_extractFace import capture_face_video, capture_video
 from tqdm import tqdm
@@ -107,7 +107,7 @@ class IEMOCAP(MediaDataset):
         _genderList = []
         _sample_rate = []
 
-        print("构建初始数据")
+        logging.info("构建初始数据")
         for sess in range(1, 6):  # 遍历Session{1-5}文件夹
             # 指定和获取文件地址
             # 语音情感标签所在文件夹
@@ -180,7 +180,7 @@ class IEMOCAP(MediaDataset):
         }
 
         if self.mode in ["a", "av",  "at", "avt"]:
-            print("构建语音数据")
+            logging.info("构建语音数据")
             audiolist = [None]*len(self._pathList)
             # for n in tqdm(range(len(self.datadict["path"]))):
             #     audiolist[n] = self._load_audio(self.datadict["path"][n])
@@ -195,7 +195,7 @@ class IEMOCAP(MediaDataset):
             self.datadict["audio_sampleNum"] = [a.shape[1]
                                                 for a in self.datadict["audio"]]
         if self.mode in ["v", "av",  "vt", "avt"]:
-            print("构建视频数据")
+            logging.info("构建视频数据")
             videolist = [None]*len(self._pathList)
             for n in tqdm(range(len(self.datadict["path"])), desc="视频数据处理中: "):
                 videolist[n] = self._load_video(self.datadict["path"][n])
@@ -204,7 +204,7 @@ class IEMOCAP(MediaDataset):
                                                for v in self.datadict["video"]]
 
     def build_filter(self):
-        print("数据筛选...")
+        logging.info("数据筛选...")
 
         keys = self.filter.keys()
         length = len(self.datadict["path"])
@@ -277,11 +277,11 @@ class IEMOCAP(MediaDataset):
         # self.datadict = self.datadict.to_dict(orient="list")
 
     def check_video_file(self):
-        print("检测视频文件夹是否存在...")
+        logging.info("检测视频文件夹是否存在...")
         fileExists = list(set([os.path.exists(os.path.join(
             self.root, f"Session{sess}/sentences/video/")) for sess in range(1, 6)]))
         if len(fileExists) != 1 or fileExists[0]:
-            print("检测视频文件是否损坏...")
+            logging.info("检测视频文件是否损坏...")
             self.check_videoFile()
         elif not fileExists[0]:
             self._creat_video_process(
@@ -319,20 +319,20 @@ class IEMOCAP(MediaDataset):
                     corrupted_filelist.append(filename)
 
         if len(no_exists_filelist) > 0 or len(corrupted_filelist) > 0:
-            print("丢失文件:")
-            [print("\t"+i) for i in no_exists_filelist]
-            print("损坏文件:")
-            [print("\t"+i) for i in corrupted_filelist]
-            print("尝试重新处理文件...")
+            logging.info("丢失文件:")
+            [logging.info("\t"+i) for i in no_exists_filelist]
+            logging.info("损坏文件:")
+            [logging.info("\t"+i) for i in corrupted_filelist]
+            logging.info("尝试重新处理文件...")
             self._creat_video_process(
                 no_exists_filelist+corrupted_filelist)
             self.check_video_file()
         else:
-            print("文件完整")
+            logging.info("文件完整")
         return False
 
     def _creat_video_process(self, filelist):
-        print("自动提取脸部表情视频片段...")
+        logging.info("自动提取脸部表情视频片段...")
         [create_folder(os.path.join(
             self.root, f"Session{sess}/sentences/video/")) for sess in range(1, 6)]
         # 开始处理视频文件
@@ -357,7 +357,7 @@ class IEMOCAP(MediaDataset):
             p_pbar.join()
         else:
             self._creat_video(filelist)
-        print("视频文件处理成功")
+        logging.info("视频文件处理成功")
 
     def _creat_video(self, filelist, pbar_queue=None):
         # 给定文件名列表, 处理视频文件函数
@@ -581,8 +581,8 @@ class IEMOCAP(MediaDataset):
 
 
 if __name__ == '__main__':
-    a = IEMOCAP("/home/visitors2/SCW/deeplearning/data/IEMOCAP", True,
-                "/home/visitors2/SCW/deeplearningcopy/utils/haarcascade_frontalface_alt2.xml", 0)
+    a = IEMOCAP("/home/user0/SCW/deeplearning/data/IEMOCAP", True,
+                "/home/user0/SCW/deeplearningcopy/utils/haarcascade_frontalface_alt2.xml", 0)
     feature = a.__getitem__(1000)
 
     pass

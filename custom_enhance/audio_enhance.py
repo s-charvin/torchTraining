@@ -3,6 +3,7 @@ from torch import Tensor
 import torch
 import torch.nn.functional as F
 import nlpaug.augmenter.audio as naa
+import logging
 
 
 class AudioSplit(torch.nn.Module):
@@ -129,4 +130,4 @@ if __name__ == '__main__':
 
     audioAug = globals()['VtlpAug'](**{'sample_rate': 16000, 'n': 7})
     dataframe = audioAug(datadict)
-    print(dataframe)
+    logging.info(dataframe)

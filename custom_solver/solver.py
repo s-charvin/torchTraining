@@ -1,7 +1,7 @@
 
 import numpy as np
 from datetime import datetime
-
+import logging
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -70,7 +70,7 @@ class Solver_Classification(object):
                 self.config['logs']['log_dir'], self.model_name)
 
     def set_classification_weights(self, config, labels):
-        print("设置分类权重。")
+        logging.info("设置分类权重。")
         if config['train']['loss_weight']:
             labels = list(labels)
             categories = config["data"]["indexx"].classes_
@@ -78,8 +78,8 @@ class Solver_Classification(object):
             counts = [total/labels.count(emo)
                       for emo in categories]  # 出现次数少的权重大
             self.loss_weights = torch.Tensor(counts).to(self.device)
-            print(f"权重: {self.loss_weights.tolist()}")
-            print(f"标签: {categories}")
+            logging.info(f"权重: {self.loss_weights.tolist()}")
+            logging.info(f"标签: {categories}")
         else:
             self.loss_weights = None
 
@@ -89,7 +89,7 @@ class Solver_Classification(object):
         #############################################################
         #                            训练                           #
         #############################################################
-        print('################ 开始循环训练 ################')
+        logging.info('################ 开始循环训练 ################')
         start_iter = self.resume_iters + 1  # 训练的新模型则从1开始，恢复的模型则从接续的迭代次数开始
 
         self.update_lr(start_iter)  # 根据开始迭代次数更新学习率
@@ -97,12 +97,12 @@ class Solver_Classification(object):
         data_iter = iter(self.train_loader)  # 构造数据块迭代器
         self.accuracylog = []
         start_time = datetime.now()
-        print(f'训练开始时间: {start_time}')  # 读取开始运行时间
+        logging.info(f'训练开始时间: {start_time}')  # 读取开始运行时间
 
         for epoch in range(start_iter, self.num_iters+1):  # 迭代循环
-            print(
+            logging.info(
                 f"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Iteration {epoch:02}/{self.num_iters:02} ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-            print(
+            logging.info(
                 f"Iteration {epoch:02} lr = {self.model.optimizer.param_groups[0]['lr']:.8f}")
 
             self.model.to_device(device=self.device)
@@ -142,13 +142,13 @@ class Solver_Classification(object):
                 log_loss = {}
                 log_loss['train/train_loss'] = loss.item()
                 for name, val in log_loss.items():
-                    print("{:20} = {:.4f}".format(name, val))
+                    logging.info("{:20} = {:.4f}".format(name, val))
 
                 if self.use_tensorboard:
                     for tag, value in log_loss.items():
                         self.logger.scalar_summary(tag, value, epoch)
             else:
-                # print("No log output this iteration.")
+                # logging.info("No log output this iteration.")
                 pass
 
             # save checkpoint
@@ -156,7 +156,7 @@ class Solver_Classification(object):
                 self.model.save(save_dir=self.model_save_dir,
                                 it=self.current_iter)
             else:
-                # print("No model saved this iteration.")
+                # logging.info("No model saved this iteration.")
                 pass
 
             if epoch % self.test_every == 0:  # 每几次测试下模型
@@ -165,7 +165,7 @@ class Solver_Classification(object):
             self.update_lr(epoch)
 
             elapsed = datetime.now() - start_time
-            print(f'第 {epoch:04} 次迭代结束, 耗时 {elapsed}')
+            logging.info(f'第 {epoch:04} 次迭代结束, 耗时 {elapsed}')
 
         self.model.save(save_dir=self.model_save_dir, it=self.current_iter)
         return self.accuracylog[-20:]
@@ -177,13 +177,13 @@ class Solver_Classification(object):
             decay_start = self.num_iters - self.num_iters_decay
             decay_iter = i - decay_start  # 当前迭代次数-总迭代次数+更新延迟次数
             lr = self.lr - decay_iter * decay_delta
-            print(f"更新学习率lr:{lr} ")
+            logging.info(f"更新学习率lr:{lr} ")
             for param_group in self.model.optimizer.param_groups:
                 param_group['lr'] = lr  # 写入optimizer学习率参数
 
     def test(self):
 
-        print("测试模型准确率。")
+        logging.info("测试模型准确率。")
         self.model.set_eval_mode()
         emo_preds = torch.rand(0).to(
             device=self.device, dtype=torch.long)  # 预测标签列表
@@ -234,8 +234,8 @@ class Solver_Classification(object):
             total_labels.cpu(), emo_preds.cpu())  # 计算准确率
         eval_loss = total_loss.mean().item()
         l = ["Accuracy_Eval",  "Loss_Eval"]
-        print('{:20} = {:.3f}'.format(l[0], eval_accuracy))
-        print('{:20} = {:.3f}'.format(l[1], eval_loss))
+        logging.info('{:20} = {:.3f}'.format(l[0], eval_accuracy))
+        logging.info('{:20} = {:.3f}'.format(l[1], eval_loss))
 
         if self.use_tensorboard:
             self.logger.scalar_summary(
@@ -336,7 +336,7 @@ class Solver_Classification_CoTeaching(object):
                 self.config['logs']['log_dir'], self.model_name)
 
     def set_classification_weights(self, config, labels):
-        print("设置分类权重。")
+        logging.info("设置分类权重。")
         if config['train']['loss_weight']:
             labels = list(labels)
             categories = config["data"]["indexx"].classes_
@@ -344,8 +344,8 @@ class Solver_Classification_CoTeaching(object):
             counts = [total/labels.count(emo)
                       for emo in categories]  # 出现次数少的权重大
             self.loss_weights = torch.Tensor(counts).to(self.device)
-            print(f"权重: {self.loss_weights.tolist()}")
-            print(f"标签: {categories}")
+            logging.info(f"权重: {self.loss_weights.tolist()}")
+            logging.info(f"标签: {categories}")
         else:
             self.loss_weights = None
 
@@ -355,7 +355,7 @@ class Solver_Classification_CoTeaching(object):
         #############################################################
         #                            训练                           #
         #############################################################
-        print('################ 开始循环训练 ################')
+        logging.info('################ 开始循环训练 ################')
         start_iter = self.resume_iters + 1  # 训练的新模型则从1开始，恢复的模型则从接续的迭代次数开始
 
         self.update_lr(start_iter)  # 根据开始迭代次数更新学习率
@@ -367,12 +367,12 @@ class Solver_Classification_CoTeaching(object):
         data_iter = iter(self.train_loader)  # 构造数据块迭代器
         self.accuracylog = []
         start_time = datetime.now()
-        print(f'训练开始时间: {start_time}')  # 读取开始运行时间
+        logging.info(f'训练开始时间: {start_time}')  # 读取开始运行时间
 
         for epoch in range(start_iter, self.num_iters+1):  # 迭代循环
-            print(
+            logging.info(
                 f"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Iteration {epoch:02}/{self.num_iters:02} ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-            print(
+            logging.info(
                 f"Iteration {epoch:02} lr1 = {self.model.optimizer1.param_groups[0]['lr']:.8f}, lr2 = {self.model.optimizer2.param_groups[0]['lr']:.8f}")
 
             self.model.to_device(device=self.device)
@@ -427,13 +427,13 @@ class Solver_Classification_CoTeaching(object):
                 log_loss['train/train_loss1'] = loss_1.item()
                 log_loss['train/train_loss2'] = loss_2.item()
                 for name, val in log_loss.items():
-                    print("{:20} = {:.4f}".format(name, val))
+                    logging.info("{:20} = {:.4f}".format(name, val))
 
                 if self.use_tensorboard:
                     for tag, value in log_loss.items():
                         self.logger.scalar_summary(tag, value, epoch)
             else:
-                # print("No log output this iteration.")
+                # logging.info("No log output this iteration.")
                 pass
 
             # save checkpoint
@@ -441,7 +441,7 @@ class Solver_Classification_CoTeaching(object):
                 self.model.save(save_dir=self.model_save_dir,
                                 it=self.current_iter)
             else:
-                # print("No model saved this iteration.")
+                # logging.info("No model saved this iteration.")
                 pass
 
             if epoch % self.test_every == 0:  # 每几次测试下模型
@@ -450,7 +450,7 @@ class Solver_Classification_CoTeaching(object):
             self.update_lr(epoch)
 
             elapsed = datetime.now() - start_time
-            print(f'第 {epoch:04} 次迭代结束, 耗时 {elapsed}')
+            logging.info(f'第 {epoch:04} 次迭代结束, 耗时 {elapsed}')
 
         self.model.save(save_dir=self.model_save_dir, it=self.current_iter)
         return self.accuracylog[-20:]
@@ -462,7 +462,7 @@ class Solver_Classification_CoTeaching(object):
             decay_start = self.num_iters - self.num_iters_decay
             decay_iter = i - decay_start  # 当前迭代次数-总迭代次数+更新延迟次数
             lr = self.lr - decay_iter * decay_delta
-            print(f"更新学习率lr:{lr} ")
+            logging.info(f"更新学习率lr:{lr} ")
             for param_group in self.model.optimizer1.param_groups:
                 param_group['lr'] = lr  # 写入optimizer学习率参数
             for param_group in self.model.optimizer2.param_groups:
@@ -470,7 +470,7 @@ class Solver_Classification_CoTeaching(object):
 
     def test(self):
 
-        print("测试模型准确率。")
+        logging.info("测试模型准确率。")
         self.model.set_eval_mode()
         emo_preds1 = torch.rand(0).to(
             device=self.device, dtype=torch.long)  # 预测标签列表1
@@ -542,11 +542,11 @@ class Solver_Classification_CoTeaching(object):
         eval_loss2 = total_loss2.mean().item()
 
         l = ["Accuracy_Eval",  "Loss_Eval"]
-        print('{:20} = {:.3f}'.format(l[0], eval_accuracy1))
-        print('{:20} = {:.3f}'.format(l[1], eval_loss1))
+        logging.info('{:20} = {:.3f}'.format(l[0], eval_accuracy1))
+        logging.info('{:20} = {:.3f}'.format(l[1], eval_loss1))
 
-        print('{:20} = {:.3f}'.format(l[0], eval_accuracy2))
-        print('{:20} = {:.3f}'.format(l[1], eval_loss2))
+        logging.info('{:20} = {:.3f}'.format(l[0], eval_accuracy2))
+        logging.info('{:20} = {:.3f}'.format(l[1], eval_loss2))
 
         if self.use_tensorboard:
             self.logger.scalar_summary(
@@ -684,7 +684,7 @@ class Solver_Classification_RandomLearning(object):
                 self.config['logs']['log_dir'], self.model_name)
 
     def set_classification_weights(self, config, labels):
-        print("设置分类权重。")
+        logging.info("设置分类权重。")
         if config['train']['loss_weight']:
             labels = list(labels)
             categories = config["data"]["indexx"].classes_
@@ -692,8 +692,8 @@ class Solver_Classification_RandomLearning(object):
             counts = [total/labels.count(emo)
                       for emo in categories]  # 出现次数少的权重大
             self.loss_weights = torch.Tensor(counts).to(self.device)
-            print(f"权重: {self.loss_weights.tolist()}")
-            print(f"标签: {categories}")
+            logging.info(f"权重: {self.loss_weights.tolist()}")
+            logging.info(f"标签: {categories}")
         else:
             self.loss_weights = None
 
@@ -703,7 +703,7 @@ class Solver_Classification_RandomLearning(object):
         #############################################################
         #                            训练                           #
         #############################################################
-        print('################ 开始循环训练 ################')
+        logging.info('################ 开始循环训练 ################')
         start_iter = self.resume_iters + 1  # 训练的新模型则从1开始，恢复的模型则从接续的迭代次数开始
 
         self.update_lr(start_iter)  # 根据开始迭代次数更新学习率
@@ -723,12 +723,12 @@ class Solver_Classification_RandomLearning(object):
         data_iter = iter(self.train_loader)  # 构造数据块迭代器
         self.accuracylog = []
         start_time = datetime.now()
-        print(f'训练开始时间: {start_time}')  # 读取开始运行时间
+        logging.info(f'训练开始时间: {start_time}')  # 读取开始运行时间
 
         for epoch in range(start_iter, self.num_iters+1):  # 迭代循环
-            print(
+            logging.info(
                 f"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Iteration {epoch:02}/{self.num_iters:02} ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-            print(
+            logging.info(
                 f"Iteration {epoch:02} lr = {self.model.optimizer.param_groups[0]['lr']:.8f}")
 
             self.model.to_device(device=self.device)
@@ -767,13 +767,13 @@ class Solver_Classification_RandomLearning(object):
                 log_loss = {}
                 log_loss['train/train_loss'] = loss.item()
                 for name, val in log_loss.items():
-                    print("{:20} = {:.4f}".format(name, val))
+                    logging.info("{:20} = {:.4f}".format(name, val))
 
                 if self.use_tensorboard:
                     for tag, value in log_loss.items():
                         self.logger.scalar_summary(tag, value, epoch)
             else:
-                # print("No log output this iteration.")
+                # logging.info("No log output this iteration.")
                 pass
 
             # save checkpoint
@@ -781,7 +781,7 @@ class Solver_Classification_RandomLearning(object):
                 self.model.save(save_dir=self.model_save_dir,
                                 it=self.current_iter)
             else:
-                # print("No model saved this iteration.")
+                # logging.info("No model saved this iteration.")
                 pass
 
             if epoch % self.test_every == 0:  # 每几次测试下模型
@@ -790,7 +790,7 @@ class Solver_Classification_RandomLearning(object):
             self.update_lr(epoch)
 
             elapsed = datetime.now() - start_time
-            print(f'第 {epoch:04} 次迭代结束, 耗时 {elapsed}')
+            logging.info(f'第 {epoch:04} 次迭代结束, 耗时 {elapsed}')
 
         self.model.save(save_dir=self.model_save_dir, it=self.current_iter)
         return self.accuracylog[-20:]
@@ -802,13 +802,13 @@ class Solver_Classification_RandomLearning(object):
             decay_start = self.num_iters - self.num_iters_decay
             decay_iter = i - decay_start  # 当前迭代次数-总迭代次数+更新延迟次数
             lr = self.lr - decay_iter * decay_delta
-            print(f"更新学习率lr:{lr} ")
+            logging.info(f"更新学习率lr:{lr} ")
             for param_group in self.model.optimizer.param_groups:
                 param_group['lr'] = lr  # 写入optimizer学习率参数
 
     def test(self):
 
-        print("测试模型准确率。")
+        logging.info("测试模型准确率。")
         self.model.set_eval_mode()
         emo_preds = torch.rand(0).to(
             device=self.device, dtype=torch.long)  # 预测标签列表
@@ -859,8 +859,8 @@ class Solver_Classification_RandomLearning(object):
             total_labels.cpu(), emo_preds.cpu())  # 计算准确率
         eval_loss = total_loss.mean().item()
         l = ["Accuracy_Eval",  "Loss_Eval"]
-        print('{:20} = {:.3f}'.format(l[0], eval_accuracy))
-        print('{:20} = {:.3f}'.format(l[1], eval_loss))
+        logging.info('{:20} = {:.3f}'.format(l[0], eval_accuracy))
+        logging.info('{:20} = {:.3f}'.format(l[1], eval_loss))
 
         if self.use_tensorboard:
             self.logger.scalar_summary(
@@ -977,7 +977,7 @@ class Solver_Classification_Clip(object):
                 self.config['logs']['log_dir'], self.model_name)
 
     def set_classification_weights(self, config, labels):
-        print("设置分类权重。")
+        logging.info("设置分类权重。")
         if config['train']['loss_weight']:
             labels = list(labels)
             categories = config["data"]["indexx"].classes_
@@ -985,8 +985,8 @@ class Solver_Classification_Clip(object):
             counts = [total/labels.count(emo)
                       for emo in categories]  # 出现次数少的权重大
             self.loss_weights = torch.Tensor(counts).to(self.device)
-            print(f"权重: {self.loss_weights.tolist()}")
-            print(f"标签: {categories}")
+            logging.info(f"权重: {self.loss_weights.tolist()}")
+            logging.info(f"标签: {categories}")
         else:
             self.loss_weights = None
 
@@ -1013,7 +1013,7 @@ class Solver_Classification_Clip(object):
         #############################################################
         #                            训练                           #
         #############################################################
-        print('################ 开始循环训练 ################')
+        logging.info('################ 开始循环训练 ################')
         start_iter = self.resume_iters + 1  # 训练的新模型则从1开始，恢复的模型则从接续的迭代次数开始
 
         self.update_lr(start_iter)  # 根据开始迭代次数更新学习率
@@ -1027,12 +1027,12 @@ class Solver_Classification_Clip(object):
         data_iter = iter(self.train_loader)  # 构造数据块迭代器
         self.accuracylog = []
         start_time = datetime.now()
-        print(f'训练开始时间: {start_time}')  # 读取开始运行时间
+        logging.info(f'训练开始时间: {start_time}')  # 读取开始运行时间
 
         for epoch in range(start_iter, self.num_iters+1):  # 迭代循环
-            print(
+            logging.info(
                 f"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Iteration {epoch:02}/{self.num_iters:02} ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-            print(
+            logging.info(
                 f"Iteration {epoch:02} lr = {self.model.optimizer.param_groups[0]['lr']:.8f}")
 
             self.model.to_device(device=self.device)
@@ -1096,13 +1096,13 @@ class Solver_Classification_Clip(object):
                 log_loss['train/train_loss_sl'] = loss_sl.item()
                 log_loss['train/train_loss_tl'] = loss_tl.item()
                 for name, val in log_loss.items():
-                    print("{:20} = {:.4f}".format(name, val))
+                    logging.info("{:20} = {:.4f}".format(name, val))
 
                 if self.use_tensorboard:
                     for tag, value in log_loss.items():
                         self.logger.scalar_summary(tag, value, epoch)
             else:
-                # print("No log output this iteration.")
+                # logging.info("No log output this iteration.")
                 pass
 
             # save checkpoint
@@ -1110,7 +1110,7 @@ class Solver_Classification_Clip(object):
                 self.model.save(save_dir=self.model_save_dir,
                                 it=self.current_iter)
             else:
-                # print("No model saved this iteration.")
+                # logging.info("No model saved this iteration.")
                 pass
 
             if epoch % self.test_every == 0:  # 每几次测试下模型
@@ -1119,7 +1119,7 @@ class Solver_Classification_Clip(object):
             self.update_lr(epoch)
 
             elapsed = datetime.now() - start_time
-            print(f'第 {epoch:04} 次迭代结束, 耗时 {elapsed}')
+            logging.info(f'第 {epoch:04} 次迭代结束, 耗时 {elapsed}')
 
         self.model.save(save_dir=self.model_save_dir, it=self.current_iter)
         return self.accuracylog[-20:]
@@ -1131,12 +1131,12 @@ class Solver_Classification_Clip(object):
             decay_start = self.num_iters - self.num_iters_decay
             decay_iter = i - decay_start  # 当前迭代次数-总迭代次数+更新延迟次数
             lr = self.lr - decay_iter * decay_delta
-            print(f"更新学习率lr:{lr} ")
+            logging.info(f"更新学习率lr:{lr} ")
             for param_group in self.model.optimizer.param_groups:
                 param_group['lr'] = lr  # 写入optimizer学习率参数
 
     def test(self):
-        print("测试模型准确率。")
+        logging.info("测试模型准确率。")
         self.model.set_eval_mode()
         emo_preds_sl = torch.rand(0).to(
             device=self.device, dtype=torch.long)  # 预测标签列表
@@ -1217,10 +1217,10 @@ class Solver_Classification_Clip(object):
         eval_loss_tl = total_loss_tl.mean().item()
         l = ["Sl_Accuracy_Eval",  "Tl_Accuracy_Eval",
              "Sl_Loss_Eval", "Tl_Loss_Eval", ]
-        print('{:20} = {:.3f}'.format(l[0], eval_accuracy_sl))
-        print('{:20} = {:.3f}'.format(l[1], eval_accuracy_tl))
-        print('{:20} = {:.3f}'.format(l[2], eval_loss_sl))
-        print('{:20} = {:.3f}'.format(l[3], eval_loss_tl))
+        logging.info('{:20} = {:.3f}'.format(l[0], eval_accuracy_sl))
+        logging.info('{:20} = {:.3f}'.format(l[1], eval_accuracy_tl))
+        logging.info('{:20} = {:.3f}'.format(l[2], eval_loss_sl))
+        logging.info('{:20} = {:.3f}'.format(l[3], eval_loss_tl))
 
         if self.use_tensorboard:
             self.logger.scalar_summary(
@@ -1324,7 +1324,7 @@ class Solver_Classification_Clip_DSM(object):
                 self.config['logs']['log_dir'], self.model_name)
 
     def set_classification_weights(self, config, labels):
-        print("设置分类权重。")
+        logging.info("设置分类权重。")
         if config['train']['loss_weight']:
             labels = list(labels)
             categories = config["data"]["indexx"].classes_
@@ -1332,8 +1332,8 @@ class Solver_Classification_Clip_DSM(object):
             counts = [total/labels.count(emo)
                       for emo in categories]  # 出现次数少的权重大
             self.loss_weights = torch.Tensor(counts).to(self.device)
-            print(f"权重: {self.loss_weights.tolist()}")
-            print(f"标签: {categories}")
+            logging.info(f"权重: {self.loss_weights.tolist()}")
+            logging.info(f"标签: {categories}")
         else:
             self.loss_weights = None
 
@@ -1355,7 +1355,7 @@ class Solver_Classification_Clip_DSM(object):
         #############################################################
         #                            训练                           #
         #############################################################
-        print('################ 开始循环训练 ################')
+        logging.info('################ 开始循环训练 ################')
         start_iter = self.resume_iters + 1  # 训练的新模型则从1开始，恢复的模型则从接续的迭代次数开始
 
         self.update_lr(start_iter)  # 根据开始迭代次数更新学习率
@@ -1363,12 +1363,12 @@ class Solver_Classification_Clip_DSM(object):
         data_iter = iter(self.train_loader)  # 构造数据块迭代器
         self.accuracylog = []
         start_time = datetime.now()
-        print(f'训练开始时间: {start_time}')  # 读取开始运行时间
+        logging.info(f'训练开始时间: {start_time}')  # 读取开始运行时间
 
         for epoch in range(start_iter, self.num_iters+1):  # 迭代循环
-            print(
+            logging.info(
                 f"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Iteration {epoch:02}/{self.num_iters:02} ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-            print(
+            logging.info(
                 f"Iteration {epoch:02} lr = {self.model.optimizer.param_groups[0]['lr']:.8f}")
 
             self.model.to_device(device=self.device)
@@ -1430,13 +1430,13 @@ class Solver_Classification_Clip_DSM(object):
                 log_loss['train/train_loss_sl'] = loss_sl.item()
                 log_loss['train/train_loss_tl'] = loss_tl.item()
                 for name, val in log_loss.items():
-                    print("{:20} = {:.4f}".format(name, val))
+                    logging.info("{:20} = {:.4f}".format(name, val))
 
                 if self.use_tensorboard:
                     for tag, value in log_loss.items():
                         self.logger.scalar_summary(tag, value, epoch)
             else:
-                # print("No log output this iteration.")
+                # logging.info("No log output this iteration.")
                 pass
 
             # save checkpoint
@@ -1444,7 +1444,7 @@ class Solver_Classification_Clip_DSM(object):
                 self.model.save(save_dir=self.model_save_dir,
                                 it=self.current_iter)
             else:
-                # print("No model saved this iteration.")
+                # logging.info("No model saved this iteration.")
                 pass
 
             if epoch % self.test_every == 0:  # 每几次测试下模型
@@ -1453,7 +1453,7 @@ class Solver_Classification_Clip_DSM(object):
             self.update_lr(epoch)
 
             elapsed = datetime.now() - start_time
-            print(f'第 {epoch:04} 次迭代结束, 耗时 {elapsed}')
+            logging.info(f'第 {epoch:04} 次迭代结束, 耗时 {elapsed}')
 
         self.model.save(save_dir=self.model_save_dir, it=self.current_iter)
         return self.accuracylog[-20:]
@@ -1465,12 +1465,12 @@ class Solver_Classification_Clip_DSM(object):
             decay_start = self.num_iters - self.num_iters_decay
             decay_iter = i - decay_start  # 当前迭代次数-总迭代次数+更新延迟次数
             lr = self.lr - decay_iter * decay_delta
-            print(f"更新学习率lr:{lr} ")
+            logging.info(f"更新学习率lr:{lr} ")
             for param_group in self.model.optimizer.param_groups:
                 param_group['lr'] = lr  # 写入optimizer学习率参数
 
     def test(self):
-        print("测试模型准确率。")
+        logging.info("测试模型准确率。")
         self.model.set_eval_mode()
         emo_preds_sl = torch.rand(0).to(
             device=self.device, dtype=torch.long)  # 预测标签列表
@@ -1543,10 +1543,10 @@ class Solver_Classification_Clip_DSM(object):
         eval_loss_tl = total_loss_tl.mean().item()
         l = ["Sl_Accuracy_Eval",  "Tl_Accuracy_Eval",
              "Sl_Loss_Eval", "Tl_Loss_Eval", ]
-        print('{:20} = {:.3f}'.format(l[0], eval_accuracy_sl))
-        print('{:20} = {:.3f}'.format(l[1], eval_accuracy_tl))
-        print('{:20} = {:.3f}'.format(l[2], eval_loss_sl))
-        print('{:20} = {:.3f}'.format(l[3], eval_loss_tl))
+        logging.info('{:20} = {:.3f}'.format(l[0], eval_accuracy_sl))
+        logging.info('{:20} = {:.3f}'.format(l[1], eval_accuracy_tl))
+        logging.info('{:20} = {:.3f}'.format(l[2], eval_loss_sl))
+        logging.info('{:20} = {:.3f}'.format(l[3], eval_loss_tl))
 
         if self.use_tensorboard:
             self.logger.scalar_summary(

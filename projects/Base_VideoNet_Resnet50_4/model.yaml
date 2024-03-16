@@ -1,0 +1,9 @@
+
+architecture:
+    net:
+        name: "Base_VideoNet_Resnet50"
+        para:
+            num_classes: 4
+            input_size: [150, 150]
+            num_frames: 30
+            enable_classifier: true

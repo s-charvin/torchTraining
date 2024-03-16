@@ -389,7 +389,7 @@ class calcOpticalFlowAndRGBDifference(torch.nn.Module):
 
 if __name__ == '__main__':
 
-    with open("/sdb/visitors2/SCW/data/IEMOCAP/Session3/sentences/video/Ses03M_script01_1/Ses03M_script01_1_M037.avi", "rb") as fh:
+    with open("/sdb/user0/SCW/data/IEMOCAP/Session3/sentences/video/Ses03M_script01_1/Ses03M_script01_1_M037.avi", "rb") as fh:
         video_file = io.BytesIO(fh.read())
 
     _av_reader = decord.VideoReader(
@@ -411,7 +411,7 @@ if __name__ == '__main__':
         *'XVID')  # 视频的编码
     # 定义视频对象输出
     writer = cv2.VideoWriter(
-        "/home/visitors2/SCW/torchTraining/custom_transforms/result.avi", fourcc, _fps, (width, height))
+        "/home/user0/SCW/torchTraining/custom_transforms/result.avi", fourcc, _fps, (width, height))
 
     # framegetter = KeyFrameGetterBasedInterDifference(
     #     window=5, smooth=False, alpha=0.07)

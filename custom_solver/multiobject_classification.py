@@ -11,7 +11,7 @@ from .min_norm_solvers import MinNormSolver, gradient_normalizers
 import torch.distributed as dist
 from .report import classification_report
 import sklearn
-
+import logging
 
 class Audio_Classification2MultiObject_MGDA_UB(object):
 
@@ -42,10 +42,14 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
             self.net = self.net.to(device=self.device)
             self.net.encoder = self.net.encoder.to(device=self.device)
             self.net.encoder = torch.nn.parallel.DistributedDataParallel(
-                self.net.encoder, device_ids=[self.device])  # device_ids 默认选用本地显示的所有 GPU
+                self.net.encoder, device_ids=[self.device]
+                # , find_unused_parameters=True
+                )  # device_ids 默认选用本地显示的所有 GPU
             self.net.classifier = self.net.classifier.to(device=self.device)
             self.net.classifier = torch.nn.parallel.DistributedDataParallel(
-                self.net.classifier, device_ids=[self.device])  # device_ids 默认选用本地显示的所有 GPU
+                self.net.classifier, device_ids=[self.device]
+                # , find_unused_parameters=True
+                )  # device_ids 默认选用本地显示的所有 GPU
 
         # 设置优化器
 
@@ -108,7 +112,7 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
         #############################################################
         #                            训练                           #
         #############################################################
-        start_iter = self.last_epochs+1  # 训练的新模型则从 1 开始，恢复的模型则从接续的迭代次数开始
+        start_iter = self.last_epochs+1 if self.last_epochs>=0 else 0  # 训练的新模型则从 1 开始，恢复的模型则从接续的迭代次数开始
         step = 0  # 每次迭代的步数, 也就是所有数据总共分的 batch 数量
         # 更新学习率的方法
         if self.config["sorlver"]["lr_method"]["mode"] == "epoch":
@@ -121,7 +125,7 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
         # 训练开始时间记录
         start_time = datetime.now()
         if (self.config['self_auto']['local_rank'] in [0, None]):
-            print(f'# 训练开始时间: {start_time}')  # 读取开始运行时间
+            logging.info(f'# 训练开始时间: {start_time}')  # 读取开始运行时间
 
         # 处理标签数据
 
@@ -253,8 +257,8 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
                     runningtime = datetime.now() - start_time
                     est_endtime = (self.n_epochs *
                                    runningtime.seconds/(epoch+1))
-                    print(
-                        f"# <trained>: [Epoch {epoch}/{self.n_epochs-1}] [Batch {batch_i}/{len(self.train_loader)-1}] [lr: {self.optimizer.param_groups[0]['lr']}] [train_loss: {loss_.item():.4f}] [runtime: {runningtime}] [est_endtime: {est_endtime/360:.2f}h]")
+                    logging.info(
+                        f"# <trained>: [Epoch {epoch+1}/{self.n_epochs}] [Batch {batch_i+1}/{len(self.train_loader)}] [lr: {self.optimizer.param_groups[0]['lr']}] [train_loss: {loss_.item():.4f}] [runtime: {runningtime}] [est_endtime: {est_endtime/360:.2f}h]")
                 # 反向更新参数
                 self.optimizer.step()  # 根据反向传播的梯度，更新网络参数
                 # 更新学习率
@@ -341,7 +345,7 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
         if (self.config['self_auto']['local_rank'] in [0, None]):
             WA, UA, ACC, macro_f1, w_f1, report, matrix = classification_report(
                 y_true=total_labels.cpu(), y_pred=label_preds.cpu(), target_names=self.categories)
-            print(
+            logging.info(
                 f"# <tested>: [WA: {WA}] [UA: {UA}] [ACC: {ACC}] [macro_f1: {macro_f1}] [w_f1: {w_f1}]")
             if self.use_tensorboard:
                 self.logger.scalar_summary(
@@ -354,12 +358,12 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
                 maxACC, WA_, UA_ = ACC, WA, UA
                 macro_f1_, w_f1_ = macro_f1, w_f1
                 best_re, best_ma = report, matrix
-                print(report)
-                print(matrix)
-                print('The best result ----------')
-                print(
+                logging.info(report)
+                logging.info(matrix)
+                logging.info('The best result ----------')
+                logging.info(
                     f'WA: {WA_:.4f}%, UA: {UA_:.4f}%, macro f1: {macro_f1_:.4f}%, weighted f1: {w_f1_:.4f}%')
-                print('--------------------------')
+                logging.info('--------------------------')
 
                 # 每次遇到更好的就保存一次模型
                 if self.config['logs']['model_save_every']:
@@ -403,14 +407,14 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
     def print_network(self):
         """打印网络结构信息"""
         modelname = self.config["architecture"]["net"]["name"]
-        print(f"# 模型名称: {modelname}")
+        logging.info(f"# 模型名称: {modelname}")
         num_params = 0
         for p in self.net.parameters():
             num_params += p.numel()  # 获得张量的元素个数
         if self.config["logs"]["verbose"]["model"]:
-            print("# 打印网络结构:")
-            print(self.net)
-        print(f"网络参数数量:{num_params}")
+            logging.info("# 打印网络结构:")
+            logging.info(self.net)
+        logging.info(f"网络参数数量:{num_params}")
 
         return num_params
 
@@ -437,13 +441,13 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
                  }
         path = os.path.join(path, f"{it:06}.ckpt")
         torch.save(state, path)
-        print(f"# 模型存放地址: {path}.")
+        logging.info(f"# 模型存放地址: {path}.")
 
     def load(self, load_dir):
         """
         load_dir: 要加载模型的完整地址
         """
-        print(f"# 模型加载地址: {load_dir}。")
+        logging.info(f"# 模型加载地址: {load_dir}。")
 
         # 保存每个训练进程专属的信息
         self_auto_config = self.config["self_auto"]
@@ -469,9 +473,9 @@ class Audio_Classification2MultiObject_MGDA_UB(object):
             self.train_loader.dataset.indices = dictionary["train_indices"]
             self.test_loader.dataset.indices = dictionary["test_indices"]
             self.set_configuration()  # 设置加载的检查点的参数设置
-            print("# Models 和 optimizers 加载成功")
+            logging.info("# Models 和 optimizers 加载成功")
         else:
-            print("# Models 加载成功, 目前仅可进行计算操作")
+            logging.info("# Models 加载成功, 目前仅可进行计算操作")
 
 
 if __name__ == '__main__':

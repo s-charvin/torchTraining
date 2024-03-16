@@ -20,16 +20,16 @@ train:
 
     # 恢复训练
     checkpoint: ""
-    last_epochs: 0 # 自定义恢复迭代的起始步, 也就是已经训练完的 epoch 次数
+    last_epochs: -1 # 自定义恢复迭代的起始步, 也就是已经训练完的 epoch 次数
 
     # 训练排队
     gpu_queuer:
         wait_gpus: false # 是否需要接受排队等待
-        task_maxnum: 2 # 最大运行任务数量, GPU 任务太多, 会导致利用率升高, 从而大幅度降低训练速度
+        task_maxnum: 999 # 最大运行任务数量, GPU 任务太多, 会导致利用率升高, 从而大幅度降低训练速度
         para:
             host: "127.0.0.1"
             port: 6379
-            min_free_memory: "5GiB" # gpu 内存触发阈值
+            min_free_memory: 4 # gpu 内存触发阈值
             gpu_maxutil: 100 # gpu 利用率出发阈值, 如果低于 100, 隐式的会默认最大运行任务数量为 1, 因为随便来个训练任务就很大可能超过 80
             password: Sudadenglu
             username: trainer
@@ -54,9 +54,9 @@ sorlver:
 
 logs: # 记录参数
     use_tensorboard: True # 记录展示
-    log_dir: "/storage/user4/SCW/logs/" # 记录存储文件夹
+    log_dir: "/sdb/user0/SCW/logs/" # 记录存储文件夹
     log_every: 1 # 每几次 step进行记录
-    model_save_dir: "/storage/user4/SCW/checkpoint/" # 模型存放地址
+    model_save_dir: "/sdb/user0/SCW/checkpoint/" # 模型存放地址
     test_every: 1 # 每几次 epoch 进行测试
     model_save_every: 1 # 每几次 epoch 进行模型保存
     test_accuracy_every: 20 # 计算多少 epoch 的平均测试准确率

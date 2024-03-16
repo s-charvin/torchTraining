@@ -1,0 +1,32 @@
+data:
+    name: "IEMOCAP"
+
+    root: "/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy"
+    para:
+        info: ""
+        mode: "av"
+        videomode: "crop"
+        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+
+    enhances:
+        AVSplit:
+            sampleNum: 112000
+            video_sample: 210
+    transforms: # 注意: 参数顺序即执行顺序
+        KeyFrameGetterBasedIntervalSampling:
+            interval: 3
+        Permute_Channel:
+            dims: [[0, 1, 2, 3]]
+            names: ["video"]
+
+
+    filters: {
+            "replace": {},
+            "dropna":
+                {
+                    "label":
+                        ["other", "xxx", "fearful", "surprised", "disgusted"],
+                },
+            "sort_values": "duration",
+        }

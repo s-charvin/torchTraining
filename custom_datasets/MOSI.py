@@ -2,6 +2,7 @@
 import os
 from typing import Dict, Union, Optional
 from pathlib import Path
+import logging
 # 第三方库
 import librosa
 import pandas as pd
@@ -61,7 +62,7 @@ def readHDF5(resource, destination=None):
         h5handle = h5py.File('%s' % resource, 'r')
     except:
         raise ValueError(f"{resource} 文件地址不对")
-    print(f"读取 {resource} 文件成功")
+    logging.info(f"读取 {resource} 文件成功")
     return h5handle, dict(h5handle[list(h5handle.keys())[0]]["data"]), metadataToDict(h5handle[list(h5handle.keys())[0]]["metadata"])
 
 
@@ -80,7 +81,7 @@ def download_file(url, destination):
     f.close()
     if total_size != 0 and wrote != total_size:
         raise ValueError(f"下载数据失败")
-    print(f"下载 {destination} 文件成功")
+    logging.info(f"下载 {destination} 文件成功")
 
 
 def create_folder(path):
@@ -131,7 +132,7 @@ class MOSI(MediaDataset):
         """
         读取 MOSI 数据集官方提供的原始数据和预处理数据。
         """
-        print("构建初始数据")
+        logging.info("构建初始数据")
         # 文件情感标签与序号的对应关系
         assert (True in [i in self.transform for i in [
                 "EmoBase_2010", "IS09"]])
@@ -147,12 +148,12 @@ class MOSI(MediaDataset):
             if os.path.isfile(os.path.join(self.root, "processed", "CMU_MOSI_OpenSmile_EB10.csd")):
                 h5handle, audioFeature, metadata = readHDF5(
                     os.path.join(self.root, "processed", "CMU_MOSI_OpenSmile_EB10.csd"))
-                print("加载 CMU_MOSI_OpenSmile_EB10.csd 文件成功")
+                logging.info("加载 CMU_MOSI_OpenSmile_EB10.csd 文件成功")
             else:
-                print("下载 CMU_MOSI_OpenSmile_EB10.csd 文件")
+                logging.info("下载 CMU_MOSI_OpenSmile_EB10.csd 文件")
                 download_file(_URL_["OpenSmile_EB10"], destination)
                 h5handle, audioFeature, metadata = readHDF5(destination)
-                print("加载 CMU_MOSI_OpenSmile_EB10.csd 文件成功")
+                logging.info("加载 CMU_MOSI_OpenSmile_EB10.csd 文件成功")
         elif "IS09" in self.transform and "a" in self.mode:
             # 判断 CMU_MOSI_openSMILE_IS09.csd 文件是否存在
             destination = os.path.join(
@@ -160,12 +161,12 @@ class MOSI(MediaDataset):
             if os.path.isfile(os.path.join(self.root, "processed", "CMU_MOSI_openSMILE_IS09.csd")):
                 h5handle, audioFeature, metadata = readHDF5(
                     os.path.join(self.root, "processed", "CMU_MOSI_openSMILE_IS09.csd"))
-                print("加载 CMU_MOSI_openSMILE_IS09.csd 文件成功")
+                logging.info("加载 CMU_MOSI_openSMILE_IS09.csd 文件成功")
             else:
-                print("下载 CMU_MOSI_openSMILE_IS09.csd 文件")
+                logging.info("下载 CMU_MOSI_openSMILE_IS09.csd 文件")
                 download_file(_URL_["openSMILE_IS09"], destination)
                 h5handle, audioFeature, metadata = readHDF5(destination)
-                print("加载 CMU_MOSI_openSMILE_IS09.csd 文件成功")
+                logging.info("加载 CMU_MOSI_openSMILE_IS09.csd 文件成功")
         elif "a" in self.mode:
             assert (False)
 
@@ -176,24 +177,24 @@ class MOSI(MediaDataset):
             if os.path.isfile(os.path.join(self.root, "processed", "CMU_MOSI_Visual_Facet_42.csd")):
                 h5handle, videoFeature, metadata = readHDF5(
                     os.path.join(self.root, "processed", "CMU_MOSI_Visual_Facet_42.csd"))
-                print("加载 CMU_MOSI_Visual_Facet_42.csd 文件成功")
+                logging.info("加载 CMU_MOSI_Visual_Facet_42.csd 文件成功")
             else:
-                print("下载 CMU_MOSI_Visual_Facet_42.csd 文件")
+                logging.info("下载 CMU_MOSI_Visual_Facet_42.csd 文件")
                 download_file(_URL_["Facet_42"], destination)
                 h5handle, videoFeature, metadata = readHDF5(destination)
-                print("加载 CMU_MOSI_Visual_Facet_42.csd 文件成功")
+                logging.info("加载 CMU_MOSI_Visual_Facet_42.csd 文件成功")
         elif "OpenFace2" in self.transform and "v" in self.mode:
             destination = os.path.join(
                 self.root, "processed", "CMU_MOSI_Visual_OpenFace_2.csd")
             if os.path.isfile(os.path.join(self.root, "processed", "CMU_MOSI_Visual_OpenFace_2.csd")):
                 h5handle, videoFeature, metadata = readHDF5(
                     os.path.join(self.root, "processed", "CMU_MOSI_Visual_OpenFace_2.csd"))
-                print("加载 CMU_MOSI_Visual_OpenFace_2.csd 文件成功")
+                logging.info("加载 CMU_MOSI_Visual_OpenFace_2.csd 文件成功")
             else:
-                print("下载 CMU_MOSI_Visual_OpenFace_2.csd 文件")
+                logging.info("下载 CMU_MOSI_Visual_OpenFace_2.csd 文件")
                 download_file(_URL_["OpenFace_2"], destination)
                 h5handle, videoFeature, metadata = readHDF5(destination)
-                print("加载 CMU_MOSI_Visual_OpenFace_2.csd 文件成功")
+                logging.info("加载 CMU_MOSI_Visual_OpenFace_2.csd 文件成功")
         elif "v" in self.mode:
             assert (False)
 
@@ -204,12 +205,12 @@ class MOSI(MediaDataset):
             if os.path.isfile(os.path.join(self.root, "processed", "CMU_MOSI_TimestampedWordVectors_1.1.csd")):
                 h5handle, textFeature, metadata = readHDF5(
                     os.path.join(self.root, "processed", "CMU_MOSI_TimestampedWordVectors_1.1.csd"))
-                print("加载 CMU_MOSI_TimestampedWordVectors_1.1.csd 文件成功")
+                logging.info("加载 CMU_MOSI_TimestampedWordVectors_1.1.csd 文件成功")
             else:
-                print("下载 CMU_MOSI_TimestampedWordVectors_1.1.csd 文件")
+                logging.info("下载 CMU_MOSI_TimestampedWordVectors_1.1.csd 文件")
                 download_file(_URL_["GloveWordVectors"], destination)
                 h5handle, textFeature, metadata = readHDF5(destination)
-                print("加载 CMU_MOSI_TimestampedWordVectors_1.1.csd 文件成功")
+                logging.info("加载 CMU_MOSI_TimestampedWordVectors_1.1.csd 文件成功")
         elif "t" in self.mode:
             assert (False)
 
@@ -219,12 +220,12 @@ class MOSI(MediaDataset):
         if os.path.isfile(os.path.join(self.root, "processed", "CMU_MOSI_Opinion_Labels.csd")):
             h5handle, label, metadata = readHDF5(
                 os.path.join(self.root, "processed", "CMU_MOSI_Opinion_Labels.csd"))
-            print("加载 CMU_MOSI_Opinion_Labels.csd 文件成功")
+            logging.info("加载 CMU_MOSI_Opinion_Labels.csd 文件成功")
         else:
-            print("下载 CMU_MOSI_Opinion_Labels.csd 文件")
+            logging.info("下载 CMU_MOSI_Opinion_Labels.csd 文件")
             download_file(_URL_["labels"], destination)
             h5handle, label, metadata = readHDF5(destination)
-            print("加载 CMU_MOSI_Opinion_Labels.csd 文件成功")
+            logging.info("加载 CMU_MOSI_Opinion_Labels.csd 文件成功")
         # assert (len(textFeature) == len(audioFeature) == len(videoFeature) == len(label))
         audiolist = []
         videolist = []
@@ -305,7 +306,7 @@ class MOSI(MediaDataset):
 
 
 if __name__ == '__main__':
-    a = MOSI("/sdb/visitors2/SCW/data/CMU_MOSI",
+    a = MOSI("/sdb/user0/SCW/data/CMU_MOSI",
              transform={"EmoBase_2010": {}, "Facet42": {}, "Glove": {}}, mode="avt")
     feature = a.__getitem__(100)
     pass

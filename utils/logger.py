@@ -10,7 +10,8 @@ from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formataddr
 from torch.utils.tensorboard import SummaryWriter
-
+import logging
+from threading import Lock
 
 class Logger(object):
     """Tensorboard logger."""
@@ -27,7 +28,7 @@ class Logger(object):
             os.makedirs(self.file_dir, exist_ok=True)
         self.writer = SummaryWriter(
             log_dir=self.file_dir, flush_secs=flush_secs)
-        print("# 构建logger.")
+        logging.info("# 构建logger.")
 
     def scalar_summary(self, tag, value, step):
         """在独立图上画一条线或多条线
@@ -128,10 +129,55 @@ class Logger(object):
                                 hparam_domain_discrete=None, run_name=None)
 
 
+from threading import Lock
+
+class MailSender:
+    _instance = None
+    _lock = Lock()
+
+    def __new__(cls, *args, **kwargs):
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self, config=None):
+        if not hasattr(self, "initialized") or not self.initialized:
+            if config is None:
+                raise ValueError("Config must be provided to initialize the MailSender.")
+            self._config = config
+            self.initialized = True
+
+    def sendmail(self, Text):
+        mail_host = self._config["logs"]["SMTP"]["mail_host"]
+        mail_port = int(self._config["logs"]["SMTP"]["mail_port"])
+        mail_user = self._config["logs"]["SMTP"]["mail_user"]
+        mail_pass = self._config["logs"]["SMTP"]["mail_pass"]
+
+        message = MIMEText(Text, 'plain', 'utf-8')
+        message["Accept-Language"] = Header("zh-CN", 'utf-8')
+        message['Subject'] = Header('自动化脚本', 'utf-8')
+        message['To'] = formataddr(["用户", self._config["logs"]["to_mail"]], 'utf-8')
+
+        try:
+            if mail_host:
+                message['From'] = formataddr(["自动化脚本_健康打卡", mail_user], 'utf-8')
+                smtpObj = smtplib.SMTP_SSL(mail_host, mail_port)
+                smtpObj.login(mail_user, mail_pass)
+                smtpObj.sendmail(mail_user, self._config["logs"]["to_mail"], message.as_string())
+            else:
+                message['From'] = formataddr(["自动化脚本_健康打卡", self._config["from_mail"]], 'utf-8')
+                smtpObj = smtplib.SMTP('localhost')
+                smtpObj.sendmail(self._config["logs"]["from_mail"], self._config["logs"]["to_mail"], message.as_string())
+            logging.info("# 邮件发送成功")
+            smtpObj.quit()
+        except smtplib.SMTPException as Error:
+            logging.info(f"# 无法发送邮件\n Error: {Error}")
+
 def sendmail(Text, config):
     """向指定邮箱发送含Text内容的邮件
     Args:
-        Text (str): 右键主体内容
+        Text (str): 主体内容
         config (dict): 指定参数（发信人、收信人、第三方SMTP参数(可选)）
     """
     # 第三方 SMTP 服务
@@ -166,7 +212,7 @@ def sendmail(Text, config):
             smtpObj = smtplib.SMTP('localhost')
             smtpObj.sendmail(config["logs"]["from_mail"],
                              config["logs"]["to_mail"], message.as_string())
-        print("# 邮件发送成功")
+        logging.info("# 邮件发送成功")
         smtpObj.quit()  # 关闭连接
     except smtplib.SMTPException as Error:
-        print(f"# 无法发送邮件\n Error: {Error}")
+        logging.info(f"# 无法发送邮件\n Error: {Error}")

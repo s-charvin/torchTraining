@@ -1,0 +1,10 @@
+
+architecture:
+    net:
+        name: "BER_ISF"
+        para:
+            num_classes: 4
+            input_size: [[189, 40], [150, 150]]
+            num_frames: 30
+            seq_len: [189, 30]
+            enable_classifier: true

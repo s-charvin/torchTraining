@@ -1,0 +1,8 @@
+
+architecture:
+    net:
+        name: "Base_AudioNet_MDEA" # MIFFNet_Conv2D_InterFusion_Joint, MIFFNet_Conv2D_SVC_InterFusion_Joint
+        para:
+            num_classes: 6
+            last_hidden_dim: 320
+            enable_classifier: true

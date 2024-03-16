@@ -1,17 +1,17 @@
 train:
     # 训练设备
-    name: "test" # 本次运行模型名称
+    name: "test0" # 本次运行模型名称
     nodes: 1 # 本次训练总共要使用的节点数量, 如果需要多台计算机进行分布式计算才需要设置. 从 1 开始
     node_rank: 0 # 当前节点在所有节点中的排名, 从 0 开始
     master_addr: "127.0.0.1" # 声明主进程 0 的 IP 地址和通信端口, 以便所有进程可以同步更新参数.
-    master_port: "9963" # 每个任务都需要不同的端口
-    available_gpus: "0" # 设置当前环境可用的 GPU
+    master_port: "8666" # 每个任务都需要不同的端口
+    available_gpus: "1" # 设置当前环境可用的 GPU
 
     # 数据
     num_workers: 0 # 数据加载进程数
     seed: 42 # 设置随机数种子, 当设置了固定的随机数种子,之后依次生成的随机数序列也会被固定下来.
     train_rate: 0.8
-    batch_size: 8 # 数据块大小
+    batch_size: 16 # 数据块大小
     Kfold: 1 # 大于 1 时, 进行 K 折交叉实验
 
     # 训练
@@ -20,22 +20,22 @@ train:
 
     # 恢复训练
     checkpoint: ""
-    last_epochs: 0 # 自定义恢复迭代的起始步, 也就是已经训练完的 epoch 次数
+    last_epochs: -1 # 自定义恢复迭代的起始步, 也就是已经训练完的 epoch 次数
 
     # 训练排队
     gpu_queuer:
-        wait_gpus: false # 是否需要接受排队等待
-        task_maxnum: 2 # 最大运行任务数量, GPU 任务太多, 会导致利用率升高, 从而大幅度降低训练速度
+        wait_gpus: true # 是否需要接受排队等待
+        task_maxnum: 999 # 最大运行任务数量, GPU 任务太多, 会导致利用率升高, 从而大幅度降低训练速度
         para:
             host: "127.0.0.1"
             port: 6379
-            min_free_memory: "5GiB" # gpu 内存触发阈值
+            min_free_memory: 4 # gpu 内存触发阈值
             gpu_maxutil: 100 # gpu 利用率出发阈值, 如果低于 100, 隐式的会默认最大运行任务数量为 1, 因为随便来个训练任务就很大可能超过 80
             password: Sudadenglu
             username: trainer
 
 sorlver:
-    name: "Video_Classification"
+    name: "Audio_Video_Joint_Classification_Customloss"
     optimizer:
         name: "AdamW"
         lr: 0.00025 # 学习率
@@ -50,13 +50,14 @@ sorlver:
             epochs: 200
             cosine_end_lr: 0.000001
             warmup_start_lr: 0.00000001
+
     batch_delay: 1
 
 logs: # 记录参数
-    use_tensorboard: True # 记录展示
-    log_dir: "/sdb/visitors2/SCW/logs/" # 记录存储文件夹
-    log_every: 1 # 每几次 step 进行记录
-    model_save_dir: "/sdb/visitors2/SCW/checkpoint/" # 模型存放地址
+    use_tensorboard: false # 记录展示
+    log_dir: "/sdb/user0/SCW/logs/" # 记录存储文件夹
+    log_every: 1 # 每几次 step进行记录
+    model_save_dir: "/sdb/user0/SCW/checkpoint/" # 模型存放地址
     test_every: 1 # 每几次 epoch 进行测试
     model_save_every: 1 # 每几次 epoch 进行模型保存
     test_accuracy_every: 20 # 计算多少 epoch 的平均测试准确率

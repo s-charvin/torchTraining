@@ -1,7 +1,7 @@
 
 architecture:
     net:
-        name: "MER_SISF_Conv2D_SVC_InterFusion_Joint_Attention_SLoss_Luck_UniG" # MIFFNet_Conv2D_InterFusion_Joint, MIFFNet_Conv2D_SVC_InterFusion_Joint
+        name: "MER_SISF_Conv2D_SVC_InterFusion_Joint_Attention_SLoss_Luck_pretrained" # MIFFNet_Conv2D_InterFusion_Joint, MIFFNet_Conv2D_SVC_InterFusion_Joint
         para:
             num_classes: 4
             input_size: [[189, 40], [150, 150]]

@@ -11,6 +11,12 @@ import psutil
 import errno
 import os
 import sys
+import logging
+import threading
+import multiprocessing
+
+import time
+
 
 
 class RedisClient:
@@ -64,12 +70,12 @@ class RedisClient:
         # 将任务的字典类型数据转换为符合 json 格式的字符串, 并将其放入等待任务列表的尾部
         self.client.rpush("wait_queue", json.dumps(content))
         if wait_num == 0:
-            print(
+            logging.info(
                 f"任务加入成功, 任务进程({os.getppid()} | {os.getpid()}), 目前排第一位哦, 稍后就可以开始训练了！")
         else:
-            print(
-                f"任务加入成功, 任务进程({os.getppid()} | {os.getpid()}), 正在排队中！ 前方还有 {wait_num} 个训练任务！")
-        print(
+            logging.info(
+                f"任务加入成功, 任务进程({os.getppid()} | {os.getpid()}), 正在排队中！ 前方还有 {wait_num-1} 个训练任务！")
+        logging.info(
             f"\n *** tips: 如果想要对正在排队的任务进行调整可以移步 Redis 客户端进行数据修改, 其他操作可能会影响任务排队的稳定性. *** \n ")
         return self.task_id
 
@@ -144,7 +150,7 @@ class RedisClient:
                 if (max(tasks_ingpu) >= task["task_config"]["train"]["gpu_queuer"]["task_maxnum"]):
                     next_task = self.client.lpop("wait_queue")
                     self.client.rpush("wait_queue", next_task)
-                    print(f"尝试更新任务队列失败, 当前任务仍需等待. 所使用显卡正在运行的任务数量过多!")
+                    logging.info(f"尝试更新任务队列失败, 当前任务仍需等待. 所使用显卡正在运行的任务数量过多!")
                     return False
 
                 if (num_gpus_task == len(available_gpus)):
@@ -155,16 +161,16 @@ class RedisClient:
                     task["state"] = "running"
                     task["run_time"] = curr_time
                     self.client.rpush("run_queue", json.dumps(task))
-                    print(f"\n 更新任务队列成功, 当前任务已被置于运行队列!")
+                    logging.info(f"\n 更新任务队列成功, 当前任务已被置于运行队列!")
                     return task["task_config"]
 
                 next_task = self.client.lpop("wait_queue")
                 self.client.rpush("wait_queue", next_task)
-                print(f"尝试更新任务队列失败, 当前任务仍需等待. 显卡容量不足!")
+                logging.info(f"尝试更新任务队列失败, 当前任务仍需等待. 显卡容量不足!")
                 return False
 
         wait_num = len(self.client.lrange('wait_queue', 0, -1))
-        print(f"尝试更新任务队列失败, 当前任务仍需等待. 前方还有 {wait_num} 个训练任务！")
+        logging.info(f"尝试更新任务队列失败, 当前任务仍需等待. 前方还有 {wait_num} 个训练任务！")
         return False
 
     def is_can_run(self):
@@ -198,12 +204,12 @@ class RedisClient:
                     task["completed_time"] = curr_time
                     task["state"] = "completed"
                     self.client.rpush("complete_queue", json.dumps(task))
-                    print(f"当前任务已训练完成!")
+                    logging.info(f"当前任务已训练完成!")
                 else:
                     task["state"] = "waiting"
                     task.pop("run_time", "")
                     self.client.rpush("wait_queue", json.dumps(task))
-                    print(f"显存占用超出导致任务运行出错, 已将当前任务重新置于等待列表, 等候稍后重试!")
+                    logging.info(f"显存占用超出导致任务运行出错, 已将当前任务重新置于等待列表, 等候稍后重试!")
         return False
 
     def check_data(self):
@@ -214,16 +220,109 @@ class RedisClient:
             task = json.loads(task_)
             pid = int(task['system_pid'])
             if not pid_exists(pid):
-                print(f"发现运行队列有残余数据, 任务进程为{pid}, 本地并无此任务!")
+                logging.info(f"发现运行队列有残余数据, 任务进程为{pid}, 本地并无此任务!")
                 self.client.lrem("run_queue", 0, task_)
 
         for i, task_ in enumerate(wait_tasks):
             task = json.loads(task_)
             pid = int(task['system_pid'])
             if not pid_exists(pid):
-                print(f"发现等待队列有残余数据, 任务进程为{pid}, 本地并无此任务!")
+                logging.info(f"发现等待队列有残余数据, 任务进程为{pid}, 本地并无此任务!")
                 self.client.lrem("wait_queue", 0, task_)
 
+
+
+class TaskManager:
+    _instance = None
+    _lock = multiprocessing.Lock()
+
+    @classmethod
+    def get_instance(cls, min_free_memory=2):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    manager = multiprocessing.Manager()
+                    cls._instance = manager.TaskManager(min_free_memory)
+        return cls._instance
+
+    def __init__(self, min_free_memory=2):
+        self.min_free_memory = min_free_memory
+        assert min_free_memory >= 2
+        self.memoryEnough = multiprocessing.Manager().Value('i', False)
+        self.gpu_occupied = multiprocessing.Manager().Value('i', False)
+        self.task_running = multiprocessing.Manager().Value('i', False)
+        self.lock = multiprocessing.Manager().Lock()
+        self.occupied_tensors = multiprocessing.Manager().list()
+        self.monitor_thread = multiprocessing.Process(target=self.monitor_gpu_memory)
+        self.monitor_thread.daemon = True
+        self.monitor_thread.start()
+
+    def init(self, min_free_memory=2):
+        self.min_free_memory = min_free_memory
+        assert min_free_memory >= 2
+        manager = multiprocessing.Manager()
+        self.memoryEnough = multiprocessing.Manager().Value('i', False)
+        self.gpu_occupied = multiprocessing.Manager().Value('i', False)
+        self.task_running = multiprocessing.Manager().Value('i', False)
+        self.lock = manager.Lock()
+        self.occupied_tensors = manager.list()
+        self.monitor_thread = multiprocessing.Process(target=self.monitor_gpu_memory)
+        self.monitor_thread.daemon = True
+        self.monitor_thread.start()
+
+    def monitor_gpu_memory(self):
+        while True:
+            if not self.task_running.value:
+                time.sleep(5)
+                gpus = Device.from_cuda_visible_devices()
+                all_memory_enough = all(gpu.memory_free() / 1024 / 1024 / 1024 >= self.min_free_memory for gpu in gpus)
+                with self.lock:
+                    self.memoryEnough.value = all_memory_enough
+                if self.memoryEnough.value:
+                    self.occupy_gpu()
+
+    # def is_need_wait(self):
+    #     return not self.memoryEnough
+        
+    def check_can_run(self):
+        with self.lock:
+            if self.memoryEnough.value and self.gpu_occupied.value:
+                self.release_gpu()
+        return self.memoryEnough.value and not self.gpu_occupied.value
+
+    
+    def occupy_gpu(self):
+        with self.lock:
+            if not self.gpu_occupied.value:
+                self.gpu_occupied.value = True
+                gpus = Device.from_cuda_visible_devices()
+                logging.info(f"尝试占据显存，目前显存情况：{[gpu for gpu in gpus]}")
+                for gpu in gpus:
+                    # 计算需要占用的显存大小，留出1GB左右的空闲
+                    occupy_size = max(gpu.memory_free() - 1.9 * 1024 * 1024 * 1024, 0)  # 避免负数
+                    tensor_size = torch.zeros((int(occupy_size // 4),)).cuda(gpu.cuda_index)
+                    # 将占用的 Tensor 存储起来，以便释放显存时使用
+                    self.occupied_tensors.append(tensor_size)
+                
+
+    def release_gpu(self):
+        with self.lock:
+            for tensor_size in self.occupied_tensors:
+                # tensor_size = tensor_size.cpu()
+                del tensor_size
+            self.occupied_tensors.clear()
+            torch.cuda.empty_cache()  # 清空PyTorch的CUDA缓存
+            self.gpu_occupied.value = False
+
+    def task_runed(self):
+        self.task_running.value = True
+       
+    def init_task(self):
+        with self.lock:
+            self.memoryEnough.value = False
+            self.gpu_occupied.value = False
+            self.task_running.value = False
+            self.occupied_tensors[:] = []
 
 def pid_exists(pid):
     """Check whether pid exists in the current process table.
@@ -346,7 +445,7 @@ def collate_fn_split(batch):
     tensors = torch.nn.utils.rnn.pad_sequence(
         tensors, batch_first=True, padding_value=0.)
     if tensors.shape[1] != fix_len:
-        print(tensors.shape[1])
+        logging.info(tensors.shape[1])
         tensors = torch.nn.functional.pad(
             tensors, (0, 0, 0, fix_len-tensors.shape[1], 0, 0), mode='constant', value=0.)
     packed_tensors = torch.nn.utils.rnn.pack_padded_sequence(

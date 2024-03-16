@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-
+import logging
 
 class MinNormSolver:
     MAX_ITER = 250
@@ -223,5 +223,5 @@ def gradient_normalizers(grads, losses, normalization_type):
         for t in grads:
             gn[t] = 1.0
     else:
-        print('ERROR: Invalid Normalization Type')
+        logging.info('ERROR: Invalid Normalization Type')
     return gn

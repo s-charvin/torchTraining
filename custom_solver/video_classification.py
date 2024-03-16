@@ -9,7 +9,8 @@ from .optimizer import *
 from custom_models import *
 import torch.distributed as dist
 from .report import classification_report
-
+import logging
+import multiprocessing
 
 class Video_Classification(object):
     def __init__(
@@ -46,6 +47,7 @@ class Video_Classification(object):
             self.net = self.net.to(device=self.device)
             self.net = torch.nn.parallel.DistributedDataParallel(
                 self.net, device_ids=[self.device]
+                # , find_unused_parameters=True
             )  # device_ids 默认选用本地显示的所有 GPU
 
         # 设置优化器
@@ -106,7 +108,7 @@ class Video_Classification(object):
         label_encoder.fit(y=label_list)
         # id2label = {f"{id}": label for id, label in enumerate()}
         return label_encoder.transform(label_list), label_encoder.classes_
-
+        
     def train(self):
         """训练主函数"""
         assert self.train_loader, "未提供训练数据"
@@ -132,7 +134,7 @@ class Video_Classification(object):
 
         # 训练开始时间记录
         start_time = datetime.now()
-        print(f"# 训练开始时间: {start_time}")  # 读取开始运行时间
+        logging.info(f"# 训练开始时间: {start_time}")  # 读取开始运行时间
 
         # 处理标签数据
 
@@ -163,8 +165,11 @@ class Video_Classification(object):
         self.maxACC = self.WA_ = self.UA_ = self.macro_f1_ = self.w_f1_ = 0
         self.best_re = self.best_ma = None
         est_endtime = "..."
-        print(f"# 计算模型的初始性能:")
+    
+        
+        logging.info(f"# 计算模型的初始性能:")
         self.test()
+        
         for epoch in range(start_iter, self.n_epochs):  # 迭代循环 [0, epoch)
             # [0, num_batch)
             for batch_i, data in enumerate(self.train_loader):
@@ -211,8 +216,8 @@ class Video_Classification(object):
                         for tag, value in log_loss.items():
                             self.logger.scalar_summary(tag, value, step)
                     runningtime = datetime.now() - start_time
-                    print(
-                        f"# <trained>: [Epoch {epoch}/{self.n_epochs-1}] [Batch {batch_i}/{len(self.train_loader)-1}] [lr: {self.optimizer.param_groups[0]['lr']}] [train_loss: {loss_.item():.4f}] [runtime: {runningtime}] [est_endtime: {est_endtime}]"
+                    logging.info(
+                        f"# <trained>: [Epoch {epoch+1}/{self.n_epochs}] [Batch {batch_i+1}/{len(self.train_loader)}] [lr: {self.optimizer.param_groups[0]['lr']}] [train_loss: {loss_.item():.4f}] [runtime: {runningtime}] [est_endtime: {est_endtime}]"
                     )
 
                 # 反向更新
@@ -241,8 +246,8 @@ class Video_Classification(object):
         # 保存最终的模型
         if self.config["self_auto"]["local_rank"] in [0, None]:
             self.save(save_dir=self.model_save_dir, it=self.last_epochs)
-            print(self.best_re)
-            print(self.best_ma)
+            logging.info(self.best_re)
+            logging.info(self.best_ma)
         return True
 
     def test(self):
@@ -315,7 +320,7 @@ class Video_Classification(object):
                 target_names=self.categories,
             )
 
-            print(
+            logging.info(
                 f"# <tested>: [WA: {WA}] [UA: {UA}] [ACC: {ACC}] [macro_f1: {macro_f1}] [w_f1: {w_f1}]"
             )
             if self.use_tensorboard:
@@ -329,11 +334,26 @@ class Video_Classification(object):
                 self.maxACC, self.WA_, self.UA_ = ACC, WA, UA
                 self.macro_f1_, self.w_f1_ = macro_f1, w_f1
                 self.best_re, self.best_ma = report, matrix
-
+                logging.info("# <best_report>: ")
+                logging.info(self.best_re)
+                logging.info("# <best_matrix>: ")
+                logging.info(self.best_ma)
                 # 每次遇到更好的就保存一次模型
-                if self.config["logs"]["model_save_every"]:
-                    self.save(save_dir=self.model_save_dir, it=self.last_epochs)
-            print(
+                try:
+                    if self.config['logs']['model_save_every']:
+                        self.save(save_dir=self.model_save_dir,
+                                it=self.last_epochs)
+                except Exception as e:
+                    # from utils.logger import MailSender
+                    # info = f"# <best>: [WA: {self.WA_}] [UA: {self.UA_}] [ACC: {self.maxACC}] [macro_f1: {self.macro_f1_}] [w_f1: {self.w_f1_}]"
+                    # info = info + "\n\n\n" + self.best_re
+                    # info = info + "\n\n\n" + self.best_ma
+                    # MailSender.sendmail(info)
+                    if "No space left on device" in e.args[0]:
+                        pass
+                    else:
+                        raise e
+            logging.info(
                 f"# <best>: [WA: {self.WA_}] [UA: {self.UA_}] [ACC: {self.maxACC}] [macro_f1: {self.macro_f1_}] [w_f1: {self.w_f1_}]"
             )
 
@@ -369,14 +389,14 @@ class Video_Classification(object):
     def print_network(self):
         """打印网络结构信息"""
         modelname = self.config["architecture"]["net"]["name"]
-        print(f"# 模型名称: {modelname}")
+        logging.info(f"# 模型名称: {modelname}")
         num_params = 0
         for p in self.net.parameters():
             num_params += p.numel()  # 获得张量的元素个数
         if self.config["logs"]["verbose"]["model"]:
-            print("# 打印网络结构:")
-            print(self.net)
-        print(f"网络参数数量:{num_params}")
+            logging.info("# 打印网络结构:")
+            logging.info(self.net)
+        logging.info(f"网络参数数量:{num_params}")
 
     def reset_grad(self):
         """将梯度清零。"""
@@ -401,13 +421,13 @@ class Video_Classification(object):
         }
         path = os.path.join(path, f"{it:06}.ckpt")
         torch.save(state, path)
-        print(f"# 模型存放地址: {path}.")
+        logging.info(f"# 模型存放地址: {path}.")
 
     def load(self, load_dir):
         """
         load_dir: 要加载模型的完整地址
         """
-        print(f"# 模型加载地址: {load_dir}。")
+        logging.info(f"# 模型加载地址: {load_dir}。")
 
         # 保存每个训练进程专属的信息
         self_auto_config = self.config["self_auto"]
@@ -432,9 +452,9 @@ class Video_Classification(object):
             self.train_loader.dataset.indices = dictionary["train_indices"]
             self.test_loader.dataset.indices = dictionary["test_indices"]
             self.set_configuration()  # 设置加载的检查点的参数设置
-            print("# Models 和 optimizers 加载成功")
+            logging.info("# Models 和 optimizers 加载成功")
         else:
-            print("# Models 加载成功, 目前仅可进行计算操作")
+            logging.info("# Models 加载成功, 目前仅可进行计算操作")
         del dictionary
 
 

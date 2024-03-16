@@ -5,7 +5,7 @@ import torch.nn as nn
 from utils.logger import Logger
 import torch.distributed as dist
 import sklearn
-
+import logging
 from custom_models import *
 from .lr_scheduler import *
 from .optimizer import *
@@ -41,7 +41,9 @@ class Audio_Classification(object):
         if self.config['self_auto']['gpu_nums'] > 0:
             self.net = self.net.to(device=self.device)
             self.net = torch.nn.parallel.DistributedDataParallel(
-                self.net, device_ids=[self.device], find_unused_parameters=True)  # device_ids 默认选用本地显示的所有 GPU
+                self.net, device_ids=[self.device]
+                # , find_unused_parameters=True
+                )  # device_ids 默认选用本地显示的所有 GPU
 
         # 设置优化器
         if 'para' in self.config["sorlver"]['optimizer'] and self.config["sorlver"]['optimizer']['para']:
@@ -100,7 +102,8 @@ class Audio_Classification(object):
         #############################################################
         #                            训练                           #
         #############################################################
-        start_iter = self.last_epochs+1  # 训练的新模型则从 0 开始，恢复的模型则从接续的迭代次数开始
+        start_iter = self.last_epochs+1 if self.last_epochs>=0 else 0  # 训练的新模型则从 0 开始，恢复的模型则从接续的迭代次数开始
+        
         step = 0  # 每次迭代的步数, 也就是所有数据总共分的 batch 数量
         # 更新学习率的方法
         if self.config["sorlver"]["lr_method"]["mode"] == "epoch":
@@ -113,7 +116,7 @@ class Audio_Classification(object):
         # 训练开始时间记录
         start_time = datetime.now()
         if (self.config['self_auto']['local_rank'] in [0, None]):
-            print(f'# 训练开始时间: {start_time}')  # 读取开始运行时间
+            logging.info(f'# 训练开始时间: {start_time}')  # 读取开始运行时间
 
         # 处理标签数据
 
@@ -138,8 +141,10 @@ class Audio_Classification(object):
         self.maxACC = self.WA_ = self.UA_ = self.macro_f1_ = self.w_f1_ = 0
         self.best_re = self.best_ma = None
         est_endtime = "..."
-        print(f"# 计算模型的初始性能:")
-        self.test()
+        
+        if self.config["train"]["init_test"]:
+            logging.info(f"# 计算模型的初始性能:")
+            self.test()
         
         for epoch in range(start_iter, self.n_epochs):  # epoch 迭代循环 [0, epoch)
             # [0, num_batch)
@@ -185,8 +190,8 @@ class Audio_Classification(object):
                         for tag, value in log_loss.items():
                             self.logger.scalar_summary(tag, value, step)
                     runningtime = datetime.now() - start_time
-                    print(
-                        f"# <trained>: [Epoch {epoch}/{self.n_epochs-1}] [Batch {batch_i}/{len(self.train_loader)-1}] [lr: {self.optimizer.param_groups[0]['lr']}] [train_loss: {loss_.item():.4f}] [runtime: {runningtime}] [est_endtime: {est_endtime}]")
+                    logging.info(
+                        f"# <trained>: [Epoch {epoch+1}/{self.n_epochs}] [Batch {batch_i+1}/{len(self.train_loader)}] [lr: {self.optimizer.param_groups[0]['lr']}] [train_loss: {loss_.item():.4f}] [runtime: {runningtime}] [est_endtime: {est_endtime}]")
 
                 # 反向更新
                 if ((batch_i + 1) % self.batch_delay) == 0 or (batch_i + 1 == len(self.train_loader)):
@@ -209,8 +214,8 @@ class Audio_Classification(object):
         # 保存最终的模型
         if (self.config['self_auto']['local_rank'] in [0, None]):
             self.save(save_dir=self.model_save_dir, it=self.last_epochs)
-            print(self.best_re)
-            print(self.best_ma)
+            logging.info(self.best_re)
+            logging.info(self.best_ma)
 
         return True
 
@@ -283,7 +288,7 @@ class Audio_Classification(object):
             WA, UA, ACC, macro_f1, w_f1, report, matrix = classification_report(
                 y_true=total_labels.cpu(), y_pred=label_preds.cpu(), target_names=self.categories)
 
-            print(
+            logging.info(
                 f"# <tested>: [WA: {WA}] [UA: {UA}] [ACC: {ACC}] [macro_f1: {macro_f1}] [w_f1: {w_f1}]")
             if self.use_tensorboard:
                 self.logger.scalar_summary(
@@ -296,17 +301,23 @@ class Audio_Classification(object):
                 self.maxACC, self.WA_, self.UA_ = ACC, WA, UA
                 self.macro_f1_, self.w_f1_ = macro_f1, w_f1
                 self.best_re, self.best_ma = report, matrix
-                print("# <best_report>: ")
-                print(self.best_re)
-                print("# <best_matrix>: ")
-                print(self.best_ma)
+                logging.info("# <best_report>: ")
+                logging.info(self.best_re)
+                logging.info("# <best_matrix>: ")
+                logging.info(self.best_ma)
                 # 每次遇到更好的就保存一次模型
-                if self.config['logs']['model_save_every']:
-                    self.save(save_dir=self.model_save_dir,
-                              it=self.last_epochs)
-            print(
-                f"# <best>: [WA: {self.WA_}] [UA: {self.UA_}] [ACC: {self.maxACC}] [macro_f1: {self.macro_f1_}] [w_f1: {self.w_f1_}]")
-            
+                try:
+                    if self.config['logs']['model_save_every']:
+                        self.save(save_dir=self.model_save_dir,
+                                it=self.last_epochs)
+                except Exception as e:
+                    if "No space left on device" in e.args[0]:
+                        pass
+                    else:
+                        raise e
+                    
+                logging.info(
+                    f"# <best>: [WA: {self.WA_}] [UA: {self.UA_}] [ACC: {self.maxACC}] [macro_f1: {self.macro_f1_}] [w_f1: {self.w_f1_}]")
 
     def calculate(self, inputs: list):
         self.to_device(device=self.device)
@@ -337,14 +348,14 @@ class Audio_Classification(object):
     def print_network(self):
         """打印网络结构信息"""
         modelname = self.config["architecture"]["net"]["name"]
-        print(f"# 模型名称: {modelname}")
+        logging.info(f"# 模型名称: {modelname}")
         num_params = 0
         for p in self.net.parameters():
             num_params += p.numel()  # 获得张量的元素个数
         if self.config["logs"]["verbose"]["model"]:
-            print("# 打印网络结构:")
-            print(self.net)
-        print(f"网络参数数量:{num_params}")
+            logging.info("# 打印网络结构:")
+            logging.info(self.net)
+        logging.info(f"网络参数数量:{num_params}")
 
         return num_params
 
@@ -370,13 +381,13 @@ class Audio_Classification(object):
                  }
         path = os.path.join(path, f"{it:06}.ckpt")
         torch.save(state, path)
-        print(f"# 模型存放地址: {path}.")
+        logging.info(f"# 模型存放地址: {path}.")
 
     def load(self, load_dir):
         """
         load_dir: 要加载模型的完整地址
         """
-        print(f"# 模型加载地址: {load_dir}。")
+        logging.info(f"# 模型加载地址: {load_dir}。")
 
         # 保存每个训练进程专属的信息
         self_auto_config = self.config["self_auto"]
@@ -401,9 +412,9 @@ class Audio_Classification(object):
             self.train_loader.dataset.indices = dictionary["train_indices"]
             self.test_loader.dataset.indices = dictionary["test_indices"]
             self.set_configuration()  # 设置加载的检查点的参数设置
-            print("# Models 和 optimizers 加载成功")
+            logging.info("# Models 和 optimizers 加载成功")
         else:
-            print("# Models 加载成功, 目前仅可进行计算操作")
+            logging.info("# Models 加载成功, 目前仅可进行计算操作")
         del dictionary
 
 
@@ -436,7 +447,9 @@ class Audio_Classification_CoTeaching(object):
         if self.config['self_auto']['gpu_nums'] > 0:
             self.net = self.net.to(device=self.device)
             self.net = torch.nn.parallel.DistributedDataParallel(
-                self.net, device_ids=[self.device], find_unused_parameters=True)  # device_ids 默认选用本地显示的所有 GPU
+                self.net, device_ids=[self.device]
+                # , find_unused_parameters=True
+                )  # device_ids 默认选用本地显示的所有 GPU
 
         # 设置优化器
         if 'para' in self.config["sorlver"]['optimizer'] and self.config["sorlver"]['optimizer']['para']:
@@ -500,7 +513,7 @@ class Audio_Classification_CoTeaching(object):
         #############################################################
         #                            训练                           #
         #############################################################
-        start_iter = self.last_epochs+1  # 训练的新模型则从 0 开始，恢复的模型则从接续的迭代次数开始
+        start_iter = self.last_epochs+1 if self.last_epochs>=0 else 0  # 训练的新模型则从 0 开始，恢复的模型则从接续的迭代次数开始
         step = 0  # 每次迭代的步数, 也就是所有数据总共分的 batch 数量
         # 更新学习率的方法
         if self.config["sorlver"]["lr_method"]["mode"] == "epoch":
@@ -517,7 +530,7 @@ class Audio_Classification_CoTeaching(object):
         # 训练开始时间记录
         start_time = datetime.now()
         if (self.config['self_auto']['local_rank'] in [0, None]):
-            print(f'# 训练开始时间: {start_time}')  # 读取开始运行时间
+            logging.info(f'# 训练开始时间: {start_time}')  # 读取开始运行时间
 
         # 处理标签数据
 
@@ -548,7 +561,7 @@ class Audio_Classification_CoTeaching(object):
         self.maxACC = self.WA_ = self.UA_ = self.macro_f1_ = self.w_f1_ = 0
         self.best_re = self.best_ma = None
         est_endtime = "..."
-        print(f"# 计算模型的初始性能:")
+        logging.info(f"# 计算模型的初始性能:")
         self.test()
         for epoch in range(start_iter, self.n_epochs):  # epoch 迭代循环 [0, epoch)
             # [0, num_batch)
@@ -607,8 +620,8 @@ class Audio_Classification_CoTeaching(object):
                             self.logger.scalar_summary(tag, value, step)
                     runningtime = datetime.now() - start_time
 
-                    print(
-                        f"# <trained>: [Epoch {epoch}/{self.n_epochs-1}] [Batch {batch_i}/{len(self.train_loader)-1}] [lr: {self.optimizer1.param_groups[0]['lr']}] [train_loss: {loss_1_+loss_2_.item():.4f}] [runtime: {runningtime}] [est_endtime: {est_endtime}]")
+                    logging.info(
+                        f"# <trained>: [Epoch {epoch+1}/{self.n_epochs}] [Batch {batch_i+1}/{len(self.train_loader)}] [lr: {self.optimizer1.param_groups[0]['lr']}] [train_loss: {loss_1_+loss_2_.item():.4f}] [runtime: {runningtime}] [est_endtime: {est_endtime}]")
 
                 # 反向更新
                 if ((batch_i+1) % self.batch_delay) == 0:
@@ -635,8 +648,8 @@ class Audio_Classification_CoTeaching(object):
         # 保存最终的模型
         if (self.config['self_auto']['local_rank'] in [0, None]):
             self.save(save_dir=self.model_save_dir, it=self.last_epochs)
-            print(self.best_re)
-            print(self.best_ma)
+            logging.info(self.best_re)
+            logging.info(self.best_ma)
         return True
 
     def test(self):
@@ -738,9 +751,9 @@ class Audio_Classification_CoTeaching(object):
                 y_true=total_labels1.cpu(), y_pred=label_preds1.cpu(), target_names=self.categories)
             WA2, UA2, ACC2, macro_f12, w_f12, report2, matrix2 = classification_report(
                 y_true=total_labels2.cpu(), y_pred=label_preds2.cpu(), target_names=self.categories)
-            print(
+            logging.info(
                 f"# <tested>: [WA1: {WA1}] [UA1: {UA1}] [ACC1: {ACC1}] [macro_f11: {macro_f11}] [w_f11: {w_f11}]")
-            print(
+            logging.info(
                 f"# <tested>: [WA2: {WA2}] [UA2: {UA2}] [ACC2: {ACC2}] [macro_f12: {macro_f12}] [w_f12: {w_f12}]")
 
             if self.use_tensorboard:
@@ -760,14 +773,24 @@ class Audio_Classification_CoTeaching(object):
                 self.macro_f1_, self.w_f1_ = (
                     macro_f11, macro_f12), (w_f11, w_f12)
                 self.best_re, self.best_ma = (report1, report2), (matrix1, matrix2)
-
+                logging.info("# <best_report>: ")
+                logging.info(self.best_re)
+                logging.info("# <best_matrix>: ")
+                logging.info(self.best_ma)
                 # 每次遇到更好的就保存一次模型
-                if self.config['logs']['model_save_every']:
-                    self.save(save_dir=self.model_save_dir,
-                              it=self.last_epochs)
-            print(
+                try:
+                    if self.config['logs']['model_save_every']:
+                        self.save(save_dir=self.model_save_dir,
+                                it=self.last_epochs)
+                except Exception as e:
+                    if "No space left on device" in e.args[0]:
+                        pass
+                    else:
+                        raise e
+            logging.info(
                 f"# <best>: [WA: {self.WA_}] [UA: {self.UA_}] [ACC: {self.maxACC}] [macro_f1: {self.macro_f1_}] [w_f1: {self.w_f1_}]")
-
+            
+            
     def loss_coteaching(self, logits1, logits2, labels, forget_rate, loss_func=nn.CrossEntropyLoss(reduction='none')):
         # 计算此batch内数据的所有损失
         # 设置损失函数和分类权重，权重数据在s.train()前定义了
@@ -829,14 +852,14 @@ class Audio_Classification_CoTeaching(object):
     def print_network(self):
         """打印网络结构信息"""
         modelname = self.config["architecture"]["net"]["name"]
-        print(f"# 模型名称: {modelname}")
+        logging.info(f"# 模型名称: {modelname}")
         num_params = 0
         for p in self.net.parameters():
             num_params += p.numel()  # 获得张量的元素个数
         if self.config["logs"]["verbose"]["model"]:
-            print("# 打印网络结构:")
-            print(self.net)
-        print(f"网络参数数量:{num_params}")
+            logging.info("# 打印网络结构:")
+            logging.info(self.net)
+        logging.info(f"网络参数数量:{num_params}")
 
         return num_params
 
@@ -864,13 +887,13 @@ class Audio_Classification_CoTeaching(object):
                  }
         path = os.path.join(path, f"{it:06}.ckpt")
         torch.save(state, path)
-        print(f"# 模型存放地址: {path}.")
+        logging.info(f"# 模型存放地址: {path}.")
 
     def load(self, load_dir):
         """
         load_dir: 要加载模型的完整地址
         """
-        print(f"# 模型加载地址: {load_dir}。")
+        logging.info(f"# 模型加载地址: {load_dir}。")
 
         # 保存每个训练进程专属的信息
         self_auto_config = self.config["self_auto"]
@@ -896,9 +919,9 @@ class Audio_Classification_CoTeaching(object):
             self.train_loader.dataset.indices = dictionary["train_indices"]
             self.test_loader.dataset.indices = dictionary["test_indices"]
             self.set_configuration()  # 设置加载的检查点的参数设置
-            print("# Models 和 optimizers 加载成功")
+            logging.info("# Models 和 optimizers 加载成功")
         else:
-            print("# Models 加载成功, 目前仅可进行计算操作")
+            logging.info("# Models 加载成功, 目前仅可进行计算操作")
         del dictionary
 
 
@@ -932,7 +955,9 @@ class Audio_Classification(object):
         if self.config['self_auto']['gpu_nums'] > 0:
             self.net = self.net.to(device=self.device)
             self.net = torch.nn.parallel.DistributedDataParallel(
-                self.net, device_ids=[self.device], find_unused_parameters=True)  # device_ids 默认选用本地显示的所有 GPU
+                self.net, device_ids=[self.device]
+                # , find_unused_parameters=True
+                )  # device_ids 默认选用本地显示的所有 GPU
 
         # 设置优化器
         if 'para' in self.config["sorlver"]['optimizer'] and self.config["sorlver"]['optimizer']['para']:
@@ -991,7 +1016,7 @@ class Audio_Classification(object):
         #############################################################
         #                            训练                           #
         #############################################################
-        start_iter = self.last_epochs+1  # 训练的新模型则从 0 开始，恢复的模型则从接续的迭代次数开始
+        start_iter = self.last_epochs+1 if self.last_epochs>=0 else 0  # 训练的新模型则从 0 开始，恢复的模型则从接续的迭代次数开始
         step = 0  # 每次迭代的步数, 也就是所有数据总共分的 batch 数量
         # 更新学习率的方法
         if self.config["sorlver"]["lr_method"]["mode"] == "epoch":
@@ -1004,7 +1029,7 @@ class Audio_Classification(object):
         # 训练开始时间记录
         start_time = datetime.now()
         if (self.config['self_auto']['local_rank'] in [0, None]):
-            print(f'# 训练开始时间: {start_time}')  # 读取开始运行时间
+            logging.info(f'# 训练开始时间: {start_time}')  # 读取开始运行时间
 
         # 处理标签数据
 
@@ -1029,7 +1054,8 @@ class Audio_Classification(object):
         self.maxACC = self.WA_ = self.UA_ = self.macro_f1_ = self.w_f1_ = 0
         self.best_re = self.best_ma = None
         est_endtime = "..."
-        print(f"# 计算模型的初始性能:")
+        
+        logging.info(f"# 计算模型的初始性能:")
         self.test()
         for epoch in range(start_iter, self.n_epochs):  # epoch 迭代循环 [0, epoch)
             # [0, num_batch)
@@ -1075,8 +1101,8 @@ class Audio_Classification(object):
                         for tag, value in log_loss.items():
                             self.logger.scalar_summary(tag, value, step)
                     runningtime = datetime.now() - start_time
-                    print(
-                        f"# <trained>: [Epoch {epoch}/{self.n_epochs-1}] [Batch {batch_i}/{len(self.train_loader)-1}] [lr: {self.optimizer.param_groups[0]['lr']}] [train_loss: {loss_.item():.4f}] [runtime: {runningtime}] [est_endtime: {est_endtime}]")
+                    logging.info(
+                        f"# <trained>: [Epoch {epoch+1}/{self.n_epochs}] [Batch {batch_i+1}/{len(self.train_loader)}] [lr: {self.optimizer.param_groups[0]['lr']}] [train_loss: {loss_.item():.4f}] [runtime: {runningtime}] [est_endtime: {est_endtime}]")
 
                 # 反向更新
                 if ((batch_i + 1) % self.batch_delay) == 0 or (batch_i + 1 == len(self.train_loader)):
@@ -1099,8 +1125,8 @@ class Audio_Classification(object):
         # 保存最终的模型
         if (self.config['self_auto']['local_rank'] in [0, None]):
             self.save(save_dir=self.model_save_dir, it=self.last_epochs)
-            print(self.best_re)
-            print(self.best_ma)
+            logging.info(self.best_re)
+            logging.info(self.best_ma)
 
         return True
 
@@ -1173,30 +1199,39 @@ class Audio_Classification(object):
             WA, UA, ACC, macro_f1, w_f1, report, matrix = classification_report(
                 y_true=total_labels.cpu(), y_pred=label_preds.cpu(), target_names=self.categories)
 
-            print(
+            logging.info(
                 f"# <tested>: [WA: {WA}] [UA: {UA}] [ACC: {ACC}] [macro_f1: {macro_f1}] [w_f1: {w_f1}]")
+            
+
             if self.use_tensorboard:
                 self.logger.scalar_summary(
                     "Val/Loss_Eval", total_loss.mean().clone(), self.last_epochs)
                 self.logger.scalar_summary(
                     "Val/Accuracy_Eval", ACC, self.last_epochs)
 
+
             # 记录最好的一次模型数据
             if self.maxACC < ACC:
                 self.maxACC, self.WA_, self.UA_ = ACC, WA, UA
                 self.macro_f1_, self.w_f1_ = macro_f1, w_f1
                 self.best_re, self.best_ma = report, matrix
-                print("# <best_report>: ")
-                print(self.best_re)
-                print("# <best_matrix>: ")
-                print(self.best_ma)
+                logging.info("# <best_report>: ")
+                logging.info(self.best_re)
+                logging.info("# <best_matrix>: ")
+                logging.info(self.best_ma)
                 # 每次遇到更好的就保存一次模型
-                if self.config['logs']['model_save_every']:
-                    self.save(save_dir=self.model_save_dir,
-                              it=self.last_epochs)
-            print(
+                try:
+                    if self.config['logs']['model_save_every']:
+                        self.save(save_dir=self.model_save_dir,
+                                it=self.last_epochs)
+                except Exception as e:
+                    if "No space left on device" in e.args[0]:
+                        pass
+                    else:
+                        raise e
+            logging.info(
                 f"# <best>: [WA: {self.WA_}] [UA: {self.UA_}] [ACC: {self.maxACC}] [macro_f1: {self.macro_f1_}] [w_f1: {self.w_f1_}]")
-            
+
 
     def calculate(self, inputs: list):
         self.to_device(device=self.device)
@@ -1227,14 +1262,14 @@ class Audio_Classification(object):
     def print_network(self):
         """打印网络结构信息"""
         modelname = self.config["architecture"]["net"]["name"]
-        print(f"# 模型名称: {modelname}")
+        logging.info(f"# 模型名称: {modelname}")
         num_params = 0
         for p in self.net.parameters():
             num_params += p.numel()  # 获得张量的元素个数
         if self.config["logs"]["verbose"]["model"]:
-            print("# 打印网络结构:")
-            print(self.net)
-        print(f"网络参数数量:{num_params}")
+            logging.info("# 打印网络结构:")
+            logging.info(self.net)
+        logging.info(f"网络参数数量:{num_params}")
 
         return num_params
 
@@ -1260,13 +1295,13 @@ class Audio_Classification(object):
                  }
         path = os.path.join(path, f"{it:06}.ckpt")
         torch.save(state, path)
-        print(f"# 模型存放地址: {path}.")
+        logging.info(f"# 模型存放地址: {path}.")
 
     def load(self, load_dir):
         """
         load_dir: 要加载模型的完整地址
         """
-        print(f"# 模型加载地址: {load_dir}。")
+        logging.info(f"# 模型加载地址: {load_dir}。")
 
         # 保存每个训练进程专属的信息
         self_auto_config = self.config["self_auto"]
@@ -1291,9 +1326,9 @@ class Audio_Classification(object):
             self.train_loader.dataset.indices = dictionary["train_indices"]
             self.test_loader.dataset.indices = dictionary["test_indices"]
             self.set_configuration()  # 设置加载的检查点的参数设置
-            print("# Models 和 optimizers 加载成功")
+            logging.info("# Models 和 optimizers 加载成功")
         else:
-            print("# Models 加载成功, 目前仅可进行计算操作")
+            logging.info("# Models 加载成功, 目前仅可进行计算操作")
         del dictionary
 
 

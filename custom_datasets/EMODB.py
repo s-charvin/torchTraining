@@ -2,6 +2,7 @@
 import os
 from typing import Dict, Union, Optional
 from pathlib import Path
+import logging
 # 第三方库
 import librosa
 import pandas as pd
@@ -60,7 +61,7 @@ class EMODB(MediaDataset):
         """
         读取 EMODB 语音数据集, 获取文件名、 情感标签、 文本、 维度值列表。
         """
-        print("构建初始数据")
+        logging.info("构建初始数据")
         # 文件情感标签与序号的对应关系
         tag_to_emotion = {  # 文件标签与情感的对应关系
             "W": "angry",  # angry
@@ -122,7 +123,7 @@ class EMODB(MediaDataset):
             "sample_rate": _sample_rate
         }
 
-        print("构建语音数据")
+        logging.info("构建语音数据")
         audiolist = [None]*len(self._pathList)
         for i in tqdm(range(len(self.datadict["path"])), desc="音频数据处理中: "):
             audiolist[i] = self._load_audio(self.datadict["path"][i])
@@ -157,6 +158,6 @@ class EMODB(MediaDataset):
 
 
 if __name__ == '__main__':
-    a = EMODB("/home/visitors2/SCW/deeplearning/data/EMODB")
+    a = EMODB("/home/user0/SCW/deeplearning/data/EMODB")
     feature = a.__getitem__(100)
     pass

@@ -1,0 +1,44 @@
+data:
+    name: "IEMOCAP"
+    root: "/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy"
+    para:
+        info: ""
+        mode: "a"
+        videomode: "crop"
+        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+
+    enhances:
+        AudioSplit:
+            sampleNum: 112000 # 16000 * duration
+    transforms:
+        MFCC:
+            sample_rate: 16000
+            n_mfcc: 40
+            log_mels: True
+            melkwargs:
+                n_fft: 1024
+                win_length: 1024
+                hop_length: 256
+                f_min: 80.
+                f_max: 7600.
+                pad: 0
+                n_mels: 128
+                power: 2.
+                normalized: True
+                center: True
+                pad_mode: "reflect"
+                onesided: True
+        Permute_Channel:
+            dims: [[2, 1, 0]] # [c, fea, seq] - > [seq, fea, c] 
+            names: ["audio"]
+
+    filters: {
+            "replace": {},
+            "dropna":
+                {
+                    "label":
+                        ["other", "xxx", "fearful", "surprised", "disgusted"],
+                },
+            "sort_values": "duration",
+        }

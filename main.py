@@ -4,9 +4,17 @@ import os
 import sys
 
 if sys.platform.startswith("linux"):
-    os.chdir("/home/visitors2/SCW/torchTraining")
+    os.chdir("/home/user0/SCW/torchTraining")
 elif sys.platform.startswith("win"):
     pass
+
+os.environ['TMPDIR'] = '/sdb/user0/tmp'
+os.environ['TEMP'] = '/sdb/user0/tmp'
+os.environ['TMP'] = '/sdb/user0/tmp'
+# 确保目录存在
+if not os.path.exists('/sdb/user0/tmp'):
+    os.makedirs('/sdb/user0/tmp')
+
 import yaml  # yaml文件解析模块
 import random  # 随机数生成模块
 import time
@@ -18,24 +26,31 @@ from torch.utils.data import DataLoader, Dataset
 import torch.distributed as dist
 import torch.utils.data.distributed
 import torch.multiprocessing as mp
+from multiprocessing import Manager
 import torch.backends.cudnn as cudnn
 
 # 自定库
 from custom_datasets.subset import Subset, random_split_index_K, collate_fn
 from custom_datasets import *
 from custom_solver import *
-from utils.trainutils import collate_fn_pad, RedisClient
+from utils.trainutils import collate_fn_pad, TaskManager
+from utils.logger import MailSender
 import json
-
+# torch.load(cached_file, map_location=map_location)
 torch.multiprocessing.set_sharing_strategy("file_system")
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--config",
     metavar="DIR",
-    default="/home/visitors2/SCW/torchTraining/config",
+    default="/home/user0/SCW/torchTraining/projects/MERSISF_test",
     help="path to congigs",
 )
+import logging
+
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s %(threadName)s %(levelname)s: %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S')
 
 
 def train_worker(local_rank, config, train_data_index, valid_data_index, data):
@@ -132,28 +147,34 @@ def train_worker(local_rank, config, train_data_index, valid_data_index, data):
         if (local_rank is not None)
         else torch.device("cpu")
     )
+
+
+    
+    while not TaskManager.get_instance().check_can_run():
+        time.sleep(10)
+    logging.info(f"资源初始化完成, 释放占据显存, 开始训练.")
+    TaskManager.get_instance().task_runed()
     solver = globals()[config["sorlver"]["name"]](
-        train_loader, valid_loader, config, device
-    )
+        train_loader, valid_loader, config, device)
     if local_rank in [0, None]:
         solver.print_network()
     solver.train()
 
 
 def main(config):
-    print("\n################ 程序运行环境 ################")
-    print(f"torch_version: {torch.__version__}")  # 软件 torch 版本
+    logging.info("\n################ 程序运行环境 ################")
+    logging.info(f"torch_version: {torch.__version__}")  # 软件 torch 版本
 
     if (
         config["train"]["available_gpus"] != "" and torch.cuda.is_available()
     ):  # 如果使用 GPU 加速
-        print(
+        logging.info(
             f"Cuda: {torch.cuda.is_available()}, Use_Gpu: {config['train']['available_gpus']}"
         )
         if torch.cuda.device_count() >= 1:
             for i in range(torch.cuda.device_count()):
                 # 打印所有可用 GPU
-                print(f"GPU: {i}, {torch.cuda.get_device_name(i)}")
+                logging.info(f"GPU: {i}, {torch.cuda.get_device_name(i)}")
 
         # 基于节点数和每个节点使用的 gpu 数目计算出单进程单 GPU 条件下需要的 world_size (要运行的进程总数).
         config["self_auto"]["gpu_nums"] = len(
@@ -163,7 +184,7 @@ def main(config):
             config["self_auto"]["gpu_nums"] * config["train"]["nodes"]
         )
     else:
-        print(f"CUDA: {torch.cuda.is_available()}, Use_CPU")
+        logging.info(f"CUDA: {torch.cuda.is_available()}, Use_CPU")
         config["self_auto"]["gpu_nums"] = 0
         config["self_auto"]["world_size"] = 1
 
@@ -195,8 +216,8 @@ def main(config):
     data_len = len(data)
     # 删除临时的 data. 这里使用临时 data, 虽然浪费了数据加载时间, 但是是为了实现多折训练所必需的问题解决方法(无法将 data 作为参数传入子进程)
     config["data"]["root"] = data.root
-    print(f"训练使用数据集: {dataset_name}")
-    print(f"所用数据数量: {data_len}")
+    logging.info(f"训练使用数据集: {dataset_name}")
+    logging.info(f"所用数据数量: {data_len}")
     # del data
 
     last_epochs_ = config["train"]["last_epochs"]  # 记录初次运行的 epoch 数目
@@ -208,7 +229,7 @@ def main(config):
         ):
             k = k + 1
             config["train"]["last_epochs"] = last_epochs_
-            print(f"\n################ 开始训练第 {k} 次模型 ################")
+            logging.info(f"\n################ 开始训练第 {k} 次模型 ################")
             if config["self_auto"]["gpu_nums"] > 0:
                 context = mp.spawn(
                     train_worker,
@@ -234,7 +255,7 @@ def main(config):
                 indices[: int(config["train"]["train_rate"] * data_len)],
                 indices[int(config["train"]["train_rate"] * data_len) :],
             )
-        print(f"\n################ 开始训练模型 ################")
+        logging.info(f"\n################ 开始训练模型 ################")
         if config["self_auto"]["gpu_nums"] > 0:
             context = mp.spawn(
                 train_worker,
@@ -253,7 +274,8 @@ def main(config):
 
 
 if __name__ == "__main__":
-    print("程序运行起始文件夹: " + os.getcwd())
+    logging.info("程序运行起始文件夹: " + os.getcwd())
+    
     args = parser.parse_args()
     config = {"args": vars(args)}
     [
@@ -267,7 +289,7 @@ if __name__ == "__main__":
         for i in os.listdir(config["args"]["config"])
     ]
     config["self_auto"] = {}
-
+    
     # 设置 CPU/GPU
 
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
@@ -275,45 +297,25 @@ if __name__ == "__main__":
     os.environ["MASTER_ADDR"] = config["train"]["master_addr"]
     os.environ["MASTER_PORT"] = config["train"]["master_port"]
 
-    redis_client = None
-    if (
-        config["train"]["gpu_queuer"]["wait_gpus"]
-        and config["train"]["available_gpus"] != ""
-    ):
-        redis_client = RedisClient(
-            **config["train"]["gpu_queuer"]["para"]
-        )  # 初始化并连接到 Redis 服务端
-        redis_client.check_data()
-        task_id = redis_client.join_wait_queue(
-            config["train"]["name"], task_config=config
-        )  # 注册当前任务进程到等待任务列表
-        while redis_client.is_need_wait():
-            redis_client.check_data()
-            config_ = redis_client.pop_wait_queue()
-            if not config_:
-                time.sleep(60)  # 休息一下, 再重新尝试
-                continue
-            if not redis_client.is_can_run():
-                time.sleep(60)  # 休息一下, 再重新尝试
-                redis_client.pop_run_queue(success=False)
-                continue
+
+    with Manager() as manager:
+        # 初始化任务管理器
+        manager.register('TaskManager', TaskManager)
+        TaskManager.get_instance(min_free_memory=config["train"]["gpu_queuer"]["para"]["min_free_memory"])
+        # TaskManager
+        while True:
             try:
                 # 定义训练主程序
-                config = config_
                 if config["logs"]["verbose"]["config"]:
-                    print(yaml.dump(config, indent=4))
+                    logging.info(yaml.dump(config, indent=4))
                 main(config)
-                redis_client.pop_run_queue(success=True)
                 break
             except Exception as e:
-                if "CUDA out of memory" in e.args[0]:
-                    redis_client.pop_run_queue(success=False)
-                    time.sleep(60)
+                # 处理显存溢出，硬盘空间不足等问题
+                if "CUDA out of memory" in str(e):
+                    time.sleep(10)
+                    TaskManager.get_instance().init_task()
+                    continue
                 else:
-                    # # redis_client.pop_run_queue(success=False)
-                    # redis_client.delete_running_task()
-                    # print(e.args[0])
-                    raise e
-        redis_client.delete_waitting_task()
-    else:
-        main(config)
+                    logging.error(e)
+                    break

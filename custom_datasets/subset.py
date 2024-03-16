@@ -50,7 +50,7 @@ class BaseDataset(Dataset):
                 else:
                     pl.append((processor, globals()[processor]()))
         processors = nn.Sequential(OrderedDict(pl))
-        print("# 数据增强...")
+        logging.info("# 数据增强...")
         self.datadict = processors(self.datadict)
         gc.collect()
 
@@ -63,7 +63,7 @@ class BaseDataset(Dataset):
                 else:
                     pl.append((processor, globals()[processor]()))
         processors = nn.Sequential(OrderedDict(pl))
-        print("# 数据转换...")
+        logging.info("# 数据转换...")
         self.datadict = processors(self.datadict)
         gc.collect()
 
@@ -86,11 +86,11 @@ class BaseDataset(Dataset):
         torch.save(self.datadict, path)
         self.root = path
         self.savePath = path
-        print(f"存储数据: {path}")
+        logging.info(f"存储数据: {path}")
         return True
 
     def build_filter(self):
-        print("数据筛选...")
+        logging.info("数据筛选...")
         # 根据提供的字典替换值, key 决定要替换的列, value 是 字符串字典, 决定被替换的值
         self.datadict = pd.DataFrame(self.datadict)
         if "replace" in self.filter:
@@ -122,7 +122,7 @@ class BaseDataset(Dataset):
         pass
 
     def load_data(self):
-        print("加载数据...")
+        logging.info("加载数据...")
         self.datadict = torch.load(self.root)
 
 
