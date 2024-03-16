@@ -24,7 +24,7 @@ train:
 
     # 训练排队
     gpu_queuer:
-        wait_gpus: true # 是否需要接受排队等待
+        wait_gpus: false # 是否需要接受排队等待
         task_maxnum: 999 # 最大运行任务数量, GPU 任务太多, 会导致利用率升高, 从而大幅度降低训练速度
         para:
             host: "127.0.0.1"

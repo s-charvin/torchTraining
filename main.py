@@ -26,14 +26,13 @@ from torch.utils.data import DataLoader, Dataset
 import torch.distributed as dist
 import torch.utils.data.distributed
 import torch.multiprocessing as mp
-from multiprocessing import Manager
 import torch.backends.cudnn as cudnn
 
 # 自定库
 from custom_datasets.subset import Subset, random_split_index_K, collate_fn
 from custom_datasets import *
 from custom_solver import *
-from utils.trainutils import collate_fn_pad, TaskManager
+from utils.trainutils import collate_fn_pad, RedisClient
 from utils.logger import MailSender
 import json
 # torch.load(cached_file, map_location=map_location)
@@ -51,6 +50,33 @@ import logging
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(threadName)s %(levelname)s: %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
+
+
+def wait_for_training_completion(config, file_path = "training_status.json"):
+    # 如果文件不存在，则创建一个空的文件
+    if not os.path.exists(file_path):
+        with open(file_path, 'w') as f:
+            json.dump({}, f)
+    
+    # 读取文件内容
+    with open(file_path, 'r') as f:
+        data = json.load(f)
+    
+    # 将 config["train"]["name"] 作为 key 添加到文件中，并初始化为 "no"
+    training_name = config["train"]["name"]
+    data[training_name] = "no"
+    
+    # 将更新后的数据写入文件
+    with open(file_path, 'w') as f:
+        json.dump(data, f)
+    
+    # 等待直到文件中存储的与 config["train"]["name"] 同名的 key 对应的值为 "yes"
+    while True:
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+        if data.get(training_name) == "yes":
+            break
+        time.sleep(1)  # 每秒检查一次
 
 
 def train_worker(local_rank, config, train_data_index, valid_data_index, data):
@@ -147,17 +173,17 @@ def train_worker(local_rank, config, train_data_index, valid_data_index, data):
         if (local_rank is not None)
         else torch.device("cpu")
     )
-
-
-    
-    while not TaskManager.get_instance().check_can_run():
-        time.sleep(10)
-    logging.info(f"资源初始化完成, 释放占据显存, 开始训练.")
-    TaskManager.get_instance().task_runed()
     solver = globals()[config["sorlver"]["name"]](
-        train_loader, valid_loader, config, device)
+        train_loader, valid_loader, config, device
+    )
     if local_rank in [0, None]:
         solver.print_network()
+    json_file_path = "training_status.json"
+    if not os.path.exists(json_file_path):
+        with open(json_file_path, "w") as json_file:
+            json.dump({}, json_file)
+    logging.info(f"等待手动确认开始训练")
+    wait_for_training_completion(config)
     solver.train()
 
 
@@ -297,25 +323,50 @@ if __name__ == "__main__":
     os.environ["MASTER_ADDR"] = config["train"]["master_addr"]
     os.environ["MASTER_PORT"] = config["train"]["master_port"]
 
-
-    with Manager() as manager:
-        # 初始化任务管理器
-        manager.register('TaskManager', TaskManager)
-        TaskManager.get_instance(min_free_memory=config["train"]["gpu_queuer"]["para"]["min_free_memory"])
-        # TaskManager
-        while True:
+    redis_client = None
+    if (
+        config["train"]["gpu_queuer"]["wait_gpus"]
+        and config["train"]["available_gpus"] != ""
+    ):
+        redis_client = RedisClient(
+            **config["train"]["gpu_queuer"]["para"]
+        )  # 初始化并连接到 Redis 服务端
+        redis_client.check_data()
+        task_id = redis_client.join_wait_queue(
+            config["train"]["name"], task_config=config
+        )  # 注册当前任务进程到等待任务列表
+        while redis_client.is_need_wait():
+            redis_client.check_data()
+            config_ = redis_client.pop_wait_queue()
+            if not config_:
+                time.sleep(60)  # 休息一下, 再重新尝试
+                continue
+            if not redis_client.is_can_run():
+                time.sleep(60)  # 休息一下, 再重新尝试
+                redis_client.pop_run_queue(success=False)
+                continue
             try:
                 # 定义训练主程序
+                config = config_
                 if config["logs"]["verbose"]["config"]:
                     logging.info(yaml.dump(config, indent=4))
                 main(config)
+                redis_client.pop_run_queue(success=True)
                 break
             except Exception as e:
-                # 处理显存溢出，硬盘空间不足等问题
-                if "CUDA out of memory" in str(e):
-                    time.sleep(10)
-                    TaskManager.get_instance().init_task()
-                    continue
+                if "CUDA out of memory" in e.args[0]:
+                    redis_client.pop_run_queue(success=False)
+                    time.sleep(60)
+                elif "No space left on device" in e.args[0]:
+                    redis_client.pop_run_queue(success=False)
+                    time.sleep(60)
                 else:
-                    logging.error(e)
-                    break
+                    # # redis_client.pop_run_queue(success=False)
+                    # redis_client.delete_running_task()
+                    # logging.info(e.args[0])
+                    raise e
+        redis_client.delete_waitting_task()
+    else:
+        if config["logs"]["verbose"]["config"]:
+            logging.info(yaml.dump(config, indent=4))
+        main(config)
