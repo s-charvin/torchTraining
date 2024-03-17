@@ -4,7 +4,7 @@ import os
 import sys
 
 if sys.platform.startswith("linux"):
-    os.chdir("/home/user0/SCW/torchTraining")
+    os.chdir("/home/visitors2/SCW/torchTraining")
 elif sys.platform.startswith("win"):
     pass
 
@@ -42,7 +42,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     "--config",
     metavar="DIR",
-    default="/home/user0/SCW/torchTraining/projects/MERSISF_test",
+    default="/home/visitors2/SCW/torchTraining/projects/MERSISF_test",
     help="path to congigs",
 )
 import logging

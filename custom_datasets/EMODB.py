@@ -158,6 +158,6 @@ class EMODB(MediaDataset):
 
 
 if __name__ == '__main__':
-    a = EMODB("/home/user0/SCW/deeplearning/data/EMODB")
+    a = EMODB("/home/visitors2/SCW/deeplearning/data/EMODB")
     feature = a.__getitem__(100)
     pass

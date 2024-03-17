@@ -1,12 +1,12 @@
 data:
     name: "IEMOCAP"
 
-    root: "/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy"
     para:
         info: ""
         mode: "av"
         videomode: "crop"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
 
     enhances:

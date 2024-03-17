@@ -167,8 +167,9 @@ class Video_Classification(object):
         est_endtime = "..."
     
         
-        logging.info(f"# 计算模型的初始性能:")
-        self.test()
+        if self.config["train"]["init_test"]:
+            logging.info(f"# 计算模型的初始性能:")
+            self.test()
         
         for epoch in range(start_iter, self.n_epochs):  # 迭代循环 [0, epoch)
             # [0, num_batch)

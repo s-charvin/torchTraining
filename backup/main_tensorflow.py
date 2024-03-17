@@ -17,7 +17,7 @@ main.py
 import os
 import sys
 if sys.platform.startswith('linux'):
-    os.chdir("/home/user0/SCW/deeplearning/")
+    os.chdir("/home/visitors2/SCW/deeplearning/")
 elif sys.platform.startswith('win'):
     pass
 # 第三方库

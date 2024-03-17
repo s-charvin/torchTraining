@@ -235,6 +235,6 @@ def capture_video(in_path, out_path, start_time, end_time, speaker):
 
 # Control runtime
 if __name__ == '__main__':
-    inpath = "/sdb/user0/SCW/data/IEMOCAP/Session2/sentences/video/Ses02M_script01_2/Ses02M_script01_2_M011_crop.avi"
-    outpath = "/home/user0/SCW/torchTraining/utils/test.avi"
+    inpath = "/sdb/visitors2/SCW/data/IEMOCAP/Session2/sentences/video/Ses02M_script01_2/Ses02M_script01_2_M011_crop.avi"
+    outpath = "/home/visitors2/SCW/torchTraining/utils/test.avi"
     capture_video(inpath, outpath, *(2, 6), "R")

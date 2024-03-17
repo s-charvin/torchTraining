@@ -2743,7 +2743,7 @@ class VideoEncoder(nn.Module):
                 )
         
     def forward(self, x):
-        assert x.shape[1] == self.T
+        assert x.shape[1] == self.T, f"期望 x.T({x.shape[1]}) == self.T({self.T})"
         # x: [B, T, C, H, W]
         # x = x.contiguous()
         B, T,  C, H, W = x.shape

@@ -2,7 +2,7 @@ import os
 import sys
 import threading
 if sys.platform.startswith('linux'):
-    os.chdir("/home/user0/SCW/deeplearning/")
+    os.chdir("/home/visitors2/SCW/deeplearning/")
 elif sys.platform.startswith('win'):
     pass
 import csv

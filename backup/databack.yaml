@@ -1,11 +1,11 @@
 # 数据来源和类型 备份
 data:
     name: "IEMOCAP" # EMODB, AESDD,IEMOCAP, RAVDESS, SAVEE, TESS, eNTERFACE05
-    root: "/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-audio_AVSplit-audio_MFCC_Permute_Channel-video_KeyFrameGetterBasedIntervalSampling_Permute_Channel-.npy"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-audio_AVSplit-audio_MFCC_Permute_Channel-video_KeyFrameGetterBasedIntervalSampling_Permute_Channel-.npy"
     para:
         name: "crop-7s"
         mode: "audio" # "video", "av"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
         audio:
@@ -94,11 +94,11 @@ data:
 # audio-MFCC-Split(3s)
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: "3s"
         mode: "audio"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
         audio:
@@ -135,11 +135,11 @@ data:
 # audio-MelSpectrogram-Split(3s)
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: "3s"
         mode: "audio"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
         audio:
@@ -173,11 +173,11 @@ data:
 # audio-Spectrogram-Split(3s)
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: "3s"
         mode: "audio"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
         audio:
@@ -207,11 +207,11 @@ data:
 # audio-MFCC-Split(7s)
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: "7s"
         mode: "audio"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
         audio:
@@ -248,11 +248,11 @@ data:
 # audio-MelSpectrogram-Split(7s)
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: "7s"
         mode: "audio"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
         audio:
@@ -286,11 +286,11 @@ data:
 # audio-Spectrogram-Split(7s)
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: "7s"
         mode: "audio"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
         audio:
@@ -320,11 +320,11 @@ data:
 # audio-MFCC-pad_cut(3s)
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: "3s"
         mode: "audio"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
     transforms:
@@ -360,11 +360,11 @@ data:
 # audio-MelSpectrogram-pad_cut(3s)
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: "3s"
         mode: "audio"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
     transforms:
@@ -397,11 +397,11 @@ data:
 # audio-Spectrogram-pad_cut(3s)
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: "3s"
         mode: "audio"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
     transforms:
@@ -430,11 +430,11 @@ data:
 # audio-MFCC-pad_cut(7s)
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: "7s"
         mode: "audio"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
     transforms:
@@ -470,11 +470,11 @@ data:
 # audio-MelSpectrogram-pad_cut(7s)
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: "7s"
         mode: "audio"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
     transforms:
@@ -507,11 +507,11 @@ data:
 # audio-Spectrogram-pad_cut(7s)
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: "7s"
         mode: "audio"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
     transforms:
@@ -540,11 +540,11 @@ data:
 # audio-MFCC-pad_cut(10s)
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: "10s"
         mode: "audio"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
     transforms:
@@ -580,11 +580,11 @@ data:
 # audio-MelSpectrogram-pad_cut(10s)
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: "10s"
         mode: "audio"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
     transforms:
@@ -617,11 +617,11 @@ data:
 # audio-Spectrogram-pad_cut(10s)
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: "10s"
         mode: "audio"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
     transforms:
@@ -650,11 +650,11 @@ data:
 # audio-MFCC
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: ""
         mode: "audio"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
     transforms:
@@ -688,11 +688,11 @@ data:
 # audio-MelSpectrogram
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: ""
         mode: "audio"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
     transforms:
@@ -723,11 +723,11 @@ data:
 # audio-Spectrogram
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: ""
         mode: "audio"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
     transforms:
@@ -754,12 +754,12 @@ data:
 # video-crop-Sample-Split(3s)
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: "crop-3s"
         mode: "video"
         videomode: "crop"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
         video:
@@ -781,12 +781,12 @@ data:
 # video-crop-Sample-Split(7s)
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: "crop-7s"
         mode: "video"
         videomode: "crop"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
         video:
@@ -808,12 +808,12 @@ data:
 # video-crop-Sample-Split(10s)
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: "crop-10s"
         mode: "video"
         videomode: "crop"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
         video:
@@ -835,12 +835,12 @@ data:
 # video-crop-Sample-pad_cut(3s)
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: "crop-3s"
         mode: "video"
         videomode: "crop"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
     transforms:       
@@ -860,12 +860,12 @@ data:
 # video-crop-Sample-pad_cut(7s)
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: "crop-7s"
         mode: "video"
         videomode: "crop"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
     transforms:       
@@ -885,12 +885,12 @@ data:
 # video-crop-Sample-pad_cut(10s)
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: "crop-10s"
         mode: "video"
         videomode: "crop"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
     transforms:       
@@ -910,12 +910,12 @@ data:
 # video-crop-Sample
 data:
     name: "IEMOCAP"
-    root: "/sdb/user0/SCW/data/IEMOCAP/"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/"
     para:
         name: "crop"
         mode: "video"
         videomode: "crop"
-        cascPATH: "/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
         threads: 8
     enhances:
     transforms:       

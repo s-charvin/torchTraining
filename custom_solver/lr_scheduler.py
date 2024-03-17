@@ -169,4 +169,4 @@ if __name__ == '__main__':
     print(last_steps)
     print(last_epochs)
     plt.plot(last_steps, last_lrs)
-    plt.savefig("/home/user0/SCW/torchTraining/custom_solver/lr.png")
+    plt.savefig("/home/visitors2/SCW/torchTraining/custom_solver/lr.png")

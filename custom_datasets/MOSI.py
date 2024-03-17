@@ -306,7 +306,7 @@ class MOSI(MediaDataset):
 
 
 if __name__ == '__main__':
-    a = MOSI("/sdb/user0/SCW/data/CMU_MOSI",
+    a = MOSI("/sdb/visitors2/SCW/data/CMU_MOSI",
              transform={"EmoBase_2010": {}, "Facet42": {}, "Glove": {}}, mode="avt")
     feature = a.__getitem__(100)
     pass

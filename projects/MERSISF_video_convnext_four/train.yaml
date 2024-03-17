@@ -17,6 +17,7 @@ train:
     # 训练
     n_epochs: 200 # 训练迭代次数
     loss_weight: true # 设置损失权重
+    init_test: false
 
     # 恢复训练
     checkpoint: ""
@@ -29,7 +30,7 @@ train:
         para:
             host: "127.0.0.1"
             port: 6379
-            min_free_memory: 4 # gpu 内存触发阈值
+            min_free_memory: 0 # gpu 内存触发阈值
             gpu_maxutil: 100 # gpu 利用率出发阈值, 如果低于 100, 隐式的会默认最大运行任务数量为 1, 因为随便来个训练任务就很大可能超过 80
             password: Sudadenglu
             username: trainer
@@ -54,9 +55,9 @@ sorlver:
 
 logs: # 记录参数
     use_tensorboard: True # 记录展示
-    log_dir: "/sdb/user0/SCW/logs/" # 记录存储文件夹
+    log_dir: "/sdb/visitors2/SCW/logs/" # 记录存储文件夹
     log_every: 1 # 每几次 step 进行记录
-    model_save_dir: "/sdb/user0/SCW/checkpoint/" # 模型存放地址
+    model_save_dir: "/sdb/visitors2/SCW/checkpoint/" # 模型存放地址
     test_every: 1 # 每几次 epoch 进行测试
     model_save_every: 1 # 每几次 epoch 进行模型保存
     test_accuracy_every: 20 # 计算多少 epoch 的平均测试准确率

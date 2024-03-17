@@ -512,7 +512,7 @@ class IEMOCAP(CustomDataset):
 
 
 if __name__ == '__main__':
-    a = IEMOCAP("/home/user0/SCW/deeplearning/data/IEMOCAP", True,
-                "/home/user0/SCW/deeplearningcopy/utils/haarcascade_frontalface_alt2.xml", 0)
+    a = IEMOCAP("/home/visitors2/SCW/deeplearning/data/IEMOCAP", True,
+                "/home/visitors2/SCW/deeplearningcopy/utils/haarcascade_frontalface_alt2.xml", 0)
     feature = a.__getitem__(1000)
     pass

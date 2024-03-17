@@ -17,6 +17,7 @@ train:
     # 训练
     n_epochs: 200 # 训练迭代次数
     loss_weight: true # 设置损失权重
+    init_test: false
 
     # 恢复训练
     checkpoint: ""
@@ -55,9 +56,9 @@ sorlver:
 
 logs: # 记录参数
     use_tensorboard: false # 记录展示
-    log_dir: "/sdb/user0/SCW/logs/" # 记录存储文件夹
+    log_dir: "/sdb/visitors2/SCW/logs/" # 记录存储文件夹
     log_every: 1 # 每几次 step进行记录
-    model_save_dir: "/sdb/user0/SCW/checkpoint/" # 模型存放地址
+    model_save_dir: "/sdb/visitors2/SCW/checkpoint/" # 模型存放地址
     test_every: 1 # 每几次 epoch 进行测试
     model_save_every: 1 # 每几次 epoch 进行模型保存
     test_accuracy_every: 20 # 计算多少 epoch 的平均测试准确率

@@ -2,7 +2,7 @@ import os
 import sys
 
 if sys.platform.startswith("linux"):
-    os.chdir("/home/user0/SCW/torchTraining")
+    os.chdir("/home/visitors2/SCW/torchTraining")
 elif sys.platform.startswith("win"):
     pass
 from utils.visuallize import *
@@ -14,14 +14,14 @@ from custom_datasets.subset import Subset
 def plot_rt_MIFFNet_Conv2D_InterFusion_Joint():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/MIFFNet_Conv2D_InterFusion_Joint_Conv2D-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP//000194.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Conv2D_InterFusion_Joint_Conv2D-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP//000194.ckpt",
         map_location=torch.device("cpu"),
     )
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-pad-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-pad-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
         mode="av",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -72,14 +72,14 @@ def plot_rt_MIFFNet_Conv2D_InterFusion_Joint():
 def plot_rt_MIFFNet_Conv2D_SVC_InterFusion_Joint():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/MIFFNet_Joint-step(1s)-window(3s)-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Joint-step(1s)-window(3s)-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
         map_location=torch.device("cpu"),
     )
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-pad-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-pad-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
         mode="av",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -129,15 +129,15 @@ def plot_rt_MIFFNet_Conv2D_SVC_InterFusion_Joint():
 def plot_rt_VideoNet_Conv2D():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/VideoNet_Conv2D-inlength(7s)-model(resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Video_Classification-AdamW0.00025-IEMOCAP/000152.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/VideoNet_Conv2D-inlength(7s)-model(resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Video_Classification-AdamW0.00025-IEMOCAP/000152.ckpt",
         map_location=torch.device("cpu"),
     )
 
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-pad-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-pad-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
         mode="v",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -186,15 +186,15 @@ def plot_rt_AudioNet():
     print("加载模型")
 
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/AudioNet-inlength(7s)-model(lightresmultisernet2)-batch(64)-batch_delay(1)-epoch(200)-lr(0.00025)-42-64-200-Audio_Classification-AdamW0.00025-IEMOCAP/000131.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/AudioNet-inlength(7s)-model(lightresmultisernet2)-batch(64)-batch_delay(1)-epoch(200)-lr(0.00025)-42-64-200-Audio_Classification-AdamW0.00025-IEMOCAP/000131.ckpt",
         map_location=torch.device("cpu"),
     )
 
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-pad-audio_MFCC_Permute_Channel.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-pad-audio_MFCC_Permute_Channel.npy",
         mode="a",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -238,15 +238,15 @@ def plot_rt_AudioNet():
 def plot_tsne_MIFFNet_Conv2D_InterFusion_Joint_all():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/MIFFNet_Conv2D_InterFusion_Joint_Conv2D-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP//000194.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Conv2D_InterFusion_Joint_Conv2D-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP//000194.ckpt",
         map_location=torch.device("cpu"),
     )
 
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
         mode="av",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -296,15 +296,15 @@ def plot_tsne_MIFFNet_Conv2D_InterFusion_Joint_all():
 def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_all():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/MIFFNet_Joint-step(1s)-window(3s)-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Joint-step(1s)-window(3s)-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
         map_location=torch.device("cpu"),
     )
 
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
         mode="av",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -354,15 +354,15 @@ def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_all():
 def plot_tsne_VideoNet_Conv2D_all():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/VideoNet_Conv2D-inlength(7s)-model(resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Video_Classification-AdamW0.00025-IEMOCAP/000152.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/VideoNet_Conv2D-inlength(7s)-model(resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Video_Classification-AdamW0.00025-IEMOCAP/000152.ckpt",
         map_location=torch.device("cpu"),
     )
 
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
         mode="v",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -407,15 +407,15 @@ def plot_tsne_AudioNet_all():
     print("加载模型")
 
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/AudioNet-inlength(7s)-model(lightresmultisernet2)-batch(64)-batch_delay(1)-epoch(200)-lr(0.00025)-42-64-200-Audio_Classification-AdamW0.00025-IEMOCAP/000131.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/AudioNet-inlength(7s)-model(lightresmultisernet2)-batch(64)-batch_delay(1)-epoch(200)-lr(0.00025)-42-64-200-Audio_Classification-AdamW0.00025-IEMOCAP/000131.ckpt",
         map_location=torch.device("cpu"),
     )
 
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-7s-audio_AudioSplit-audio_MFCC_Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-7s-audio_AudioSplit-audio_MFCC_Permute_Channel-.npy",
         mode="a",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -457,15 +457,15 @@ def plot_tsne_AudioNet_all():
 def plot_tsne_MIFFNet_Conv2D_InterFusion_Joint_train():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/MIFFNet_Conv2D_InterFusion_Joint_Conv2D-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP//000194.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Conv2D_InterFusion_Joint_Conv2D-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP//000194.ckpt",
         map_location=torch.device("cpu"),
     )
 
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
         mode="av",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -515,15 +515,15 @@ def plot_tsne_MIFFNet_Conv2D_InterFusion_Joint_train():
 def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_train():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/MIFFNet_Joint-step(1s)-window(3s)-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Joint-step(1s)-window(3s)-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
         map_location=torch.device("cpu"),
     )
 
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
         mode="av",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -573,15 +573,15 @@ def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_train():
 def plot_tsne_VideoNet_Conv2D_train():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/VideoNet_Conv2D-inlength(7s)-model(resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Video_Classification-AdamW0.00025-IEMOCAP/000152.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/VideoNet_Conv2D-inlength(7s)-model(resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Video_Classification-AdamW0.00025-IEMOCAP/000152.ckpt",
         map_location=torch.device("cpu"),
     )
 
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
         mode="v",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -630,15 +630,15 @@ def plot_tsne_AudioNet_train():
     print("加载模型")
 
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/AudioNet-inlength(7s)-model(lightresmultisernet2)-batch(64)-batch_delay(1)-epoch(200)-lr(0.00025)-42-64-200-Audio_Classification-AdamW0.00025-IEMOCAP/000131.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/AudioNet-inlength(7s)-model(lightresmultisernet2)-batch(64)-batch_delay(1)-epoch(200)-lr(0.00025)-42-64-200-Audio_Classification-AdamW0.00025-IEMOCAP/000131.ckpt",
         map_location=torch.device("cpu"),
     )
 
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-7s-audio_AudioSplit-audio_MFCC_Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-7s-audio_AudioSplit-audio_MFCC_Permute_Channel-.npy",
         mode="a",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -682,15 +682,15 @@ def plot_tsne_AudioNet_train():
 def plot_tsne_MIFFNet_Conv2D_InterFusion_Joint_test():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/MIFFNet_Conv2D_InterFusion_Joint_Conv2D-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP//000194.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Conv2D_InterFusion_Joint_Conv2D-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP//000194.ckpt",
         map_location=torch.device("cpu"),
     )
 
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
         mode="av",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -740,15 +740,15 @@ def plot_tsne_MIFFNet_Conv2D_InterFusion_Joint_test():
 def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_test():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/MIFFNet_Joint-step(1s)-window(3s)-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Joint-step(1s)-window(3s)-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
         map_location=torch.device("cpu"),
     )
 
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
         mode="av",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -798,15 +798,15 @@ def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_test():
 def plot_tsne_VideoNet_Conv2D_test():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/VideoNet_Conv2D-inlength(7s)-model(resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Video_Classification-AdamW0.00025-IEMOCAP/000152.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/VideoNet_Conv2D-inlength(7s)-model(resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Video_Classification-AdamW0.00025-IEMOCAP/000152.ckpt",
         map_location=torch.device("cpu"),
     )
 
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
         mode="v",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -855,15 +855,15 @@ def plot_tsne_AudioNet_test():
     print("加载模型")
 
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/AudioNet-inlength(7s)-model(lightresmultisernet2)-batch(64)-batch_delay(1)-epoch(200)-lr(0.00025)-42-64-200-Audio_Classification-AdamW0.00025-IEMOCAP/000131.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/AudioNet-inlength(7s)-model(lightresmultisernet2)-batch(64)-batch_delay(1)-epoch(200)-lr(0.00025)-42-64-200-Audio_Classification-AdamW0.00025-IEMOCAP/000131.ckpt",
         map_location=torch.device("cpu"),
     )
 
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-7s-audio_AudioSplit-audio_MFCC_Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-7s-audio_AudioSplit-audio_MFCC_Permute_Channel-.npy",
         mode="a",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -907,15 +907,15 @@ def plot_tsne_AudioNet_test():
 def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_AVA_test():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/MIFFNet_Joint-step(1s)-window(3s)-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Joint-step(1s)-window(3s)-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
         map_location=torch.device("cpu"),
     )
 
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
         mode="av",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -965,15 +965,15 @@ def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_AVA_test():
 def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_AVA_all():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/MIFFNet_Joint-step(1s)-window(3s)-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Joint-step(1s)-window(3s)-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
         map_location=torch.device("cpu"),
     )
 
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
         mode="av",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -1023,15 +1023,15 @@ def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_AVA_all():
 def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_AVA_train():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/MIFFNet_Joint-step(1s)-window(3s)-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Joint-step(1s)-window(3s)-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
         map_location=torch.device("cpu"),
     )
 
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
         mode="av",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -1081,15 +1081,15 @@ def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_AVA_train():
 def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention_train():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
         map_location=torch.device("cpu"),
     )
 
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
         mode="av",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -1139,15 +1139,15 @@ def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention_train():
 def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention_test():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
         map_location=torch.device("cpu"),
     )
 
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
         mode="av",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -1197,15 +1197,15 @@ def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention_test():
 def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention_all():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
         map_location=torch.device("cpu"),
     )
 
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
         mode="av",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -1255,15 +1255,15 @@ def plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention_all():
 def plot_rt_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
         map_location=torch.device("cpu"),
     )
 
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-pad-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-pad-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
         mode="av",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -1313,15 +1313,15 @@ def plot_rt_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention():
 def plot_confusionMatrix_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention():
     print("加载模型")
     dictionary = torch.load(
-        "/sdb/user0/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000150.ckpt",
         map_location=torch.device("cpu"),
     )
 
     data = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
         mode="av",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -1376,10 +1376,10 @@ def plot_confusionMatrix_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention():
 
 def plot_similarity_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention():
     dataset = IEMOCAP(
-        root="/sdb/user0/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
         mode="av",
         videomode="crop",
-        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
         filter={
             "replace": {"label": {"excited": "happy"}},
             "dropna": {
@@ -1400,7 +1400,7 @@ def plot_similarity_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention():
 
     for i in [ 2, 3, 4, 12, 21, 35, 41, 57, 67, 77, 100, 144, 150]:
         dictionary = torch.load(
-            "/sdb/user0/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/%06d.ckpt"
+            "/sdb/visitors2/SCW/checkpoint/MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention-inlength(7s)-model(lightresmultisernet2|resnet50)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/%06d.ckpt"
             % i,
             map_location=torch.device("cpu"),
         )

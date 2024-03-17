@@ -298,7 +298,7 @@ class MOSEI(MediaDataset):
 
 
 if __name__ == '__main__':
-    a = MOSEI("/sdb/user0/SCW/data/CMU_MOSEI",
+    a = MOSEI("/sdb/visitors2/SCW/data/CMU_MOSEI",
              transform={"EmoBase_2010": {}, "Facet42": {}, "Glove": {}}, mode="avt")
     feature = a.__getitem__(100)
     pass

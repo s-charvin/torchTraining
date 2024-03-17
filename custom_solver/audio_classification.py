@@ -561,8 +561,9 @@ class Audio_Classification_CoTeaching(object):
         self.maxACC = self.WA_ = self.UA_ = self.macro_f1_ = self.w_f1_ = 0
         self.best_re = self.best_ma = None
         est_endtime = "..."
-        logging.info(f"# 计算模型的初始性能:")
-        self.test()
+        if self.config["train"]["init_test"]:
+            logging.info(f"# 计算模型的初始性能:")
+            self.test()
         for epoch in range(start_iter, self.n_epochs):  # epoch 迭代循环 [0, epoch)
             # [0, num_batch)
             for batch_i, data in enumerate(self.train_loader):
@@ -1055,8 +1056,9 @@ class Audio_Classification(object):
         self.best_re = self.best_ma = None
         est_endtime = "..."
         
-        logging.info(f"# 计算模型的初始性能:")
-        self.test()
+        if self.config["train"]["init_test"]:
+            logging.info(f"# 计算模型的初始性能:")
+            self.test()
         for epoch in range(start_iter, self.n_epochs):  # epoch 迭代循环 [0, epoch)
             # [0, num_batch)
             for batch_i, data in enumerate(self.train_loader):

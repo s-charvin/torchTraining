@@ -5,5 +5,5 @@ architecture:
         para:
             num_classes: 6
             input_size: [150, 150]
-            num_frames: 30
+            num_frames: 71
             enable_classifier: true
