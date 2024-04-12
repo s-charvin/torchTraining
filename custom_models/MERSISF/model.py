@@ -3345,7 +3345,7 @@ class Base_VideoNet_MSDC(nn.Module):
             vf_out = self.video_classifier(vf_fea)
             return vf_out, None
         else:
-            return vf_fea.view((-1, seq_length) + vf_fea.size()[1:]).mean(dim=1)
+            return vf_fea
 
 
 # 分段融合基线_Resnet50
@@ -3387,7 +3387,7 @@ class BER_ISF(nn.Module):
         self.video_feature_extractor = VideoImageEncoder(
             PretrainedBaseModel(
                 in_channels=3,
-                out_features=num_classes,
+                out_features=320,
                 model_name="resnet50",
                 input_size=input_size,
                 num_frames=num_frames,
@@ -3396,11 +3396,11 @@ class BER_ISF(nn.Module):
                 pretrained = True
             )()
         )
-        self.vf_last_hidden_dim = self.video_feature_extractor.model.last_linear.in_features
-        self.video_feature_extractor.model.last_linear = EmptyModel()
+        # self.vf_last_hidden_dim = self.video_feature_extractor.model.last_linear.in_features
+        # self.video_feature_extractor.model.last_linear = EmptyModel()
 
         self.classifier = nn.Linear(
-            in_features=self.af_last_hidden_dim + self.vf_last_hidden_dim,
+            in_features=self.af_last_hidden_dim + 320,
             out_features=num_classes,
         )
 

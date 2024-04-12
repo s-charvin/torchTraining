@@ -8,13 +8,6 @@ if sys.platform.startswith("linux"):
 elif sys.platform.startswith("win"):
     pass
 
-os.environ['TMPDIR'] = '/sdb/user0/tmp'
-os.environ['TEMP'] = '/sdb/user0/tmp'
-os.environ['TMP'] = '/sdb/user0/tmp'
-# 确保目录存在
-if not os.path.exists('/sdb/user0/tmp'):
-    os.makedirs('/sdb/user0/tmp')
-
 import yaml  # yaml文件解析模块
 import random  # 随机数生成模块
 import time

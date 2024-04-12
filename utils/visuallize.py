@@ -614,18 +614,18 @@ def plot_tsne(
     tsne = TSNE(
         n_components=2,
         perplexity=30,
-        random_state=42,
-        init="pca",  # random
         early_exaggeration=12.0,
-        learning_rate=500,
+        learning_rate=200,
         n_iter=1000,
         n_iter_without_progress=300,
         min_grad_norm=1e-7,
         metric="euclidean",
+        init="random",
+        random_state=None,
+        method="barnes_hut",
+        angle=0.5,
         metric_params=None,
         verbose=0,
-        method="barnes_hut",
-        angle=0.6,
         n_jobs=-1,
     )
 

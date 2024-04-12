@@ -1369,11 +1369,6 @@ def plot_confusionMatrix_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention():
     )
 
 
-"""
-
-"""
-
-
 def plot_similarity_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention():
     dataset = IEMOCAP(
         root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
@@ -1429,6 +1424,569 @@ def plot_similarity_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention():
         plot_avc_tsne(model=net, dataloader=dataloader, outdir="./output/similarity/", info="MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention_%06d" % i, device=device)
 
 
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+
+def plot_tsne_Base_AudioNet_MDEA_4():
+    print("加载模型")
+
+    dictionary = torch.load(
+        "/sdb/visitors2/SCW/checkpoint/Base_AudioNet_MDEA_4-inlength(7s)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Classification-AdamW0.00025-IEMOCAP/000125.ckpt",
+        map_location=torch.device("cpu"),
+    )
+
+    data = IEMOCAP(
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-7s-audio_AudioSplit-audio_MFCC_Permute_Channel-.npy",
+        mode="a",
+        videomode="crop",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        filter={
+            "replace": {"label": {"excited": "happy"}},
+            "dropna": {
+                "label": [
+                    "other",
+                    "xxx",
+                    "frustrated",
+                    "disgusted",
+                    "fearful",
+                    "surprised",
+                ],
+            },
+        },
+    )
+    # 这里我们将使用全部数据来进行可视化
+    print(len(data))
+    dataloader = torch.utils.data.DataLoader(
+        data, batch_size=8, shuffle=False, num_workers=0
+    )
+
+    net = Base_AudioNet_MDEA(
+        num_classes=4,
+        last_hidden_dim=320,  # 根据模型的具体配置进行调整
+        enable_classifier=False,
+    )
+
+    weights_dict = {}
+    for k, v in dictionary["net"].items():
+        new_k = k.replace("module.", "") if "module" in k else k
+        weights_dict[new_k] = v
+
+    net.load_state_dict(weights_dict)
+
+    plot_tsne(
+        net, dataloader, outdir="./output/t-sne/", info="Base_AudioNet_MDEA_4", device=device
+    )
+
+def plot_tsne_Base_AudioNet_MDEA_6():
+    print("加载模型")
+
+    dictionary = torch.load(
+        "/sdb/visitors2/SCW/checkpoint/Base_AudioNet_MDEA_6-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Classification-AdamW0.00025-IEMOCAP/000135.ckpt",
+        map_location=torch.device("cpu"),
+    )
+
+    data = IEMOCAP(
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-7s-audio_AudioSplit-audio_MFCC_Permute_Channel-.npy",
+        mode="a",
+        videomode="crop",
+        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        filter={
+            "replace": {},
+            "dropna": {
+                "label": [
+                    "other",
+                    "xxx",
+                    "disgusted",
+                    "fearful",
+                    "surprised",
+                ],
+            },
+        },
+    )
+    print(len(data))
+    dataloader = torch.utils.data.DataLoader(
+        data, batch_size=10, shuffle=False, num_workers=0
+    )
+
+    net = Base_AudioNet_MDEA(
+        num_classes=6,
+        last_hidden_dim=320, 
+        enable_classifier=False,
+    )
+
+    weights_dict = {}
+    for k, v in dictionary["net"].items():
+        new_k = k.replace("module.", "") if "module" in k else k
+        weights_dict[new_k] = v
+
+    net.load_state_dict(weights_dict)
+
+    plot_tsne(
+        net, dataloader, outdir="./output/t-sne/", info="Base_AudioNet_MDEA_6", device=device
+    )
+
+def plot_tsne_Base_AudioNet_Resnet50_4():
+    print("加载模型")
+
+    dictionary = torch.load(
+        "/sdb/visitors2/SCW/checkpoint/Base_AudioNet_Resnet50_4-inlength(7s)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Classification-AdamW0.00025-IEMOCAP/000060.ckpt",
+        map_location=torch.device("cpu"),
+    )
+
+    data = IEMOCAP(
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-7s-audio_AudioSplit-audio_MFCC_Permute_Channel-.npy",
+        mode="a",
+        videomode="crop",
+        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        filter={
+            "replace": {"label": {"excited": "happy"}},
+            "dropna": {
+                "label": [
+                    "other",
+                    "xxx",
+                    "frustrated",
+                    "disgusted",
+                    "fearful",
+                    "surprised",
+                ],
+            },
+        },
+    )
+    print(len(data))
+    dataloader = torch.utils.data.DataLoader(
+        data, batch_size=8, shuffle=False, num_workers=0
+    )
+
+    net = Base_AudioNet_Resnet50(
+        num_classes=4,
+        input_size = [189, 40],  # 根据模型的具体配置调整
+        enable_classifier=False,
+    )
+
+    weights_dict = {}
+    for k, v in dictionary["net"].items():
+        new_k = k.replace("module.", "") if "module" in k else k
+        weights_dict[new_k] = v
+
+    net.load_state_dict(weights_dict)
+
+    plot_tsne(
+        net, dataloader, outdir="./output/t-sne/", info="Base_AudioNet_Resnet50_4", device=device
+    )
+
+
+def plot_tsne_Base_AudioNet_Resnet50_6():
+    print("加载模型")
+
+    dictionary = torch.load(
+        "/sdb/visitors2/SCW/checkpoint/Base_AudioNet_Resnet50_6-inlength(7s)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Classification-AdamW0.00025-IEMOCAP/000140.ckpt",
+        map_location=torch.device("cpu"),
+    )
+
+    data = IEMOCAP(
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-7s-audio_AudioSplit-audio_MFCC_Permute_Channel-.npy",
+        mode="a",
+        videomode="crop",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        filter={
+            "replace": {},
+            "dropna": {
+                "label": [
+                    "other",
+                    "xxx",
+                    "disgusted",
+                    "fearful",
+                    "surprised",
+                ],
+            },
+        },
+    )
+    print(len(data))
+    dataloader = torch.utils.data.DataLoader(
+        data, batch_size=8, shuffle=False, num_workers=0
+    )
+
+    net = Base_AudioNet_Resnet50(
+        num_classes=6,
+        input_size = [189, 40],  # 根据模型的具体配置调整
+        enable_classifier=False,
+    )
+
+    weights_dict = {}
+    for k, v in dictionary["net"].items():
+        new_k = k.replace("module.", "") if "module" in k else k
+        weights_dict[new_k] = v
+
+    net.load_state_dict(weights_dict)
+
+    plot_tsne(
+        net, dataloader, outdir="./output/t-sne/", info="Base_AudioNet_Resnet50_6", device=device
+    )
+
+def plot_tsne_Base_VideoNet_MSDC_4():
+    print("加载模型")
+
+    dictionary = torch.load(
+        "/sdb/visitors2/SCW/checkpoint/Base_VideoNet_MSDC_4-inlength(7s)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Video_Classification-AdamW0.00025-IEMOCAP/000104.ckpt",
+        map_location=torch.device("cpu"),
+    )
+
+    data = IEMOCAP(
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        mode="v",
+        videomode="crop",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        filter={
+            "replace": {"label": {"excited": "happy"}},
+            "dropna": {
+                "label": [
+                    "other",
+                    "xxx",
+                    "frustrated",
+                    "disgusted",
+                    "fearful",
+                    "surprised",
+                ],
+            },
+        },
+    )
+    print(len(data))
+    dataloader = torch.utils.data.DataLoader(
+        data, batch_size=8, shuffle=False, num_workers=0
+    )
+
+    net = Base_VideoNet_MSDC(
+        num_classes=4,
+        input_size = [150, 150],
+        num_frames = 71,
+        enable_classifier=False,
+    )
+
+    weights_dict = {}
+    for k, v in dictionary["net"].items():
+        new_k = k.replace("module.", "") if "module" in k else k
+        weights_dict[new_k] = v
+
+    net.load_state_dict(weights_dict)
+
+    plot_tsne(
+        net, dataloader, outdir="./output/t-sne/", info="Base_VideoNet_MSDC_4", device=device
+    )
+
+
+def plot_tsne_Base_VideoNet_MSDC_6():
+    print("加载模型")
+
+    dictionary = torch.load(
+        "/sdb/visitors2/SCW/checkpoint/Base_VideoNet_MSDC_6-inlength(7s)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Video_Classification-AdamW0.00025-IEMOCAP/000093.ckpt",
+        map_location=torch.device("cpu"),
+    )
+
+    data = IEMOCAP(
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        mode="v",
+        videomode="crop",
+        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        filter={
+            "replace": {},
+            "dropna": {
+                "label": [
+                    "other",
+                    "xxx",
+                    "disgusted",
+                    "fearful",
+                    "surprised",
+                ],
+            },
+        },
+    )
+    print(len(data))
+    dataloader = torch.utils.data.DataLoader(
+        data, batch_size=8, shuffle=False, num_workers=0
+    )
+
+    net = Base_VideoNet_MSDC(
+        num_classes=6,
+        input_size = [150, 150],
+        num_frames = 71,
+        enable_classifier=False,
+    )
+
+    weights_dict = {}
+    for k, v in dictionary["net"].items():
+        new_k = k.replace("module.", "") if "module" in k else k
+        weights_dict[new_k] = v
+
+    net.load_state_dict(weights_dict)
+
+    plot_tsne(
+        net, dataloader, outdir="./output/t-sne/", info="Base_VideoNet_MSDC_6", device=device
+    )
+
+
+
+def plot_tsne_MER_VideoNet_six_resnet50():
+    print("加载模型")
+
+    dictionary = torch.load(
+        "/sdb/visitors2/SCW/checkpoint/MER_VideoNet_six_resnet50-inlength(7s)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Video_Classification-AdamW0.00025-IEMOCAP/000124.ckpt",
+        map_location=torch.device("cpu"),
+    )
+
+    data = IEMOCAP(
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        mode="v",
+        videomode="crop",
+        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        filter={
+            "replace": {},
+            "dropna": {
+                "label": [
+                    "other",
+                    "xxx",
+                    "disgusted",
+                    "fearful",
+                    "surprised",
+                ],
+            },
+        },
+    )
+    print(len(data))
+    dataloader = torch.utils.data.DataLoader(
+        data, batch_size=8, shuffle=False, num_workers=0
+    )
+
+    net = MER_VideoNet(
+        num_classes=6,
+        model_name="resnet50",
+        last_hidden_dim=320,
+        enable_classifier=False,
+    )
+
+    weights_dict = {}
+    for k, v in dictionary["net"].items():
+        new_k = k.replace("module.", "") if "module" in k else k
+        weights_dict[new_k] = v
+
+    net.load_state_dict(weights_dict)
+
+    plot_tsne(
+        net, dataloader, outdir="./output/t-sne/", info="MER_VideoNet_six_resnet50", device=device
+    )
+
+
+def plot_tsne_BER_SISF_4():
+    print("加载模型")
+
+    dictionary = torch.load(
+        "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000103.ckpt",
+        map_location=torch.device("cpu"),
+    )
+
+    data = IEMOCAP(
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        mode="av",
+        videomode="crop",
+        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        filter={
+            "replace": {"label": {"excited": "happy"}},
+            "dropna": {
+                "label": [
+                    "other",
+                    "xxx",
+                    "frustrated",
+                    "disgusted",
+                    "fearful",
+                    "surprised",
+                ],
+            },
+        },
+    )
+    print(len(data))
+    dataloader = torch.utils.data.DataLoader(
+        data, batch_size=10, shuffle=False, num_workers=0
+    )
+
+    net = BER_SISF(
+        num_classes=4,
+        input_size = [[189, 40], [150, 150]],
+        last_hidden_dim = [320, 320],
+        seq_len = [189, 30] ,
+        num_frames = 30,
+        enable_classifier=False,
+    )
+
+    weights_dict = {}
+    for k, v in dictionary["net"].items():
+        new_k = k.replace("module.", "") if "module" in k else k
+        weights_dict[new_k] = v
+
+    net.load_state_dict(weights_dict)
+
+    plot_tsne(
+        net, dataloader, outdir="./output/t-sne/", info="BER_SISF_4", device=device
+    )
+
+
+def plot_tsne_BER_SISF_6():
+    print("加载模型")
+
+    dictionary = torch.load(
+        "/sdb/visitors2/SCW/checkpoint/BER_SISF_6-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000072.ckpt",
+        map_location=torch.device("cpu"),
+    )
+
+    data = IEMOCAP(
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        mode="av",
+        videomode="crop",
+        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        filter={
+            "replace": {},
+            "dropna": {
+                "label": [
+                    "other",
+                    "xxx",
+                    "disgusted",
+                    "fearful",
+                    "surprised",
+                ],
+            },
+        },
+    )
+    print(len(data))
+    dataloader = torch.utils.data.DataLoader(
+        data, batch_size=10, shuffle=False, num_workers=0
+    )
+
+    net = BER_SISF(
+        num_classes=6,
+        input_size = [[189, 40], [150, 150]],
+        last_hidden_dim = [320, 320],
+        seq_len = [189, 30] ,
+        num_frames = 30,
+        enable_classifier=False,
+    )
+
+    weights_dict = {}
+    for k, v in dictionary["net"].items():
+        new_k = k.replace("module.", "") if "module" in k else k
+        weights_dict[new_k] = v
+
+    net.load_state_dict(weights_dict)
+
+    plot_tsne(
+        net, dataloader, outdir="./output/t-sne/", info="BER_SISF_6", device=device
+    )
+
+
+def plot_tsne_MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four():
+    print("加载模型")
+
+    dictionary = torch.load(
+        "/sdb/visitors2/SCW/checkpoint/MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000122.ckpt",
+        map_location=torch.device("cpu"),
+    )
+
+    data = IEMOCAP(
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        mode="av",
+        videomode="crop",
+        cascPATH="/home/user0/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        filter={
+            "replace": {"label": {"excited": "happy"}},
+            "dropna": {
+                "label": [
+                    "other",
+                    "xxx",
+                    "frustrated",
+                    "disgusted",
+                    "fearful",
+                    "surprised",
+                ],
+            },
+        },
+    )
+    print(len(data))
+    dataloader = torch.utils.data.DataLoader(
+        data, batch_size=10, shuffle=False, num_workers=0
+    )
+
+    net = MER_SISF_Conv2D_SVC_InterFusion_Joint_Attention_SLoss_Luck_UniG_pretrained(
+        num_classes=4,
+        input_size = [[189, 40], [150, 150]],
+        model_name = ["md-ease", "resnet50"],
+        last_hidden_dim = [320, 320],
+        seq_len = [189, 30],
+        enable_classifier=False,
+    )
+
+    weights_dict = {}
+    for k, v in dictionary["net"].items():
+        new_k = k.replace("module.", "") if "module" in k else k
+        weights_dict[new_k] = v
+
+    net.load_state_dict(weights_dict)
+
+    plot_tsne(
+        net, dataloader, outdir="./output/t-sne/", info="MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four", device=device
+    )
+
+
+def plot_tsne_MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_six():
+    print("加载模型")
+
+    dictionary = torch.load(
+        "/sdb/visitors2/SCW/checkpoint/MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_six-inlength(7s)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000145.ckpt",
+        map_location=torch.device("cpu"),
+    )
+
+    data = IEMOCAP(
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        mode="av",
+        videomode="crop",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        filter={
+            "replace": {},
+            "dropna": {
+                "label": [
+                    "other",
+                    "xxx",
+                    "disgusted",
+                    "fearful",
+                    "surprised",
+                ],
+            },
+        },
+    )
+    print(len(data))
+    dataloader = torch.utils.data.DataLoader(
+        data, batch_size=8, shuffle=False, num_workers=0
+    )
+
+    net = MER_SISF_Conv2D_SVC_InterFusion_Joint_Attention_SLoss_Luck_UniG_pretrained(
+        num_classes=6,
+        input_size = [[189, 40], [150, 150]],
+        model_name = ["md-ease", "resnet50"],
+        last_hidden_dim = [320, 320],
+        seq_len = [189, 30],
+        enable_classifier=False,
+    )
+
+    weights_dict = {}
+    for k, v in dictionary["net"].items():
+        new_k = k.replace("module.", "") if "module" in k else k
+        weights_dict[new_k] = v
+
+    net.load_state_dict(weights_dict)
+
+    plot_tsne(
+        net, dataloader, outdir="./output/t-sne/", info="MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_six", device=device
+    )
+
+
+
+
 device = torch.device("cuda:1")
 if __name__ == "__main__":
     # plot_rt_MIFFNet_Conv2D_InterFusion_Joint()
@@ -1456,4 +2014,23 @@ if __name__ == "__main__":
     # plot_tsne_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention_all()
     # plot_rt_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention()
     # plot_confusionMatrix_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention()
-    plot_similarity_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention()
+    # plot_similarity_MIFFNet_Conv2D_SVC_InterFusion_Joint_Attention()
+    
+    
+    # # # # # # # # # # # # # # # # # # # # # # # # 
+    
+    # plot_tsne_Base_AudioNet_MDEA_4()
+    # plot_tsne_Base_AudioNet_MDEA_6()
+    # plot_tsne_Base_AudioNet_Resnet50_4()
+    # plot_tsne_Base_AudioNet_Resnet50_6()
+    # plot_tsne_Base_VideoNet_MSDC_4()
+    # plot_tsne_Base_VideoNet_MSDC_6()
+    
+    # plot_tsne_MER_VideoNet_six_resnet50()
+    
+    plot_tsne_BER_SISF_4()
+    plot_tsne_BER_SISF_6()
+    plot_tsne_MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four()
+    plot_tsne_MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_six()
+    
+    pass
