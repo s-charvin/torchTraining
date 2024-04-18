@@ -35,7 +35,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     "--config",
     metavar="DIR",
-    default="/home/visitors2/SCW/torchTraining/projects/MERSISF_test",
+    default="/home/visitors2/SCW/torchTraining/projects/Base_AudioNet_Resnet50_IMFCC_4",
     help="path to congigs",
 )
 import logging

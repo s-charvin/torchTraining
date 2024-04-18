@@ -1,0 +1,8 @@
+
+architecture:
+    net:
+        name: "Base_AudioNet_Resnet50" # MIFFNet_Conv2D_InterFusion_Joint, MIFFNet_Conv2D_SVC_InterFusion_Joint
+        para:
+            num_classes: 4
+            input_size: [189, 40]
+            enable_classifier: true

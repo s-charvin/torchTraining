@@ -3195,7 +3195,7 @@ class Base_AudioNet_Resnet50(nn.Module):
         Returns:
             Tensor: size:[batch, out]
         """
-        af = af.permute(0, 3, 1, 2)
+        af = af.permute(0, 3, 1, 2).float()
         af_fea = self.audio_feature_extractor(af)
         # 分类
         if self.enable_classifier:
@@ -3369,10 +3369,72 @@ class BER_ISF(nn.Module):
         self.af_input_size = input_size[0]
         self.vf_input_size = input_size[1]
         self.enable_classifier = enable_classifier
+        self.af_last_hidden_dim = 320
+        self.vf_last_hidden_dim = 320
+        
+
+        # self.audio_feature_extractor = PretrainedBaseModel(
+        #         in_channels=1,
+        #         out_features=num_classes,
+        #         model_name="resnet50",
+        #         input_size=input_size,
+        #         num_frames=1,
+        #         before_dropout=0,
+        #         before_softmax=False,
+        #         pretrained = True
+        #     )()
+        
+        # self.af_last_hidden_dim = self.audio_feature_extractor.last_linear.in_features
+        # self.audio_feature_extractor.last_linear = EmptyModel()
+
+        # self.video_feature_extractor = VideoImageEncoder(
+        #     PretrainedBaseModel(
+        #         in_channels=3,
+        #         out_features=320,
+        #         model_name="resnet50",
+        #         input_size=input_size,
+        #         num_frames=num_frames,
+        #         before_dropout=0,
+        #         before_softmax=False,
+        #         pretrained = True
+        #     )()
+        # )
+        # self.vf_last_hidden_dim = 320
+
+
+
+        # self.audio_feature_extractor = PretrainedBaseModel(
+        #         in_channels=1,
+        #         out_features=num_classes,
+        #         model_name="resnet50",
+        #         input_size=input_size,
+        #         num_frames=1,
+        #         before_dropout=0,
+        #         before_softmax=False,
+        #         pretrained = True
+        #     )()
+        
+        # self.af_last_hidden_dim = self.audio_feature_extractor.last_linear.in_features
+        # self.audio_feature_extractor.last_linear = EmptyModel()
+
+        # self.video_feature_extractor = VideoImageEncoder(
+        #     PretrainedBaseModel(
+        #         in_channels=3,
+        #         out_features=num_classes,
+        #         model_name="resnet50",
+        #         input_size=input_size,
+        #         num_frames=num_frames,
+        #         before_dropout=0,
+        #         before_softmax=False,
+        #         pretrained = True
+        #     )()
+        # )
+        # self.vf_last_hidden_dim = self.video_feature_extractor.model.last_linear.in_features
+        # self.video_feature_extractor.model.last_linear = EmptyModel()
 
         self.audio_feature_extractor = PretrainedBaseModel(
                 in_channels=1,
-                out_features=num_classes,
+                out_features=self.af_last_hidden_dim,
                 model_name="resnet50",
                 input_size=input_size,
                 num_frames=1,
@@ -3381,26 +3443,19 @@ class BER_ISF(nn.Module):
                 pretrained = True
             )()
         
-        self.af_last_hidden_dim = self.audio_feature_extractor.last_linear.in_features
-        self.audio_feature_extractor.last_linear = EmptyModel()
-
-        self.video_feature_extractor = VideoImageEncoder(
-            PretrainedBaseModel(
+        self.video_feature_extractor = VideoImageEncoder(PretrainedBaseModel(
                 in_channels=3,
-                out_features=320,
+                out_features=self.vf_last_hidden_dim,
                 model_name="resnet50",
                 input_size=input_size,
                 num_frames=num_frames,
                 before_dropout=0,
                 before_softmax=False,
-                pretrained = True
-            )()
-        )
-        # self.vf_last_hidden_dim = self.video_feature_extractor.model.last_linear.in_features
-        # self.video_feature_extractor.model.last_linear = EmptyModel()
+                pretrained = True)()
+            )
 
         self.classifier = nn.Linear(
-            in_features=self.af_last_hidden_dim + 320,
+            in_features=self.af_last_hidden_dim + self.vf_last_hidden_dim,
             out_features=num_classes,
         )
 

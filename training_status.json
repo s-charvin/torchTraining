@@ -1,1 +1,4 @@
-{"BER_ISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)": "yes", "MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_six-inlength(7s)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)": "yes", "BER_ISF_6-inlength(7s)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)": "yes", "BER_ISF_6-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)": "yes"}
+{
+    "Base_AudioNet_Resnet50_IMFCC_4-inlength(7s)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)": "yes", 
+    "BER_ISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)": "yes"
+}

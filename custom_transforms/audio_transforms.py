@@ -51,6 +51,9 @@ from torchaudio.functional import (
     apply_codec,
 )
 
+from spafe.features.mfcc import imfcc
+from spafe.features.lfcc import lfcc
+from spafe.utils.preprocessing import SlidingWindow
 
 class WaveCopyPad(torch.nn.Module):
     r""" 根据提供的语音采样点数量, 填充或剪切输入语音.
@@ -274,7 +277,134 @@ class MFCC(MFCC):
                 datadict["audio"][i])  # 处理当前行的语音数据
         return datadict
 
+class IMFCC(torch.nn.Module):
+    def __init__(self, 
+                 sample_rate=16000, 
+                 n_mfcc=40, 
+                 n_fft=400, 
+                 window_fn="hanning",
+                 win_length = 1024,
+                 hop_length = 256,
+                 f_min=0,
+                 f_max=None, 
+                 n_mels=128, 
+                 pre_emph=True, 
+                 pre_emph_coeff=0.97,
+                 scale='constant', 
+                 dct_type=2, 
+                 use_energy=False, 
+                 lifter=0, 
+                 normalize="mvn", 
+                 fbanks=None, 
+                 conversion_approach='Oshaghnessy'):
+        super(IMFCC, self).__init__()
+        self.fs = sample_rate
+        self.num_ceps = n_mfcc
+        self.pre_emph = pre_emph
+        self.pre_emph_coeff = pre_emph_coeff
+        self.window = SlidingWindow(win_length/sample_rate, hop_length/sample_rate, window_fn)
+        self.nfilts = n_mels
+        self.nfft = n_fft
+        self.low_freq = f_min
+        self.high_freq = f_max
+        self.scale = scale
+        self.dct_type = dct_type
+        self.use_energy = use_energy
+        self.lifter = lifter
+        self.normalize = normalize
+        self.fbanks = fbanks
+        self.conversion_approach = conversion_approach
 
+    def transform(self, waveform:Tensor):
+        """Transform waveform using IMFCC feature extraction."""
+        # [1, F]
+        result = imfcc(sig=waveform[0].numpy(), fs=self.fs, num_ceps=self.num_ceps, pre_emph=self.pre_emph, 
+                     pre_emph_coeff=self.pre_emph_coeff, window=self.window, nfilts=self.nfilts, 
+                     nfft=self.nfft, low_freq=self.low_freq, high_freq=self.high_freq, scale=self.scale, 
+                     dct_type=self.dct_type, use_energy=self.use_energy, lifter=self.lifter, 
+                     normalize=self.normalize, fbanks=self.fbanks, 
+                     conversion_approach=self.conversion_approach)
+        result = torch.from_numpy(result).T
+        return result.unsqueeze(dim=0).float()
+
+    def forward(self, datadict):
+        """
+        Process audio data in the dictionary format using IMFCC feature extraction.
+        
+        Args:
+            datadict (dict): Dictionary containing audio data.
+        
+        Returns:
+            dict: Dictionary with the processed audio data.
+        """
+        index = range(len(datadict["audio"]))
+        for i in index:
+            datadict["audio"][i] = self.transform(datadict["audio"][i])
+        return datadict
+
+class LFCC(torch.nn.Module):
+    def __init__(self,
+                 sample_rate=16000, 
+                 n_mfcc=40,
+                 n_fft=400,
+                 window_fn="hanning",
+                 win_length = 1024,
+                 hop_length = 256,
+                 f_min=0,
+                 f_max=None, 
+                 n_mels=128, 
+                 pre_emph=True, 
+                 pre_emph_coeff=0.97,
+                 scale='constant', 
+                 dct_type=2, 
+                 use_energy=False, 
+                 lifter=0, 
+                 normalize="mvn", 
+                 fbanks=None):
+        super(LFCC, self).__init__()
+        self.fs = sample_rate
+        self.num_ceps = n_mfcc
+        self.pre_emph = pre_emph
+        self.pre_emph_coeff = pre_emph_coeff
+        self.window = SlidingWindow(win_length/sample_rate, hop_length/sample_rate, window_fn)
+        self.nfilts = n_mels
+        self.nfft = n_fft
+        self.low_freq = f_min
+        self.high_freq = f_max
+        self.scale = scale
+        self.dct_type = dct_type
+        self.use_energy = use_energy
+        self.lifter = lifter
+        self.normalize = normalize
+        self.fbanks = fbanks
+
+    def transform(self, waveform:Tensor):
+        """Transform waveform using IMFCC feature extraction."""
+        # [1, F]
+        result = lfcc(sig=waveform[0].numpy(), fs=self.fs, num_ceps=self.num_ceps, pre_emph=self.pre_emph, 
+                     pre_emph_coeff=self.pre_emph_coeff, window=self.window, nfilts=self.nfilts, 
+                     nfft=self.nfft, low_freq=self.low_freq, high_freq=self.high_freq, scale=self.scale, 
+                     dct_type=self.dct_type, use_energy=self.use_energy, lifter=self.lifter, 
+                     normalize=self.normalize, fbanks=self.fbanks)
+        result = torch.from_numpy(result).T
+        return result.unsqueeze(dim=0).float()
+
+    def forward(self, datadict):
+        """
+        Process audio data in the dictionary format using IMFCC feature extraction.
+        
+        Args:
+            datadict (dict): Dictionary containing audio data.
+        
+        Returns:
+            dict: Dictionary with the processed audio data.
+        """
+        index = range(len(datadict["audio"]))
+        for i in index:
+            datadict["audio"][i] = self.transform(datadict["audio"][i])
+        return datadict
+    
+    
 if __name__ == '__main__':
     datadict = {
         "path": [1, 2, 3, 4, 5, 6],
@@ -289,7 +419,7 @@ if __name__ == '__main__':
         "label": [1, 2, 1, 3, 2, 2]}
     # audioSplit = VtlpAug(sample_rate=16000, frame_rate=29.97, durations=7.0)
 
-    audioAug = globals()['MFCC'](**{
+    audioAug1 = globals()['MFCC'](**{
         "sample_rate": 16000,
         "n_mfcc": 40,
         "log_mels": True,
@@ -307,7 +437,25 @@ if __name__ == '__main__':
             "pad_mode": "reflect",
             "onesided": True, },
     })
+    
+    audioAug2 = globals()['LFCC'](**{
+        "sample_rate": 16000,
+        "n_mfcc": 40,
+        "n_fft": 1024,
+        "win_length": 1024,
+        "hop_length": 256,
+        "f_min": 80.,
+        "f_max": 7600.,
+        "n_mels": 128,
+        "pre_emph": True,
+        "pre_emph_coeff":  0.97,
+        },)
 
+    # # audioAug = WaveCopyPad(sampleNum=48000)
+    # dataframe = audioAug1(datadict)
+    # print(dataframe)
+    
+    
     # audioAug = WaveCopyPad(sampleNum=48000)
-    dataframe = audioAug(datadict)
+    dataframe = audioAug2(datadict)
     print(dataframe)

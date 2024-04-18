@@ -1,0 +1,49 @@
+data:
+    name: "IEMOCAP"
+    root: "/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP--AudioSplit-IMFCC-Permute_Channel-.npy"
+    para:
+        info: ""
+        mode: "a"
+        videomode: "crop"
+        cascPATH: "/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml"
+        threads: 8
+
+    enhances:
+        AudioSplit:
+            sampleNum: 112000 # 16000 * duration
+    transforms:
+        IMFCC:
+            sample_rate: 16000
+            n_mfcc: 40
+            n_fft: 1024
+            win_length: 1024
+            hop_length: 256
+            f_min: 80.
+            f_max: 7600.
+            n_mels: 128
+            pre_emph: True
+            pre_emph_coeff: 0.97
+
+        Permute_Channel:
+            dims: [[2, 1, 0]] # [c, fea, seq] - > [seq, fea, c] 
+            names: ["audio"]
+
+    filters: {
+            # replace:key:{source: target}
+            "replace": { "label": { "excited": "happy" } },
+            # dropna:key:{target}
+            "dropna":
+                {
+                    "label":
+                        [
+                            "other",
+                            "xxx",
+                            "frustrated",
+                            "disgusted",
+                            "fearful",
+                            "surprised",
+                        ],
+                },
+            # sort_values:key
+            "sort_values": "duration",
+        }
