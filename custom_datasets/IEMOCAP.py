@@ -20,12 +20,8 @@ import decord
 import pandas as pd
 import torch
 
-
-# 自定库
-
-
 class IEMOCAP(MediaDataset):
-    """Create a Dataset for IEMOCAP.
+    """Create a Dataset for IEMOCAP dataset.
         Args:
             root (Union[str, Path]): 官方数据库解压后的路径或存储的数据特征文件.
             filter(dict)
@@ -45,7 +41,7 @@ class IEMOCAP(MediaDataset):
                  transform: dict = {},
                  enhance: dict = {},
                  savePath: str = "",
-                 mode: str = "#",
+                 mode: str = "avt",
                  videomode: str = "crop",  # "face"
                  cascPATH: Union[str, Path] = None,
                  threads: int = 0,
@@ -245,36 +241,6 @@ class IEMOCAP(MediaDataset):
             self.datadict[k] = [self.datadict[k][i]
                                 for i in range(length) if i not in dropinds]
 
-        # # 根据提供的字典替换值, key 决定要替换的列, value 是 字符串字典, 决定被替换的值
-        # self.datadict = pd.DataFrame(self.datadict)
-        # if self.mode  in ["v", "av",  "vt", "avt"]:
-        #     self.datadict = self.datadict[~self.datadict["path"].str.contains(
-        #         "Ses05F_script02_2_M", case=True)]
-        #     self.datadict = self.datadict[~self.datadict["path"].str.contains(
-        #         "Ses05F_script02_1_M", case=True)]
-        # if "replace" in self.filter:
-        #     self.datadict.replace(
-        #         self.filter["replace"] if self.filter["replace"] != {} else None, inplace=True)
-        #     # 根据提供的字典删除指定值所在行, key 决定要替换的列, value 是被替换的值列表
-        # if "dropna" in self.filter:
-        #     for k, v in self.filter["dropna"].items():
-        #         self.datadict = self.datadict[~self.datadict[k].isin(v)]
-        #     self.datadict.dropna(axis=0, how='any',
-        #                          subset=None, inplace=True)
-        # if "contains" in self.filter:
-        #     # 根据提供的字典删除包含指定值的所在行, key 决定要替换的列, value 是被替换的值列表
-        #     for k, v in self.filter["contains"].items():
-        #         self.datadict = self.datadict[~self.datadict[k].str.contains(
-        #             v, case=True)]
-        # if "query" in self.filter:
-        #     if self.filter["query"]:
-        #         self.datadict.query(self.filter["query"], inplace=True)
-        # if "sort_values" in self.filter:
-        #     self.datadict.sort_values(
-        #         by=self.filter["sort_values"], inplace=True, ascending=False)
-
-        # self.datadict.reset_index(drop=True, inplace=True)
-        # self.datadict = self.datadict.to_dict(orient="list")
 
     def check_video_file(self):
         logging.info("检测视频文件夹是否存在...")

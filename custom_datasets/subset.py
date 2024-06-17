@@ -91,31 +91,43 @@ class BaseDataset(Dataset):
 
     def build_filter(self):
         logging.info("数据筛选...")
-        # 根据提供的字典替换值, key 决定要替换的列, value 是 字符串字典, 决定被替换的值
-        self.datadict = pd.DataFrame(self.datadict)
-        if "replace" in self.filter:
-            self.datadict.replace(
-                None if self.filter["replace"] else self.filter["replace"], inplace=True)
-            # 根据提供的字典删除指定值所在行, key 决定要替换的列, value 是被替换的值列表
-        if "dropna" in self.filter:
-            for k, v in self.filter["dropna"].items():
-                self.datadict = self.datadict[~self.datadict[k].isin(v)]
-            self.datadict.dropna(axis=0, how='any', thresh=None,
-                                 subset=None, inplace=True)
-        if "contains" in self.filter:
-            # 根据提供的字典删除包含指定值的所在行, key 决定要替换的列, value 是被替换的值列表
-            for k, v in self.filter["contains"].items():
-                self.datadict = self.datadict[~self.datadict[k].str.contains(
-                    v, case=True)]
-        if "query" in self.filter:
-            if self.filter["query"]:
-                self.datadict.query(self.filter["query"], inplace=True)
-        if "sort_values" in self.filter:
-            self.datadict.sort_values(
-                by=self.filter["sort_values"], inplace=True, ascending=False)
 
-        self.datadict.reset_index(drop=True, inplace=True)
-        self.datadict = self.datadict.to_dict(orient="list")
+        keys = self.filter.keys()
+        length = len(self.datadict["path"])
+        replaces = self.filter["replace"] if "replace" in keys else {}
+        dropna = self.filter["dropna"] if "dropna" in keys else {}
+        contains = self.filter["contains"] if "contains" in keys else {}
+        query = self.filter["query"] if "query" in keys else {}
+        # sort_values = self.filter["sort_values"] if "sort_values" in keys else {
+        # }
+        dropinds = []
+        for ind in range(length):
+            # 根据提供的字典删除指定值所在行, key 决定要替换的列, value 是被替换的值列表
+            for k, v in dropna.items():
+                for t in v:
+                    if self.datadict[k][ind] == t:
+                        dropinds.append(ind)
+
+            for k, v in contains.items():
+                for t in v:
+                    if t not in self.datadict[k][ind]:
+                        dropinds.append(ind)
+
+            for k, v in replaces.items():
+                for s, t in v.items():
+                    if self.datadict[k][ind] == s:
+                        self.datadict[k][ind] = t
+
+        for k, v in query.items():
+            df = pd.DataFrame({k: self.datadict[k]})
+            inds = df.query(v).index.tolist()
+            inds = [i for i in df.index.tolist() if i not in inds]
+            dropinds = dropinds + inds
+
+        for k, v in self.datadict.items():
+            self.datadict[k] = [self.datadict[k][i]
+                                for i in range(length) if i not in dropinds]
+
 
     @abstractmethod
     def __getitem__(self, n: int):
