@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 __all__ = ["LambdaLR", "MultiplicativeLR", "StepLR",
            "MultiStepLR", "ExponentialLR", "CosineAnnealingLR",
            "ReduceLROnPlateau", "CyclicLR",
-           "CosineAnnealingWarmRestarts", "OneCycleLR", "CosineLearningRateWithWarmRestarts", "LinearStepDecay"]
+           "CosineAnnealingWarmRestarts", "OneCycleLR", "CosineLearningRateWithWarmRestarts", "LinearStepDecay", "CosineLearningRateWithWarmRestartsProgress"]
 
 """
 Args:
@@ -123,12 +123,65 @@ class CosineLearningRateWithWarmRestarts(_LRScheduler):
     def get_lr_cosine(self, cur_epoch, lr):
         return self.cosine_end_lr + (lr - self.cosine_end_lr) * (math.cos(math.pi * (cur_epoch - self.offset) / (self.epochs - self.offset)) + 1.0) * 0.5
 
+class CosineLearningRateWithWarmRestartsProgress(_LRScheduler):
+    def __init__(self, optimizer, warmup_epochs, epochs, restarts, restart_weights, cosine_end_lr=1e-6, warmup_start_lr=1e-8, last_epoch=-1, verbose=False):
+        self.warmup_epochs = warmup_epochs
+        self.epochs = epochs
+        self.cosine_end_lr = cosine_end_lr
+        self.warmup_start_lr = warmup_start_lr
+        assert max(restarts) < self.epochs
+        self.restarts = [0] + restarts  # 将起始点加为第一个重启点，以平滑预热到第一次退火的过渡
+        self.restart_weights = [1] + restart_weights
+        
+        super(CosineLearningRateWithWarmRestartsProgress, self).__init__(optimizer, last_epoch, verbose)
+        for base_lr in self.base_lrs:
+            assert cosine_end_lr < base_lr
 
+    def get_lr(self):
+        if not self._get_lr_called_within_step:
+            warnings.warn("To get the last learning rate computed by the scheduler, please use `get_last_lr()`.", UserWarning)
+
+        if self.last_epoch < self.warmup_epochs:
+            lr = []
+            for base_lr in self.base_lrs:
+                end_warmup_lr = self.get_lr_cosine(self.warmup_epochs, base_lr, 0)  # 获取预热结束后的学习率
+                lr.append(self.warmup_start_lr + self.last_epoch * ((end_warmup_lr - self.warmup_start_lr) / self.warmup_epochs))
+            return lr
+
+        lr = []
+        restart_ind = 0
+        for base_lr in self.base_lrs:
+            current_lr = base_lr * self.restart_weights[restart_ind]  # 默认使用首个重启权重
+            for ind, restart in enumerate(self.restarts):
+                if self.last_epoch > restart:
+                    restart_ind = ind
+                    current_lr = base_lr * self.restart_weights[restart_ind]
+                else:
+                    break
+            lr.append(self.get_lr_cosine(self.last_epoch, current_lr, restart_ind))
+        return lr
+
+    def get_lr_cosine(self, cur_epoch, lr, restart_ind):
+        restart_epoch = self.restarts[restart_ind]
+        next_restart_epoch = self.epochs if (restart_ind + 1 == len(self.restarts)) else self.restarts[restart_ind + 1]
+        # 计算当前周期数减去上一个重启周期数后，相对于下一个重启周期的比例
+        progress = (cur_epoch - restart_epoch) / (next_restart_epoch - restart_epoch)
+        # 使用余弦退火公式来计算当前的学习率
+        return self.cosine_end_lr + (lr - self.cosine_end_lr) * 0.5 * (1 + math.cos(math.pi * progress))
+
+    
 if __name__ == '__main__':
-    epochs = 100
+    epochs = 400
+    warmup_epochs = 40
+    base_lr = 0.00025
+    cosine_end_lr = 0.000001
+    warmup_start_lr = 0.00000001
+    
+    restarts = [100, 200, 300]
+    restart_weights = [1, 1, 1]
+    
     data_num = 1152
     batch_size = 32
-
     num_batch = data_num//batch_size + 1
 
     model = torch.nn.Sequential(
@@ -136,7 +189,7 @@ if __name__ == '__main__':
         torch.nn.ReLU(),
         torch.nn.Linear(100, 10),
     )
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=base_lr)
 
     # scheduler = LinearDecay(optimizer, epoch, decay_step)
 
@@ -150,23 +203,37 @@ if __name__ == '__main__':
     # scheduler = MultiStepLR(optimizer, milestones=[30, 80], gamma=0.1)
 
     # scheduler = ExponentialLR(optimizer, gamma=0.1)
+    
     # scheduler = CosineLearningRateWithWarmRestarts(
-    #     optimizer, warmup_epochs=70, epochs=epochs)
-    scheduler = LinearStepDecay(
-        optimizer, steps_per_epoch=num_batch, epochs=epochs, num_decay_step=0.8*num_batch*epochs)
+    #     optimizer, 
+    #     warmup_epochs=70, 
+    #     epochs=epochs,
+    #     cosine_end_lr=cosine_end_lr, 
+    #     warmup_start_lr=warmup_start_lr, 
+    #     )
+    
+    scheduler = CosineLearningRateWithWarmRestartsProgress(
+        optimizer, 
+        warmup_epochs, 
+        epochs, 
+        restarts,
+        restart_weights,
+        cosine_end_lr=cosine_end_lr, 
+        warmup_start_lr=warmup_start_lr, 
+        )
+    
+    # scheduler = LinearStepDecay(
+    #     optimizer, steps_per_epoch=num_batch, epochs=epochs, num_decay_step=0.8*num_batch*epochs)
 
     last_lrs = []
-    last_steps = []
     last_epochs = []
     for e in range(0, epochs):
         for batch_i in range(0, num_batch):
-            optimizer.step()
-            last_lrs.append(scheduler.get_last_lr()[0])
-            last_steps.append(scheduler.last_step)
-            scheduler.step()
+            pass
+        scheduler.step()
+        last_lrs.append(scheduler.get_last_lr()[0])
         last_epochs.append(scheduler.last_epoch)
-    print(last_lrs)
-    print(last_steps)
-    print(last_epochs)
-    plt.plot(last_steps, last_lrs)
-    plt.savefig("/home/visitors2/SCW/torchTraining/custom_solver/lr.png")
+    # print(last_lrs)
+    # print(last_epochs)
+    plt.plot(last_epochs, last_lrs)
+    plt.savefig("/home/visitors2/SCW/torchTraining/custom_solver/lr0.png")

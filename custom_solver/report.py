@@ -4,9 +4,9 @@ from sklearn import metrics
 
 def classification_report(y_true, y_pred, target_names=None, digits=6):
     report = sk_classification_report(
-        y_true, y_pred, digits=digits, target_names=target_names)
+        y_true, y_pred, digits=digits, target_names=target_names, zero_division=1)
     report_dict = sk_classification_report(
-        y_true, y_pred, digits=digits, target_names=target_names, output_dict=True)
+        y_true, y_pred, digits=digits, target_names=target_names, output_dict=True, zero_division=1)
     matrix = metrics.confusion_matrix(y_true, y_pred)
 
     UA = report_dict['macro avg']['recall'] * 100

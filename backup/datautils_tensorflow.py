@@ -3,7 +3,7 @@ import sys
 
 import scipy
 if sys.platform.startswith('linux'):
-    os.chdir("/home/visitors2/SCW/deeplearning/")
+    os.chdir("/sdb/visitors2/SCW")
 elif sys.platform.startswith('win'):
     pass
 import re
@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 import sklearn.preprocessing
 
 from transformers import Wav2Vec2FeatureExtractor
-import tensorflow_datasets.public_api as tfds
+# import tensorflow_datasets.public_api as tfds
 print(os.getcwd())
 
 
@@ -524,7 +524,7 @@ class create_csv:
                       "sr": target["sr"],
                       "duration": target["duration"]
                       }).to_csv(
-            f"./data/{self.name}/{self.name}_all.csv", index=False)
+            f"./data/{self.name}/{self.name}_all2.csv", index=False)
         print(f"[{self.name}] Total files to write:", datanum)
 
     def write_RAVDESS_csv(self):
@@ -766,7 +766,7 @@ def extract_audio():
 if __name__ == '__main__':
     # # 建立CSV文件，随机建立，不到万不得已, 误用！！
     # extract_audio()
-    # create_csv("IEMOCAP")
+    create_csv("IEMOCAP")
     # create_csv("EMODB")
     # create_csv("RAVDESS")
     # create_csv("AESDD")
@@ -775,13 +775,13 @@ if __name__ == '__main__':
     # create_csv("CASIA")
     # create_csv("eNTERFACE05")
 
-    # AudioDataset 测试(输入路径csv,数据库名称建立数据类,然后通过索引获取特征数据)
-    config = yaml.safe_load(
-        open('./config.yaml', 'r', encoding='utf-8').read())
-    # config["data"]["featuresource"] = "melspectrogram"
-    a = AudioDataset(config)
-    feature, label = a.__getitem__(1000)
-    labels = a.get_textlabels([1, 2, 3])
+    # # AudioDataset 测试(输入路径csv,数据库名称建立数据类,然后通过索引获取特征数据)
+    # config = yaml.safe_load(
+    #     open('./config.yaml', 'r', encoding='utf-8').read())
+    # # config["data"]["featuresource"] = "melspectrogram"
+    # a = AudioDataset(config)
+    # feature, label = a.__getitem__(1000)
+    # labels = a.get_textlabels([1, 2, 3])
 
     # mnist = TorchVisionDatasets("CIFAR10")
     # mnist.get_Dataset()

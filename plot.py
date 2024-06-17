@@ -1986,8 +1986,281 @@ def plot_tsne_MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUni
 
 
 
+def plot_rt_BER_SISF_4():
+    print("加载模型")
+    dictionary = torch.load(
+        "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000103.ckpt",
+        map_location=torch.device("cpu"),
+    )
+    data = IEMOCAP(
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-pad-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        mode="av",
+        videomode="crop",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        filter={
+            "replace": {"label": {"excited": "happy"}},
+            "dropna": {
+                "label": [
+                    "other",
+                    "xxx",
+                    "frustrated",
+                    "disgusted",
+                    "fearful",
+                    "surprised",
+                ],
+            },
+            "query": {"duration": "duration>18.0"},
+        },
+    )
 
-device = torch.device("cuda:1")
+    print(len(data))
+    dataloader = torch.utils.data.DataLoader(
+        data, batch_size=1, shuffle=False, num_workers=0
+    )
+
+    net = BER_SISF(
+        num_classes=4,
+        input_size = [[189, 40], [150, 150]],
+        last_hidden_dim = [320, 320],
+        seq_len = [189, 30] ,
+        num_frames = 30,
+        enable_classifier=True,
+    )
+    
+    weights_dict = {}
+    for k, v in dictionary["net"].items():
+        new_k = k.replace("module.", "") if "module" in k else k
+        weights_dict[new_k] = v
+
+    net.load_state_dict(weights_dict)
+
+
+    plot_rt(
+        net,
+        dataloader,
+        outdir="./output/real-time/",
+        info="BER_SISF_4",
+        device=device,
+    )
+    
+    
+def plot_rt_BER_FF_4():
+    print("加载模型")
+    dictionary = torch.load(
+        "/sdb/user0/SCW/checkpoint/BER_ISF_4-inlength(7s)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification-AdamW0.00025-IEMOCAP/000091.ckpt",
+        map_location=torch.device("cpu"),
+    )
+    data = IEMOCAP(
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-pad-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        mode="av",
+        videomode="crop",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        filter={
+            "replace": {"label": {"excited": "happy"}},
+            "dropna": {
+                "label": [
+                    "other",
+                    "xxx",
+                    "frustrated",
+                    "disgusted",
+                    "fearful",
+                    "surprised",
+                ],
+            },
+            "query": {"duration": "duration>18.0"},
+        },
+    )
+    print(len(data))
+    dataloader = torch.utils.data.DataLoader(
+        data, batch_size=1, shuffle=False, num_workers=0
+    )
+
+    net = BER_ISF(
+        num_classes=4,
+        input_size = [[189, 40], [150, 150]],
+        seq_len = [189, 30] ,
+        num_frames = 30,
+        enable_classifier=True,
+    )
+    
+    weights_dict = {}
+    for k, v in dictionary["net"].items():
+        new_k = k.replace("module.", "") if "module" in k else k
+        weights_dict[new_k] = v
+
+    net.load_state_dict(weights_dict)
+
+    plot_rt(
+        net,
+        dataloader,
+        outdir="./output/real-time/",
+        info="BER_FF_4",
+        device=device,
+    )
+
+def plot_features_BER_SISF_4():
+    model_paths = [
+        # "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000000.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000001.ckpt",
+        # "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000002.ckpt",
+        # "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000003.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000005.ckpt",
+        # "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000006.ckpt",
+        # "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000007.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000012.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000026.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000034.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000057.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000068.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000071.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000089.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000103.ckpt",
+    ]
+    data = IEMOCAP(
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        mode="av",
+        videomode="crop",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        filter={
+            "replace": {"label": {"excited": "happy"}},
+            "dropna": {
+                "label": [
+                    "other",
+                    "xxx",
+                    "frustrated",
+                    "disgusted",
+                    "fearful",
+                    "surprised",
+                ],
+            },
+        },
+    )
+    
+    
+    dictionary = torch.load(
+        model_paths[0],
+        map_location=torch.device("cpu"),
+    )
+    data = Subset(data, indices=dictionary["train_indices"])
+    print(len(data))
+    num_samples = 5
+    indices = np.random.choice(len(data), num_samples, replace=False)
+    print(f"数据索引：{indices}")
+    sampler = torch.utils.data.SubsetRandomSampler(indices)
+    dataloader = torch.utils.data.DataLoader(data, batch_size=1, sampler=sampler, num_workers=0)
+    
+    for ind, data in enumerate(dataloader):
+        for j, path in enumerate(model_paths):
+            # 加载模型
+            dictionary = torch.load(
+                path,
+                map_location=torch.device("cpu"),
+            )
+            net = BER_SISF(
+                num_classes=4,
+                input_size = [[189, 40], [150, 150]],
+                last_hidden_dim = [320, 320],
+                seq_len = [189, 30] ,
+                num_frames = 30,
+                enable_classifier=False,
+            )
+            weights_dict = {}
+            for k, v in dictionary["net"].items():
+                new_k = k.replace("module.", "") if "module" in k else k
+                weights_dict[new_k] = v
+
+            net.load_state_dict(weights_dict)
+            # 随机从数据加载器中获取数据
+            
+            # 可视化并保存特征
+            plot_features(net, data, outdir=f"./output/features/data{indices[ind]}", info=f"checkpoint{path[-8:]}_features", device=device)
+
+
+def plot_image_BER_SISF_E():
+    model_paths = [
+        # "/sdb/visitors2/SCW/checkpoint/MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000000.ckpt",
+        # "/sdb/visitors2/SCW/checkpoint/MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000001.ckpt",
+        # "/sdb/visitors2/SCW/checkpoint/MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000002.ckpt",
+        # "/sdb/visitors2/SCW/checkpoint/MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000003.ckpt",
+        # "/sdb/visitors2/SCW/checkpoint/MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000004.ckpt",
+        # "/sdb/visitors2/SCW/checkpoint/MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000005.ckpt",
+        # "/sdb/visitors2/SCW/checkpoint/MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000008.ckpt",
+        # "/sdb/visitors2/SCW/checkpoint/MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000014.ckpt",
+        # "/sdb/visitors2/SCW/checkpoint/MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000044.ckpt",
+        # "/sdb/visitors2/SCW/checkpoint/MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000045.ckpt",
+        # "/sdb/visitors2/SCW/checkpoint/MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000060.ckpt",
+        # "/sdb/visitors2/SCW/checkpoint/MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000067.ckpt",
+        # "/sdb/visitors2/SCW/checkpoint/MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000074.ckpt",
+        # "/sdb/visitors2/SCW/checkpoint/MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000087.ckpt",
+        # "/sdb/visitors2/SCW/checkpoint/MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000109.ckpt",
+        "/sdb/visitors2/SCW/checkpoint/MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000122.ckpt",
+    ]
+    data = IEMOCAP(
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        mode="av",
+        videomode="crop",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        filter={
+            "replace": {"label": {"excited": "happy"}},
+            "dropna": {
+                "label": [
+                    "other",
+                    "xxx",
+                    "frustrated",
+                    "disgusted",
+                    "fearful",
+                    "surprised",
+                ],
+            },
+        },
+    )
+    
+    
+    dictionary = torch.load(
+        model_paths[0],
+        map_location=torch.device("cpu"),
+    )
+    data = Subset(data, indices=dictionary["train_indices"])
+    print(len(data))
+    num_samples = 50
+    indices = np.random.choice(len(data), num_samples, replace=False)
+    print(f"数据索引：{indices}")
+    sampler = torch.utils.data.SubsetRandomSampler(indices)
+    dataloader = torch.utils.data.DataLoader(data, batch_size=1, sampler=sampler, num_workers=0)
+    
+    for ind, data in enumerate(dataloader):
+        for j, path in enumerate(model_paths):
+            # 加载模型
+            dictionary = torch.load(
+                path,
+                map_location=torch.device("cpu"),
+            )
+            net = MER_SISF_Conv2D_SVC_InterFusion_Joint_Attention_SLoss_Luck_UniG_pretrained(
+                num_classes=4,
+                input_size = [[189, 40], [150, 150]],
+                model_name = ["md-ease", "resnet50"],
+                last_hidden_dim = [320, 320],
+                seq_len = [189, 30],
+                enable_classifier=False,
+            )
+
+            weights_dict = {}
+            for k, v in dictionary["net"].items():
+                new_k = k.replace("module.", "") if "module" in k else k
+                weights_dict[new_k] = v
+
+            net.load_state_dict(weights_dict)
+
+            # 随机从数据加载器中获取数据
+            
+            # 可视化并保存特征
+            plot_image(net, data, outdir=f"./output/videoImage/data{indices[ind]}", info=f"video{j}_image", device=device)
+
+
+
+device = torch.device("cuda:0")
+
+
 if __name__ == "__main__":
     # plot_rt_MIFFNet_Conv2D_InterFusion_Joint()
     # plot_rt_MIFFNet_Conv2D_SVC_InterFusion_Joint()
@@ -2028,9 +2301,14 @@ if __name__ == "__main__":
     
     # plot_tsne_MER_VideoNet_six_resnet50()
     
-    plot_tsne_BER_SISF_4()
-    plot_tsne_BER_SISF_6()
-    plot_tsne_MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four()
-    plot_tsne_MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_six()
+    # plot_tsne_BER_SISF_4()
+    # plot_tsne_BER_SISF_6()
+    # plot_tsne_MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four()
+    # plot_tsne_MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_six()
     
+    plot_rt_BER_SISF_4()
+    plot_rt_BER_FF_4()
+    
+    # plot_features_BER_SISF_4()
+    # plot_image_BER_SISF_E()
     pass

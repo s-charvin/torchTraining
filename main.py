@@ -35,7 +35,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     "--config",
     metavar="DIR",
-    default="/home/visitors2/SCW/torchTraining/projects/Base_AudioNet_Resnet50_IMFCC_4",
+    default="/home/visitors2/SCW/torchTraining/projects/MERSISF_test",
     help="path to congigs",
 )
 import logging
@@ -171,12 +171,14 @@ def train_worker(local_rank, config, train_data_index, valid_data_index, data):
     )
     if local_rank in [0, None]:
         solver.print_network()
-    json_file_path = "training_status.json"
-    if not os.path.exists(json_file_path):
-        with open(json_file_path, "w") as json_file:
-            json.dump({}, json_file)
-    logging.info(f"等待手动确认开始训练")
-    wait_for_training_completion(config)
+        
+    if config["train"]["gpu_queuer"]["wait_gpus"]:
+        json_file_path = "training_status.json"
+        if not os.path.exists(json_file_path):
+            with open(json_file_path, "w") as json_file:
+                json.dump({}, json_file)
+        logging.info(f"等待手动确认开始训练")
+        wait_for_training_completion(config)
     solver.train()
 
 
@@ -237,6 +239,7 @@ def main(config):
     config["data"]["root"] = data.root
     logging.info(f"训练使用数据集: {dataset_name}")
     logging.info(f"所用数据数量: {data_len}")
+    
     # del data
 
     last_epochs_ = config["train"]["last_epochs"]  # 记录初次运行的 epoch 数目

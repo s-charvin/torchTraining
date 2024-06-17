@@ -36,7 +36,7 @@ train:
             username: trainer
 
 sorlver:
-    name: "Audio_Video_Joint_Classification_Customloss"
+    name: "Audio_Video_Progressive_Joint_Classification_Customloss"
     optimizer:
         name: "AdamW"
         lr: 0.00025 # 学习率

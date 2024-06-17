@@ -9,14 +9,30 @@ import numpy as np
 import librosa.display
 import torchaudio
 import decord
-from custom_transforms.video_transforms import *
+# from custom_transforms.video_transforms import *
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 import numpy as np
 import sklearn
 from sklearn.manifold import TSNE
 from sklearn.metrics import confusion_matrix
+from matplotlib.font_manager import FontProperties
+import matplotlib as mpl
+from matplotlib.font_manager import FontManager
+from matplotlib import font_manager
+from torch.functional import F
 
+font_dirs = ["/home/visitors2/.fonts"]
+font_files = font_manager.findSystemFonts(fontpaths=font_dirs)
+for font_file in font_files:
+    font_manager.fontManager.addfont(font_file)
+
+font_path = '/home/visitors2/.fonts/Noto_Sans_SC/static/NotoSansSC_Regular.ttf'
+font_properties = FontProperties(fname=font_path)
+font = font_manager.fontManager.findfont(font_properties)
+print("Font name to find:", font)
+mpl.rcParams['font.family'] = font_properties.get_name()
+print("Font name to use in matplotlib:", mpl.rcParams['font.family'])
 
 def plot_spectrogram(input, outdir="./output/image/"):
     try:
@@ -686,20 +702,36 @@ def plot_rt(
 
     # Get preds for all data points
     all_preds = []
+    smoothness_scores = []
     classes_ = {"angry": 0, "happy": 1, "neutral": 2, "sad": 3}
     print("获取预测值")
     with torch.no_grad():
         if model is not None:
             model = model.to(device)
-            for data in dataloader:
+            for ind, data in enumerate(dataloader):
+                if (ind not in [0, 3, 6, 7, 15, (16), 17, 21, 22] ):
+                    continue
                 audio_features = None
                 video_features = None
                 if "audio" in data:
                     audio_features = data["audio"]
                     audio_features = audio_features.float().to(device)
                     # audio_features = torch.split(audio_features, 441, dim=1)
-                    af_seq_len = 441
-                    af_seq_step = 63
+                    af_seq_len = 63 * 7
+                    af_seq_step = 63 * 3
+                    total_length = audio_features.shape[1]
+                    
+                    remainder = (total_length - af_seq_len) % af_seq_step
+                    # 计算需要填充的数量
+                    if remainder != 0:
+                        padding_length = af_seq_step - remainder
+                    else:
+                        padding_length = 0
+                    padding = torch.zeros((audio_features.shape[0], padding_length, audio_features.shape[2], audio_features.shape[3]), device=device)
+                    audio_features = torch.cat((audio_features, padding), dim=1)
+                    
+                    
+                    
                     audio_features = [
                         audio_features[
                             :, af_seq_step * i : af_seq_step * i + af_seq_len, :, :
@@ -717,8 +749,20 @@ def plot_rt(
                     video_features = video_features.float().to(device)
                     # video_features = torch.split(video_features, 70, dim=1)
 
-                    vf_seq_len = 70
-                    vf_seq_step = 10
+                    vf_seq_len = 10 * 7
+                    vf_seq_step = 10 * 3
+                    total_length = video_features.shape[1]
+                    
+                    remainder = (total_length - vf_seq_len) % vf_seq_step
+                    # 计算需要填充的数量
+                    if remainder != 0:
+                        padding_length = vf_seq_step - remainder
+                    else:
+                        padding_length = 0
+                        
+                    padding = torch.zeros((video_features.shape[0], padding_length, video_features.shape[2], video_features.shape[3], video_features.shape[4]), device=device)
+                    video_features = torch.cat((video_features, padding), dim=1)
+
                     video_features = [
                         video_features[
                             :, vf_seq_step * i : vf_seq_step * i + vf_seq_len, :, :, :
@@ -750,6 +794,16 @@ def plot_rt(
                         for i_p, pre in enumerate(b_pre):
                             pred_prob[i_b][i_p] = pred_prob[i_b][i_p][t]
                     all_preds = all_preds + pred_prob
+    
+    # Calculate smoothness
+    for preds in all_preds:
+        angles = np.arctan(np.diff(preds) / 3)  # 3 seconds per step, assume y/x
+        angle_changes = np.abs(np.diff(angles))
+        smoothness = np.mean(angle_changes)
+        smoothness_scores.append(smoothness)
+    average_smoothness = np.mean(smoothness_scores)
+    print("Average Smoothness of All Curves:", average_smoothness)
+    
     colors = [
         "#FFB6C1",
         "#66CDAA",
@@ -787,32 +841,26 @@ def plot_rt(
     plt.cla()
     fig, ax = plt.subplots(len(all_preds), 1, sharex=True, figsize=(10, 13))
     fig.set_dpi(600)  # 这里将 DPI 设置为 600
-    for i in range(len(all_preds)):
-        # if max(all_preds[i]) > 0.4:
-        x = np.arange(len(all_preds[i]))
-        pre = np.array(all_preds[i])
+    for i, preds in enumerate(all_preds):
+        x = 7 + np.arange(0, len(preds)) * 3  # Convert index to seconds (3 seconds per step)
         ax[i].plot(
             x,
-            pre,
+            preds,
             linestyle="-",
             marker=".",
-            color=colors[i % 30],
+            color=colors[i % len(colors)],
             label=f"{i}",
             linewidth=4,
         )
         # 设置图示字体属性
-        legend_font = {"family": "serif", "size": 20, "weight": "bold"}  # 定义字体属性
-        ax[i].legend(prop=legend_font)
-
+        ax[i].legend(loc='upper right', prop={"family": "serif", "size": 20, "weight": "bold"})
         ax[i].tick_params(axis="both", labelsize=20, which="both", width=5)
         ax[i].yaxis.set_ticks([-0.1, 1.1])
-
         # 设置 y 轴刻度显示整数位
-        y_major_locator = MultipleLocator(base=1.0)  # 设置刻度间隔为 1
-        ax[i].yaxis.set_major_locator(y_major_locator)
+        ax[i].yaxis.set_major_locator(MultipleLocator(base=1.0))# 设置刻度间隔为 1
     if outdir is not None:
         fig.tight_layout()
-        fig.savefig(os.path.join(outdir.resolve(), f"{info}_rtPred.svg"), dpi=600)
+        fig.savefig(os.path.join(outdir.resolve(), f"{info}_rtPred.png"), dpi=600)
     else:
         fig.show()
 
@@ -912,3 +960,173 @@ def plot_confusionMatrix(
         )
     else:
         fig.show()
+
+
+from torch.nn.functional import softmax, kl_div
+
+def plot_features(
+    model: torch.nn.Module,
+    data,
+    outdir="./output/features/",
+    info="",
+    device=torch.device("cpu"),
+):
+    try:
+        outdir = Path(outdir)
+        outdir.mkdir(parents=True, exist_ok=True)
+    except FileExistsError:
+        pass
+    
+    print("获取特征向量")
+    with torch.no_grad():
+        if model is not None:
+            model = model.to(device)
+            audio_features = None
+            video_features = None
+            if "audio" in data:
+                audio_features = data["audio"]
+                audio_features = audio_features.float().to(device)
+            if "video" in data:
+                video_features = data["video"]
+                video_features = video_features.float().to(device)
+
+            if audio_features is not None and video_features is not None:
+                embed = model(audio_features, video_features)
+            elif audio_features is not None:
+                embed = model(audio_features)
+            elif video_features is not None:
+                embed = model(video_features)
+            else:
+                raise ValueError("No valid audio or video features provided.")
+                
+    [common_feature, af_fea, vf_fea, common_p, af_p, vf_p] = embed[1]
+    features = [af_fea, common_feature, vf_fea]
+    prob_features = [af_p, common_p, vf_p]
+    feature_labels = ['音频特征', '相似性特征', '视频特征']
+    prob_labels = ['音频概率分布特征', '相似性概率分布特征', '视频概率分布特征']
+    
+    # features =[af_fea, common_feature, vf_fea, af_p, common_p, vf_p]
+    # feature_labels = ['音频特征', '相似性特征', '视频特征', '音频概率分布特征', '相似性概率分布特征', '视频概率分布特征']
+
+    # Plot feature vectors
+    plt.figure(figsize=(15, 5))
+    for i, (feature, label) in enumerate(zip(features, feature_labels)):
+        feature = feature[0]  # Assume first item in batch
+        normalized_feature = (feature - feature.min()) / (feature.max() - feature.min())
+        ax = plt.subplot(1, 3, i+1)
+        # 为每一行中间的图形选择更深的颜色
+        if i == 2:  # 第二个即中间的位置
+            color_intensity = 0.7  # 更深的颜色
+        else:
+            color_intensity = 0.5  # 相对较浅的颜色
+        color_value = plt.get_cmap('Oranges')(color_intensity)
+
+        ax.plot(normalized_feature.cpu().numpy(), color=color_value)
+        ax.set_title(f'{label}', fontsize=20)
+        ax.set_xlabel('特征维度', fontsize=18)
+        ax.set_ylabel('标准化特征值', fontsize=18)
+        ax.tick_params(axis='x', labelsize=16)
+        ax.tick_params(axis='y', labelsize=16)
+    plt.tight_layout()
+    plt.savefig(outdir / f"{info}_feature_vectors.png", dpi = 1200)
+    plt.close()
+
+    # Plot probability distributions and compute KL divergences
+    plt.figure(figsize=(15, 5))
+    kl_divergences = []
+    for i, (prob_feature, label) in enumerate(zip(prob_features, prob_labels)):
+        prob_feature = prob_feature[0]  # Apply softmax and assume first item in batch
+        normalized_feature = (prob_feature - prob_feature.min()) / (prob_feature.max() - prob_feature.min())
+        ax = plt.subplot(1, 3, i+1)
+        # 为每一行中间的图形选择更深的颜色
+        if i == 2:  # 第二个即中间的位置
+            color_intensity = 0.7  # 更深的颜色
+        else:
+            color_intensity = 0.5  # 相对较浅的颜色
+        color_value = plt.get_cmap('Blues')(color_intensity)
+        # ax.bar(range(len(normalized_feature)), normalized_feature.numpy())
+        ax.plot(normalized_feature.cpu().numpy(), color=color_value)
+        ax.set_title(f'{label}', fontsize=20)
+        ax.set_xlabel('特征维度', fontsize=18)
+        ax.set_ylabel('标准化特征值', fontsize=18)
+        ax.tick_params(axis='x', labelsize=16)
+        ax.tick_params(axis='y', labelsize=16)
+        
+        if i != 1:  # Compute KL divergence with the "common_p" as reference
+            kl_divergences.append(kl_div(prob_features[1].log(), prob_features[i], reduction="batchmean"))
+    plt.tight_layout()
+    plt.savefig(outdir / f"{info}_prob_distributions.png", dpi = 1200)
+    plt.close()
+
+    # Print KL divergences
+    for i, kl_div_value in enumerate(kl_divergences):
+        print(f"{info} KL divergence between common and {'audio' if i == 0 else 'video'} features: {kl_div_value:.6f}")
+    
+    # plt.figure(figsize=(15, 10))
+    # for i, (feature, label) in enumerate(zip(features, feature_labels), 1):
+    #     feature = feature[0]
+    #     normalized_feature = (feature - feature.min()) / (feature.max() - feature.min())
+    #     ax = plt.subplot(2, 3, i)
+    #     # 为每一行中间的图形选择更深的颜色
+    #     if i % 3 == 2:  # 第二个即中间的位置
+    #         color_intensity = 0.7  # 更深的颜色
+    #     else:
+    #         color_intensity = 0.5  # 相对较浅的颜色
+
+    #     # 选择颜色系列基于行号
+    #     color_map = warm_colors if i <= 3 else cool_colors
+    #     color_value = color_map(color_intensity)
+    #     ax.plot(normalized_feature.cpu().numpy(), color=color_value)  # 使用线图展示
+    #     ax.set_title(f'{label}', fontsize=20)
+    #     ax.set_xlabel('特征维度', fontsize=18)
+    #     ax.set_ylabel('标准化特征值', fontsize=18)
+    #     ax.tick_params(axis='x', labelsize=16)
+    #     ax.tick_params(axis='y', labelsize=16)
+    # # 调整子图间隔
+    # plt.subplots_adjust(hspace=0.5)  # 调整垂直间隔
+    # plt.tight_layout()
+    # plt.savefig(outdir / f"{info}_features_line.png")
+    # plt.close()
+
+def plot_image(model: torch.nn.Module, data, outdir="./output/features/", info="", device=torch.device("cpu")):
+    outdir = Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    
+    print("获取处理结果")
+    with torch.no_grad():
+        model = model.to(device)
+        if "video" in data:
+            video_features = data["video"].float().to(device)  # [B, Seq, W, H, C]
+            video_features = video_features.permute(0, 1, 4, 2, 3)  # Rearrange to [B, Seq, C, W, H]
+            
+            T = video_features.shape[1]  # 获取总帧数
+            frame_indices = np.random.choice(T, size=5, replace=False)
+            for idx in frame_indices:
+                # 处理每个随机选择的帧
+                sample_frame = video_features[:, idx, :, :, :].unsqueeze(1)  # [B, 1, C, H, W]
+                deform_input = sample_frame.reshape(-1, sample_frame.shape[2], sample_frame.shape[3], sample_frame.shape[4])  # [B * 1, C, H, W]
+                deform_output = model.video_feature_extractor.deform_conv(deform_input)  # 应用 deform_conv 层
+                # deform_output = model.video_feature_extractor.model.conv1(deform_output)
+                # deform_output = model.video_feature_extractor.model.bn1(deform_output)
+                # deform_output = model.video_feature_extractor.model.relu(deform_output)
+
+                deform_output_normalized = torch.zeros_like(deform_output)
+                for i in range(deform_output.shape[1]):  # 遍历所有通道
+                    channel_min = deform_output[:, i, :, :].min()
+                    channel_max = deform_output[:, i, :, :].max()
+                    deform_output_normalized[:, i, :, :] = (deform_output[:, i, :, :] - channel_min) / (channel_max - channel_min)
+                # 分别可视化每个通道
+                fig, axes = plt.subplots(1, 4, figsize=(12, 6))
+                for i in range(3):
+                    channel_data = deform_output_normalized[0][i].cpu().unsqueeze(-1).numpy()
+                    axes[i].imshow(channel_data, cmap='gray')  # 以灰度图形式显示
+                    axes[i].set_title(f'Channel {i+1}')
+                    axes[i].axis('off')  # 关闭坐标轴
+            
+                axes[3].imshow(deform_input[0].cpu().permute(1, 2, 0).numpy().astype('uint8'), cmap='gray')  # 以灰度图形式显示
+                axes[3].set_title(f'原图 {i+1}')
+                axes[3].axis('off')  # 关闭坐标轴
+                
+                plt.tight_layout()
+                plt.savefig(outdir / f"{info}_frame_{idx}.png")
+                plt.close()

@@ -1,4 +1,1 @@
-{
-    "Base_AudioNet_Resnet50_IMFCC_4-inlength(7s)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)": "yes", 
-    "BER_ISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)": "yes"
-}
+{"Base_AudioNet_Resnet50_IMFCC_4-inlength(7s)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)": "yes", "BER_ISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)": "yes", "Base_AudioNet_Resnet50_LFCC_4-inlength(7s)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)": "yes", "BER_ISF_4-inlength(7s)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)": "yes", "BER_ISF_4_2-inlength(7s)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)": "yes", "BER_ISF_6_2-inlength(7s)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)": "yes", "test0": "yes"}
