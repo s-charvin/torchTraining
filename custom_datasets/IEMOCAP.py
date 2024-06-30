@@ -36,8 +36,7 @@ class IEMOCAP(MediaDataset):
     def __init__(self,
                  root: Union[str, Path],
                  info: str = "",
-                 filter: dict = {"replace": {}, "dropna": {'emotion': [
-                     "other", "xxx"]}, "contains": "", "query": "", "sort_values": ""},
+                 filter: dict = {"replace": {}, "dropna": {}, "contains": {}, "query": {}, "sort_values": ""},
                  transform: dict = {},
                  enhance: dict = {},
                  savePath: str = "",

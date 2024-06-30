@@ -1,0 +1,49 @@
+data:
+    name: "CREMA_D"
+
+    root: "/sdb/visitors2/SCW/data/CREMA-D/Feature/CREMA-D--AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy"
+    para:
+        info: ""
+        mode: "av"
+        threads: 8
+
+    enhances:
+        AVSplit:
+            sampleNum: 112000
+            video_sample: 210
+    transforms: # 注意: 参数顺序即执行顺序
+        # 获取 MFCC 系数
+        MFCC:
+            sample_rate: 16000
+            n_mfcc: 40
+            log_mels: True
+            melkwargs:
+                n_fft: 1024
+                win_length: 1024
+                hop_length: 256
+                f_min: 80.
+                f_max: 7600.
+                pad: 0
+                n_mels: 128
+                power: 2.
+                normalized: True
+                center: True
+                pad_mode: "reflect"
+                onesided: True
+        KeyFrameGetterBasedIntervalSampling:
+            interval: 3
+        Permute_Channel:
+            dims: [[2, 1, 0], [0, 1, 2, 3]]
+            names: ["audio", "video"]
+
+    filters:
+        {
+            "replace": {},
+            "dropna":
+                {
+                    "label":
+                        [
+                            "xxx",
+                        ],
+                },
+        }

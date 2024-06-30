@@ -2104,7 +2104,7 @@ def plot_features_BER_SISF_4():
         "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000001.ckpt",
         # "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000002.ckpt",
         # "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000003.ckpt",
-        "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000005.ckpt",
+        # "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000005.ckpt",
         # "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000006.ckpt",
         # "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000007.ckpt",
         "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000012.ckpt",
@@ -2256,8 +2256,100 @@ def plot_image_BER_SISF_E():
             # 可视化并保存特征
             plot_image(net, data, outdir=f"./output/videoImage/data{indices[ind]}", info=f"video{j}_image", device=device)
 
+def plot_ClassificationReport_BER_SISF_4_CREMA_D():
+    print("加载模型")
+    dictionary = torch.load(
+        "/sdb/visitors2/SCW/checkpoint/BER_SISF_4-inlength(7s)-batch(10)-batch_delay(1)-epoch(200)-lr(0.00025)-42-10-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-IEMOCAP/000103.ckpt",
+        map_location=torch.device("cpu"),
+    )
+    data = CREMA_D(
+        root="/sdb/visitors2/SCW/data/CREMA-D/Feature/CREMA-D--AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        mode="av",
+        filter={
+            "dropna": {"label": ["xxx", "disgusted", "fearful"]},
+        },
+    )
+    print(len(data))
+    dataloader = torch.utils.data.DataLoader(
+        data, batch_size=10, shuffle=False, num_workers=0
+    )
+
+    net = BER_SISF(
+        num_classes=4,
+        input_size = [[189, 40], [150, 150]],
+        last_hidden_dim = [320, 320],
+        seq_len = [189, 30] ,
+        num_frames = 30,
+        enable_classifier=True,
+    )
+    weights_dict = {}
+    for k, v in dictionary["net"].items():
+        new_k = k.replace("module.", "") if "module" in k else k
+        weights_dict[new_k] = v
+
+    net.load_state_dict(weights_dict)
+
+    plot_ClassificationReport(
+        net,
+        dataloader,
+        outdir="./output/classification_report/",
+        info="BER_FF_4",
+        device=device,
+    )
 
 
+def plot_ClassificationReport_BER_SISF_4_IEMOCAP():
+    print("加载模型")
+    dictionary = torch.load(
+        "/sdb/visitors2/SCW/checkpoint/BER_SISF_4_CREMA_D-inlength(7s)-batch(8)-batch_delay(1)-epoch(200)-lr(0.00025)-42-8-200-Audio_Video_Joint_Classification_Customloss-AdamW0.00025-CREMA_D/000093.ckpt",
+        map_location=torch.device("cpu"),
+    )
+    data = IEMOCAP(
+        root="/sdb/visitors2/SCW/data/IEMOCAP/Feature/IEMOCAP-crop-7s-AVSplit-MFCC-KeyFrameGetterBasedIntervalSampling-Permute_Channel-.npy",
+        mode="av",
+        videomode="crop",
+        cascPATH="/home/visitors2/SCW/torchTraining/utils/haarcascade_frontalface_alt2.xml",
+        filter={
+            "replace": {"label": {"excited": "happy"}},
+            "dropna": {
+                "label": [
+                    "other",
+                    "xxx",
+                    "frustrated",
+                    "disgusted",
+                    "fearful",
+                    "surprised",
+                ],
+            },
+        },
+    )
+    print(len(data))
+    dataloader = torch.utils.data.DataLoader(
+        data, batch_size=10, shuffle=False, num_workers=0
+    )
+
+    net = BER_SISF(
+        num_classes=4,
+        input_size = [[189, 40], [150, 150]],
+        last_hidden_dim = [320, 320],
+        seq_len = [189, 30] ,
+        num_frames = 30,
+        enable_classifier=True,
+    )
+    weights_dict = {}
+    for k, v in dictionary["net"].items():
+        new_k = k.replace("module.", "") if "module" in k else k
+        weights_dict[new_k] = v
+
+    net.load_state_dict(weights_dict)
+
+    plot_ClassificationReport(
+        net,
+        dataloader,
+        outdir="./output/classification_report/",
+        info="BER_SISF",
+        device=device,
+    )
 device = torch.device("cuda:0")
 
 
@@ -2303,12 +2395,15 @@ if __name__ == "__main__":
     
     # plot_tsne_BER_SISF_4()
     # plot_tsne_BER_SISF_6()
-    # plot_tsne_MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four()
-    # plot_tsne_MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_six()
+    plot_tsne_MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_four()
+    plot_tsne_MERSISF_av_SVC_InterFusion_Joint_Attention_SLoss_pretrained_D2DUniG2_six()
     
-    plot_rt_BER_SISF_4()
-    plot_rt_BER_FF_4()
+    # plot_rt_BER_SISF_4()
+    # plot_rt_BER_FF_4()
     
-    # plot_features_BER_SISF_4()
+    plot_features_BER_SISF_4()
     # plot_image_BER_SISF_E()
+    
+    plot_ClassificationReport_BER_SISF_4_CREMA_D()
+    # plot_ClassificationReport_BER_SISF_4_IEMOCAP()
     pass

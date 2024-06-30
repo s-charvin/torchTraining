@@ -21,7 +21,10 @@ import matplotlib as mpl
 from matplotlib.font_manager import FontManager
 from matplotlib import font_manager
 from torch.functional import F
-
+import logging
+from sklearn.metrics import classification_report as sk_classification_report
+from sklearn import metrics
+    
 font_dirs = ["/home/visitors2/.fonts"]
 font_files = font_manager.findSystemFonts(fontpaths=font_dirs)
 for font_file in font_files:
@@ -962,7 +965,75 @@ def plot_confusionMatrix(
         fig.show()
 
 
-from torch.nn.functional import softmax, kl_div
+def plot_ClassificationReport(
+    model: torch.nn.Module,
+    dataloader,
+    outdir="./output/classification_report/",
+    info="",
+    device=torch.device("cpu"),
+):
+
+    
+    try:
+        outdir = Path(outdir)
+        outdir.mkdir(parents=True)
+    except FileExistsError:
+        pass
+    model.eval()
+    # Get preds for all data points
+    all_preds = []
+    all_labels = []
+
+    print("获取预测值")
+    with torch.no_grad():
+        if model is not None:
+            model = model.to(device)
+            for data in dataloader:
+                audio_features = None
+                video_features = None
+                if "audio" in data:
+                    audio_features = data["audio"]
+                    audio_features = audio_features.float().to(device)
+
+                if "video" in data:
+                    video_features = data["video"]
+                    video_features = video_features.float().to(device)
+
+                if audio_features is not None and video_features is not None:
+                    pred_prob = model(audio_features, video_features)[0]
+                elif audio_features is not None:
+                    pred_prob = model(audio_features)[0]
+                elif video_features is not None:
+                    pred_prob = model(video_features)[0]
+
+                _, preds = torch.max(pred_prob, 1)
+                all_preds.extend(preds.tolist())
+                all_labels.extend(data["label"])
+
+
+    label_encoder = sklearn.preprocessing.LabelEncoder()
+    label_encoder.fit(y=all_labels)
+    all_labels = label_encoder.transform(all_labels)
+    classes_ = label_encoder.classes_
+    # classes_ = {"angry": 0, "happy": 1, "neutral": 2, "sad": 3}
+    # classes = {"angry", "happy", "neutral", "sad"}
+
+    report = sk_classification_report(
+        all_labels, all_preds, digits=6, target_names=classes_, zero_division=1)
+    report_dict = sk_classification_report(
+        all_labels, all_preds, digits=6, target_names=classes_, output_dict=True, zero_division=1)
+    matrix = metrics.confusion_matrix(all_labels, all_preds)
+    UA = report_dict['macro avg']['precision'] * 100
+    macro_f1 = report_dict['macro avg']['f1-score'] * 100
+    WA = report_dict['accuracy'] * 100
+    w_f1 = report_dict['weighted avg']['f1-score'] * 100
+    ACC = (WA + UA)/2
+    print(f"# <tested>: [WA: {WA}] [UA: {UA}] [ACC: {ACC}] [macro_f1: {macro_f1}] [w_f1: {w_f1}]")
+    print("# <report>: ")
+    print(report)
+    print("# <matrix>: ")
+    print(matrix)
+
 
 def plot_features(
     model: torch.nn.Module,

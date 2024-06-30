@@ -193,7 +193,7 @@ class KeyFrameGetterBasedInterDifference(torch.nn.Module):
         return datadict
 
 
-class KeyFrameGetterBasedTling(torch.nn.Module):
+class KeyFrameGetterBasedIntervalSampling(torch.nn.Module):
     r"""
     link:
         https://github.com/monkeyDemon/AI-Toolbox/tree/master/computer_vision/image_classification_keras/multi_label_classification

@@ -35,7 +35,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     "--config",
     metavar="DIR",
-    default="/home/visitors2/SCW/torchTraining/projects/MERSISF_test",
+    default="/home/visitors2/SCW/torchTraining/projects/BER_SISF_4_CREMA_D_Test",
     help="path to congigs",
 )
 import logging

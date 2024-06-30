@@ -28,8 +28,7 @@ class CREMA_D(MediaDataset):
     def __init__(self,
                  root: Union[str, Path],
                  info: str = "",
-                 filter: dict = {"replace": {}, "dropna": {'emotion': [
-                     "other", "xxx"]}, "contains": "", "query": "", "sort_values": ""},
+                 filter: dict = {"replace": {}, "dropna": {}, "contains": {}, "query": {}, "sort_values": ""},
                  transform: dict = {},
                  enhance: dict = {},
                  savePath: str = "",
@@ -62,15 +61,16 @@ class CREMA_D(MediaDataset):
                 self.build_filter()
         else:
             raise ValueError("数据库地址不对")
+        pass
 
     def build_datadict(self):
         emotion_map = {
-            "A": "angry",
+            "A": "angry", #
             "D": "disgusted",
             "F": "fearful",
-            "H": "happy",
-            "S": "sad",
-            "N": "neutral",
+            "H": "happy", #
+            "S": "sad", #
+            "N": "neutral", #
             "X": "xxx",
         }
         sentence_map = {
@@ -88,14 +88,16 @@ class CREMA_D(MediaDataset):
             "WSI": "We'll stop in a couple of minutes",
         }
 
-        audio_dir = Path(self.root) / "AudioMP3"
-        audio_paths = list(audio_dir.glob("*.mp3"))
+        audio_dir = Path(self.root) / "AudioWAV"
+        audio_paths = list(audio_dir.glob("*.wav"))
         video_dir = Path(self.root) / "VideoFlash"
-        video_paths = [video_dir / (p.stem + ".mp4") for p in audio_paths]
+        video_paths = [video_dir / (p.stem + ".flv") for p in audio_paths]
+        
+        if len(video_paths) != len(video_paths):
+            raise Exception("音视频数据数量有误")
 
         self.datadict = {
-            "audio_path": [str(p) for p in audio_paths],
-            "video_path": [str(p) for p in video_paths],
+            "path": [{"audio": str(audio), "video": str(video)} for audio, video in zip(audio_paths, video_paths)],
             "label": [emotion_map[p.stem[9]] for p in audio_paths],
             "speaker": [p.stem[:4] for p in audio_paths],
             "sentence_code": [p.stem[5:8] for p in audio_paths],
@@ -111,7 +113,7 @@ class CREMA_D(MediaDataset):
                     len(audio_paths), self.thread_load_audio)
             else:
                 for i in tqdm(range(len(audio_paths)), desc="音频数据处理中: "):
-                    audiolist[i] = self._load_audio(self.datadict["audio_path"][i])
+                    audiolist[i] = self._load_audio(self.datadict["path"][i]["audio"])
             self.datadict["audio"] = [torch.from_numpy(i) for i in audiolist]
             self.datadict["audio_sampleNum"] = [a.shape[1]
                                                 for a in self.datadict["audio"]]
@@ -119,7 +121,7 @@ class CREMA_D(MediaDataset):
             logging.info("构建视频数据")
             videolist = [None]*len(video_paths)
             for i in tqdm(range(len(video_paths)), desc="视频数据处理中: "):
-                videolist[i] = self._load_video(self.datadict["video_path"][i])
+                videolist[i] = self._load_video(self.datadict["path"][i]["video"])
             self.datadict["video"] = [torch.from_numpy(i) for i in videolist]
             self.datadict["video_sampleNum"] = [v.shape[0]
                                                for v in self.datadict["video"]]
@@ -136,8 +138,8 @@ class CREMA_D(MediaDataset):
             _av_reader = decord.VideoReader(
                 uri=video_file,
                 ctx=decord.cpu(0),
-                width=width,
-                height=height,
+                width=-1,
+                height=-1,
                 num_threads=self.threads,
                 fault_tol=-1,
             )
@@ -152,7 +154,15 @@ class CREMA_D(MediaDataset):
         except Exception as e:
             raise(f"Failed to decode video with Decord: {path}. {e}")
         out = video.asnumpy()
-        return out
+        # Process each frame: resize and crop
+        processed_frames = []
+        for frame in out:
+            resized_frame = self._resize_frame(frame, scale_factor=0.5)
+            cropped_frame = self._crop_center(resized_frame, crop_size=(150, 150))
+            processed_frames.append(cropped_frame)
+        # Stack frames to create a video tensor
+        processed_video = np.stack(processed_frames)
+        return processed_video
     
     def __getitem__(self, n: int):
         """加载 CREMA-D 数据库的第 n 个样本数据
@@ -172,7 +182,7 @@ class CREMA_D(MediaDataset):
             out["video"] = self.datadict["video"][n]
         if "a" in self.mode:
             out["audio"] = self.datadict["audio"][n]
-            out["sample_rate"] = self.datadict["sample_rate"][n]
+            # out["sample_rate"] = self.datadict["sample_rate"][n]
         if "t" in self.mode:
             out["text"] = self.datadict["text"][n]
         return out
@@ -184,6 +194,30 @@ class CREMA_D(MediaDataset):
         """
         return len(self.datadict["path"])
 
+    def pbar_listener(self, pbar_queue, total):
+        pbar = tqdm(total=total)
+        pbar.set_description('处理中: ')
+        while True:
+            if not pbar_queue.empty():
+                k = pbar_queue.get()
+                if k == 1:
+                    pbar.update(1)
+                else:
+                    break
+        pbar.close()
+        
+    def data_listener(self, length, sharedata, data_queue):
+        datalist = [None]*length
+        while True:
+            if not data_queue.empty():
+                data = data_queue.get()
+                if isinstance(data, dict):
+                    for k, v in data.items():
+                        datalist[k] = v
+                else:
+                    break
+        sharedata[0] = datalist
+        
     def sequence_multithread_processing(self, length, func):
 
         # 构建数据处理完成度监视进程和数据队列存储监视进程
@@ -222,17 +256,40 @@ class CREMA_D(MediaDataset):
     
     def thread_load_audio(self, data_queue, index, pbar_queue=None):
         for i in index:
-            data_queue.put({i: self._load_audio(self.datadict["path"][i])})
+            data_queue.put({i: self._load_audio(self.datadict["path"][i]["audio"])})
             if pbar_queue:
                 pbar_queue.put(1)
                 
-if __name__ == "__main__":
-    dataset = CREMA_D(root="/sdb/visitors2/SCW/data/CREMA-D", mode="avt", threads=4)
-    print(len(dataset))
-    print(dataset[0]["audio"].shape)
-    print(dataset[0]["video"].shape)
-    print(dataset[0]["text"])
-    print(dataset[0]["label"])
-    print(dataset[0]["speaker"])
-    print(dataset[0]["sentence_code"])
-    print(dataset[0]["level"])
+    def _resize_frame(self, frame, scale_factor):
+        """Resize the frame by a given scale factor."""
+        height, width = frame.shape[:2]
+        new_height = int(height * scale_factor)
+        new_width = int(width * scale_factor)
+        return cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_AREA)
+
+    def _crop_center(self, frame, crop_size):
+        """Crop the center of the frame to the given size."""
+        height, width = frame.shape[:2]
+        crop_width, crop_height = crop_size
+
+        center_x, center_y = width // 2, height // 2
+        start_x = max(center_x - crop_width // 2, 0)
+        start_y = max(center_y - crop_height // 2, 0)
+        end_x = min(center_x + crop_width // 2, width)
+        end_y = min(center_y + crop_height // 2, height)
+
+        return frame[start_y:end_y, start_x:end_x]
+    
+    
+    def _save_video(self, frames, output_path, fps):
+        # Define the codec and create a VideoWriter object
+        fourcc = cv2.VideoWriter_fourcc(*'DIVX')
+        out = cv2.VideoWriter(output_path, fourcc, fps, (150, 150))
+
+        for frame in frames:
+            # Write the frame to the output video
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            out.write(frame)
+
+        # Release the VideoWriter
+        out.release()

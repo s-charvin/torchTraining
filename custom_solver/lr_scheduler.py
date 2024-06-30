@@ -171,7 +171,7 @@ class CosineLearningRateWithWarmRestartsProgress(_LRScheduler):
 
     
 if __name__ == '__main__':
-    epochs = 400
+    epochs = 200
     warmup_epochs = 40
     base_lr = 0.00025
     cosine_end_lr = 0.000001
@@ -204,23 +204,23 @@ if __name__ == '__main__':
 
     # scheduler = ExponentialLR(optimizer, gamma=0.1)
     
-    # scheduler = CosineLearningRateWithWarmRestarts(
-    #     optimizer, 
-    #     warmup_epochs=70, 
-    #     epochs=epochs,
-    #     cosine_end_lr=cosine_end_lr, 
-    #     warmup_start_lr=warmup_start_lr, 
-    #     )
-    
-    scheduler = CosineLearningRateWithWarmRestartsProgress(
+    scheduler = CosineLearningRateWithWarmRestarts(
         optimizer, 
-        warmup_epochs, 
-        epochs, 
-        restarts,
-        restart_weights,
+        warmup_epochs=warmup_epochs, 
+        epochs=epochs,
         cosine_end_lr=cosine_end_lr, 
         warmup_start_lr=warmup_start_lr, 
         )
+    
+    # scheduler = CosineLearningRateWithWarmRestartsProgress(
+    #     optimizer, 
+    #     warmup_epochs, 
+    #     epochs, 
+    #     restarts,
+    #     restart_weights,
+    #     cosine_end_lr=cosine_end_lr, 
+    #     warmup_start_lr=warmup_start_lr, 
+    #     )
     
     # scheduler = LinearStepDecay(
     #     optimizer, steps_per_epoch=num_batch, epochs=epochs, num_decay_step=0.8*num_batch*epochs)

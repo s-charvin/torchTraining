@@ -93,7 +93,7 @@ class BaseDataset(Dataset):
         logging.info("数据筛选...")
 
         keys = self.filter.keys()
-        length = len(self.datadict["path"])
+        length = len(self)
         replaces = self.filter["replace"] if "replace" in keys else {}
         dropna = self.filter["dropna"] if "dropna" in keys else {}
         contains = self.filter["contains"] if "contains" in keys else {}
